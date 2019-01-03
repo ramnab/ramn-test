@@ -1,0 +1,469 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Create Kinesis resources for Connect",
+    "Parameters": {
+        "pTaggingGroup": {
+            "Type": "String",
+            "Description": "Tag for solution"
+        },
+        "pCTRFirehose": {
+            "Type": "String",
+            "Description": "Name of CTR Firehose"
+        },
+        "pCTRBucketArn": {
+            "Type": "String",
+            "Description": "Destination: S3 Bucket containing CTR records (ARN)"
+        },
+        "pConnectKeyArn": {
+            "Type": "String",
+            "Description": "Encyrption key for all Connect"
+        },
+        "pAgentEventsStream": {
+            "Type": "String",
+            "Description": "Agent Event Logs Stream"
+        },
+        "pAgentEventsFirehose": {
+            "Type": "String",
+            "Description": "Agent Event Firehose"
+        },
+        "pAgentLogsBucketArn": {
+            "Type": "String",
+            "Description": "Destination: S3 Bucket containing Agent Event records (ARN)"
+        }
+    },
+    "Resources": {
+        "CTRFirehose": {
+            "Type": "AWS::KinesisFirehose::DeliveryStream",
+            "DependsOn": "CTRFirehoseRole",
+            "Properties": {
+                "DeliveryStreamName": {
+                    "Ref": "pCTRFirehose"
+                },
+                "DeliveryStreamType": "DirectPut",
+                "S3DestinationConfiguration": {
+                    "BucketARN": {
+                        "Ref": "pCTRBucketArn"
+                    },
+                    "BufferingHints": {
+                        "IntervalInSeconds": 300,
+                        "SizeInMBs": 1
+                    },
+                    "CompressionFormat": "UNCOMPRESSED",
+                    "EncryptionConfiguration": {
+                        "KMSEncryptionConfig": {
+                            "AWSKMSKeyARN": {
+                                "Ref": "pConnectKeyArn"
+                            }
+                        }
+                    },
+                    "RoleARN": {
+                        "Fn::GetAtt": ["CTRFirehoseRole", "Arn"]
+                    }
+                }
+            }
+        },
+
+        "CTRFirehoseRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "firehose.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole",
+                        "Condition": {
+                            "StringEquals": {
+                                "sts:ExternalId": {
+                                    "Fn::Sub": "${AWS::AccountId}"
+                                }
+                            }
+                        }
+                    }]
+                },
+                "Policies": [
+
+                    {
+                        "PolicyName": "ctr-kinesis-policy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "glue:GetTableVersions"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:AbortMultipartUpload",
+                                        "s3:GetBucketLocation",
+                                        "s3:GetObject",
+                                        "s3:ListBucket",
+                                        "s3:ListBucketMultipartUploads",
+                                        "s3:PutObject"
+                                    ],
+                                    "Resource": [{
+                                            "Ref": "pCTRBucketArn"
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [{
+                                                        "Ref": "pCTRBucketArn"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        },
+                                        "arn:aws:s3:::%FIREHOSE_BUCKET_NAME%",
+                                        "arn:aws:s3:::%FIREHOSE_BUCKET_NAME%/*"
+                                    ]
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lambda:InvokeFunction",
+                                        "lambda:GetFunctionConfiguration"
+                                    ],
+                                    "Resource": "arn:aws:lambda:eu-central-1:907290942892:function:%FIREHOSE_DEFAULT_FUNCTION%:%FIREHOSE_DEFAULT_VERSION%"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kms:GenerateDataKey",
+                                        "kms:Decrypt"
+                                    ],
+                                    "Resource": [{
+                                        "Ref": "pConnectKeyArn"
+                                    }],
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "kms:ViaService": "s3.eu-central-1.amazonaws.com"
+                                        },
+                                        "StringLike": {
+                                            "kms:EncryptionContext:aws:s3:arn": {
+                                                "Fn::Join": [
+                                                    "",
+                                                    [{
+                                                            "Ref": "pCTRBucketArn"
+                                                        },
+                                                        "/*"
+                                                    ]
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:PutLogEvents",
+                                        "logs:CreateLogStream"
+                                    ],
+                                    "Resource": [{
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:logs:",
+                                                    {
+                                                        "Ref": "AWS::Region"
+                                                    },
+                                                    ":",
+                                                    {
+                                                        "Ref": "AWS::AccountId"
+                                                    },
+                                                    ":log-group:/aws/kinesisfirehose/",
+                                                    {
+                                                        "Ref": "pCTRFirehose"
+                                                    },
+                                                    ":log-stream:*"
+                                                ]
+                                            ]
+                                        }
+
+                                    ]
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kinesis:DescribeStream",
+                                        "kinesis:GetShardIterator",
+                                        "kinesis:GetRecords"
+                                    ],
+                                    "Resource": "arn:aws:kinesis:eu-central-1:907290942892:stream/%FIREHOSE_STREAM_NAME%"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kms:Decrypt"
+                                    ],
+                                    "Resource": [
+                                        "arn:aws:kms:region:accountid:key/%SSE_KEY_ARN%"
+                                    ],
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "kms:ViaService": "kinesis.%REGION_NAME%.amazonaws.com"
+                                        },
+                                        "StringLike": {
+                                            "kms:EncryptionContext:aws:kinesis:arn": {
+                                                "Fn::Join": ["", [
+                                                    "arn:aws:kinesis:",
+                                                    {
+                                                        "Ref": "AWS::Region"
+                                                    },
+                                                    ":",
+                                                    {
+                                                        "Ref": "AWS::AccountId"
+                                                    },
+                                                    ":stream:",
+                                                    {
+                                                        "Ref": "pAgentEventsFirehose"
+                                                    }
+                                                ]]
+                                            }
+                                        }
+                                    }
+
+                                }
+
+                            ]
+                        }
+                    }
+                ],
+
+                "RoleName": "ctr-firehose-role"
+            }
+        },
+
+        "AgentEventsStream": {
+            "Type": "AWS::Kinesis::Stream",
+            "Properties": {
+                "Name": {
+                    "Ref": "pAgentEventsStream"
+                },
+                "ShardCount": 1,
+                "StreamEncryption": {
+                    "EncryptionType": "KMS",
+                    "KeyId": {
+                        "Ref": "pConnectKeyArn"
+                    }
+                },
+                "Tags": [{
+                    "Key": "Group",
+                    "Value": {
+                        "Ref": "pTaggingGroup"
+                    }
+                }]
+            }
+        },
+
+        "AgentEventsFirehose": {
+            "Type": "AWS::KinesisFirehose::DeliveryStream",
+            "DependsOn": ["AgentEventsFirehoseRole", "AgentEventsStream"],
+            "Properties": {
+                "DeliveryStreamName": {
+                    "Ref": "pAgentEventsFirehose"
+                },
+                "DeliveryStreamType": "KinesisStreamAsSource",
+                "KinesisStreamSourceConfiguration": {
+                    "KinesisStreamARN": {
+                        "Fn::GetAtt": ["AgentEventsStream", "Arn"]
+                    },
+                    "RoleARN": {
+                        "Fn::GetAtt": ["AgentEventsFirehoseRole", "Arn"]
+                    }
+                },
+                "S3DestinationConfiguration": {
+                    "BucketARN": {
+                        "Ref": "pAgentLogsBucketArn"
+                    },
+                    "BufferingHints": {
+                        "IntervalInSeconds": 900,
+                        "SizeInMBs": 1
+                    },
+                    "CompressionFormat": "UNCOMPRESSED",
+                    "EncryptionConfiguration": {
+                        "KMSEncryptionConfig": {
+                            "AWSKMSKeyARN": {
+                                "Ref": "pConnectKeyArn"
+                            }
+                        }
+                    },
+                    "RoleARN": {
+                        "Fn::GetAtt": ["AgentEventsFirehoseRole", "Arn"]
+                    }
+                }
+            }
+        },
+
+        "AgentEventsFirehoseRole": {
+            "Type": "AWS::IAM::Role",
+            "DependsOn": "AgentEventsStream",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "firehose.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole",
+                        "Condition": {
+                            "StringEquals": {
+                                "sts:ExternalId": {
+                                    "Fn::Sub": "${AWS::AccountId}"
+                                }
+                            }
+                        }
+                    }]
+                },
+                "Policies": [{
+                        "PolicyName": "agent-events-kinesis-policy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Action": [
+                                    "kinesis:SubscribeToShard",
+                                    "kinesis:DescribeStreamSummary",
+                                    "kinesis:DescribeStreamConsumer",
+                                    "kinesis:GetShardIterator",
+                                    "kinesis:GetRecords",
+                                    "kinesis:DescribeStream",
+                                    "kinesis:ListTagsForStream"
+                                ],
+                                "Resource": {
+                                    "Fn::GetAtt": ["AgentEventsStream", "Arn"]
+                                }
+                            }]
+                        }
+                    },
+                    {
+                        "PolicyName": "fh-agent-events-policy",
+                        "PolicyDocument": {
+
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "glue:GetTableVersions"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:AbortMultipartUpload",
+                                        "s3:GetBucketLocation",
+                                        "s3:GetObject",
+                                        "s3:ListBucket",
+                                        "s3:ListBucketMultipartUploads",
+                                        "s3:PutObject"
+                                    ],
+                                    "Resource": [
+
+                                        {
+                                            "Ref": "pAgentLogsBucketArn"
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [{
+                                                        "Ref": "pAgentLogsBucketArn"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        },
+                                        "arn:aws:s3:::%FIREHOSE_BUCKET_NAME%",
+                                        "arn:aws:s3:::%FIREHOSE_BUCKET_NAME%/*"
+                                    ]
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lambda:InvokeFunction",
+                                        "lambda:GetFunctionConfiguration"
+                                    ],
+                                    "Resource": "arn:aws:lambda:eu-central-1:907290942892:function:%FIREHOSE_DEFAULT_FUNCTION%:%FIREHOSE_DEFAULT_VERSION%"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kms:GenerateDataKey",
+                                        "kms:Decrypt"
+                                    ],
+                                    "Resource": [{
+                                        "Ref": "pConnectKeyArn"
+                                    }],
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "kms:ViaService": "s3.eu-central-1.amazonaws.com"
+                                        },
+                                        "StringLike": {
+                                            "kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::s3-ccm-dev-tradeuk-connect-dev01-raw-agentevents/*"
+                                        }
+                                    }
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:PutLogEvents",
+                                        "logs:CreateLogStream"
+                                    ],
+                                    "Resource": [{
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:logs:",
+                                                {
+                                                    "Ref": "AWS::Region"
+                                                },
+                                                ":",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":log-group:/aws/kinesisfirehose/",
+                                                {
+                                                    "Ref": "pAgentEventsFirehose"
+                                                },
+                                                ":log-stream:*"
+                                            ]
+                                        ]
+                                    }]
+                                },
+                                {
+                                    "Sid": "",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kinesis:DescribeStream",
+                                        "kinesis:GetShardIterator",
+                                        "kinesis:GetRecords"
+                                    ],
+                                    "Resource": "arn:aws:kinesis:region:accountid:stream/%FIREHOSE_STREAM_NAME%"
+                                }
+                            ]
+                        }
+                    }
+
+                ],
+                "RoleName": "agentevents-firehose-role"
+            }
+
+        }
+    },
+    "Outputs": {}
+}

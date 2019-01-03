@@ -1,0 +1,58 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Parameters": {
+        "pS3RawCTR": {
+            "Type": "String",
+            "Description": "Name of Raw Call-Trace-Records bucket"
+        },
+        "pTaggingGroup": {
+            "Type": "String",
+            "Description": "Tag for solution"
+        }
+    },
+
+    "Resources": {
+
+        "CTRBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [{
+                        "ServerSideEncryptionByDefault": {
+                            "SSEAlgorithm": "AES256"
+                        }
+                    }]
+                },
+
+                "BucketName": {
+                    "Ref": "pS3RawCTR"
+                },
+
+                "LifecycleConfiguration": {
+                    "Rules": [{
+                        "ExpirationInDays": 30,
+                        "Status": "Enabled"
+                    }]
+                },
+
+                "Tags": [{
+                    "Key": "Group",
+                    "Value": {
+                        "Ref": "pTaggingGroup"
+                    }
+                }]
+            }
+        }
+
+    },
+    "Outputs": {
+        "oCTRArn": {
+            "Value": {
+                "Fn::GetAtt": ["CTRBucket", "Arn"]
+            },
+            "Description": "Arn of CTR Bucket"
+        }
+    }
+}

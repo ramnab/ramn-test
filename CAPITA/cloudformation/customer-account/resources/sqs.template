@@ -1,0 +1,43 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Creates an SQS Queue",
+    "Parameters": {
+        "pTaggingGroup": {
+            "Type": "String",
+            "Description": "Tag for solution"
+        },
+        "pSqsName": {
+            "Type": "String",
+            "Description": "SQS Queue name"
+        },
+        "pS3RawCTR": {
+            "Type": "String",
+            "Description": "CTR Bucket name for permission to publish to"
+        }
+    },
+    "Resources": {
+        "SQS": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "MessageRetentionPeriod": 604800,
+                "QueueName": {
+                    "Ref": "pSqsName"
+                },
+                "Tags": [{
+                    "Key": "Group",
+                    "Value": {
+                        "Ref": "pTaggingGroup"
+                    }
+                }]
+            }
+        }
+    },
+    "Outputs": {
+        "oSQS": {
+            "Value": {
+                "Fn::GetAtt": ["SQS", "Arn"]
+            },
+            "Description": "Route table ID for subnet B"
+        }
+    }
+}

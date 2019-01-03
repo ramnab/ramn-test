@@ -1,0 +1,93 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "VPN Routing",
+    "Parameters": {
+
+        "pVpnGWId": {
+            "Type": "String",
+            "Description": "Reference to the VPN Gateway"
+        },
+        "pVpnConnection": {
+            "Type": "String",
+            "Description": "Reference to the VPN Gateway"
+        },
+        "pTaggingGroup": {
+            "Type": "String",
+            "Description": "Tag for solution"
+        },
+        "pRouteTableA": {
+            "Type": "String",
+            "Description": "Route table for subnet A"
+        },
+        "pRouteTableB": {
+            "Type": "String",
+            "Description": "Route table for subnet B"
+        },
+        "pVPNConnectionRoute1": {
+            "Type": "String",
+            "Description": "VPN Connection Route 1"
+        },
+        "pVPNConnectionRoute2": {
+            "Type": "String",
+            "Description": "VPN Connection Route 2"
+        },
+        "pVPNConnectionRoute3": {
+            "Type": "String",
+            "Description": "VPN Connection Route 3"
+        }
+    },
+    "Resources": {
+
+        "VPNGWRoutePropagation": {
+            "Type": "AWS::EC2::VPNGatewayRoutePropagation",
+            "Properties": {
+                "RouteTableIds": [{
+                        "Ref": "pRouteTableA"
+                    },
+                    {
+                        "Ref": "pRouteTableB"
+                    }
+                ],
+                "VpnGatewayId": {
+                    "Ref": "pVpnGWId"
+                }
+            }
+        },
+        "VPNConnRoute1": {
+            "Type": "AWS::EC2::VPNConnectionRoute",
+            "Properties": {
+                "DestinationCidrBlock": {
+                    "Ref": "pVPNConnectionRoute1"
+                },
+                "VpnConnectionId": {
+                    "Ref": "pVpnConnection"
+                }
+            }
+        },
+        "VPNConnRoute2": {
+            "Type": "AWS::EC2::VPNConnectionRoute",
+            "Properties": {
+                "DestinationCidrBlock": {
+                    "Ref": "pVPNConnectionRoute2"
+                },
+                "VpnConnectionId": {
+                    "Ref": "pVpnConnection"
+                }
+            }
+        },
+        "VPNConnRoute3": {
+            "Type": "AWS::EC2::VPNConnectionRoute",
+            "Properties": {
+                "DestinationCidrBlock": {
+                    "Ref": "pVPNConnectionRoute3"
+                },
+                "VpnConnectionId": {
+                    "Ref": "pVpnConnection"
+                }
+            }
+        }
+
+    },
+    "Outputs": {
+    }
+}

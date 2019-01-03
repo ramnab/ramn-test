@@ -1,0 +1,14 @@
+region: eu-central-1
+stacks:
+    stCmn-TradeUK-Dev01-VPCPeering:
+        template-url: resources/vpc-peering.template
+        timeout: 900
+        parameters:
+            pCmnVpc: 'vpc-0c38f9aa5f2574de2'
+            pTaggingGroup: 'CAPITA-Active-Directory'
+            pPeerAccountId: '907290942892'
+            pPeerRegion: 'eu-central-1'
+            pPeerVpcID: 'vpc-091516b51d558a2f1'
+            pPeerName: 'vpc-peering-TradeUKDev01'
+            pPeerRoleArn: 'arn:aws:iam::907290942892:role/stTradeUK-Dev01-Vpc-peerRole-5N6EK1AJ0TJP'
+

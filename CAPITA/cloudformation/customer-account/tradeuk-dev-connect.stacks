@@ -1,0 +1,38 @@
+region: eu-central-1
+stacks:
+    stTradeUK-Dev01-S3:
+        template-url: resources/s3-for-connect.template
+        timeout: 900
+        parameters:
+            pS3ConnectLogs: 's3-ccm-dev-tradeuk-connect-dev01-logs'
+            pS3CallRecordings: 's3-ccm-dev-tradeuk-connect-dev01-callrecordings'
+            pS3RawAgentLogs: 's3-ccm-dev-tradeuk-connect-dev01-raw-agentevents'
+            pS3Reports: 's3-ccm-dev-tradeuk-connect-dev01-reports'
+            pTaggingGroup: 'CAPITA-TradeUK-DEV'
+    
+    stTradeUK-Dev01-S3-CTR:
+        template-url: resources/s3-for-ctr.template
+        timeout: 900
+        parameters:
+            pS3RawCTR: 's3-ccm-dev-tradeuk-connect-dev01-raw-ctr'
+            pTaggingGroup: 'CAPITA-TradeUK-DEV'
+    
+    stTradeUK-Dev01-Connect-KMS:
+        template-url: resources/kms.template
+        timeout: 900
+        parameters:
+            pCallRecordingKey: 'alias/connect-recordings'
+            pConnectKey: 'alias/connect-master'
+            pTaggingGroup: 'CAPITA-TradeUK-DEV'
+
+    stTradeUK-Dev01-Kinesis:
+        template-url: resources/kinesis.template
+        timeout: 900
+        parameters:
+            pAgentEventsFirehose: 'kfh-ccm-dev-tradeuk-connect-dev01-agent-events'
+            pAgentEventsStream: 'str-ccm-dev-tradeuk-connect-dev01-agent-events'
+            pAgentLogsBucketArn: '|Ref|stTradeUK-Dev01-S3.oAgentEventsArn'
+            pCTRBucketArn: '|Ref|stTradeUK-Dev01-S3-CTR.oCTRArn'
+            pCTRFirehose: 'kfh-ccm-dev-tradeuk-connect-dev01-ctr'
+            pConnectKeyArn: '|Ref|stTradeUK-Dev01-Connect-KMS.oKeyArn'
+            pTaggingGroup: 'CAPITA-TradeUK-DEV'

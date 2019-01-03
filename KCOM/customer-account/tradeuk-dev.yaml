@@ -1,0 +1,8 @@
+role: 'arn:aws:iam::907290942892:role/TradeUK_Dev_Admin'
+account: '907290942892'
+accountName: 'ccm-dev-tradeuk-connect'
+customer: 'TradeUK'
+env: 'Dev01'
+env_lowercase: 'dev01'
+pTaggingGroup: 'CAPITA-TradeUK-DEV'
+

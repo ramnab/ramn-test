@@ -1,0 +1,79 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Parameters": {
+        "pCmnVpc": {
+            "Type": "String",
+            "Description": "VPC ID for Source Account"
+        },
+        "pPeerAccountId": {
+            "Type": "String",
+            "Description": "Account ID for Peer Account"
+        },
+        "pPeerRegion": {
+            "Type": "String",
+            "Description": "Region for Peer Account VPC"
+        },
+        "pPeerVpcID": {
+            "Type": "String",
+            "Description": "VPC ID for Peer Account VPC"
+        },
+        "pPeerRoleArn": {
+            "Type": "String",
+            "Description": "Role Arn in target account for assuming peering"
+        },
+        "pPeerName": {
+            "Type": "String",
+            "Description": "Name tag for VPC Peering Connection"
+        },
+
+        "pTaggingGroup": {
+            "Type": "String",
+            "Description": "Tag for solution"
+        }
+    },
+    "Resources": {
+
+        "PeerConnection": {
+            "Type": "AWS::EC2::VPCPeeringConnection",
+            "Properties": {
+                "PeerVpcId": {
+                    "Ref": "pPeerVpcID"
+                },
+                "Tags": [{
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "pPeerName"
+                        }
+                    },
+                    {
+                        "Key": "Group",
+                        "Value": {
+                            "Ref": "pTaggingGroup"
+                        }
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "pCmnVpc"
+                },
+                "PeerOwnerId": {
+                    "Ref": "pPeerAccountId"
+                },
+                "PeerRegion": {
+                    "Ref": "pPeerRegion"
+                },
+                "PeerRoleArn": {
+                    "Ref": "pPeerRoleArn"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "oPeerConnectionId": {
+            "Description": "Peer Connection ID",
+            "Value": {
+                "Ref": "PeerConnection"
+            }
+        }
+    }
+}

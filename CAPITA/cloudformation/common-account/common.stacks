@@ -1,0 +1,9 @@
+region: eu-central-1
+stacks:
+    stCmn-Secrets:
+        template-url: resources/kms.template
+        timeout: 900
+        parameters:
+            pTaggingGroup: 'CAPITA-Active-Directory'
+            pAdminRole: 'arn:aws:iam::049293504011:role/ActiveDirectory_Admin'
+

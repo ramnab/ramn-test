@@ -1,0 +1,15 @@
+region: eu-central-1
+stacks:
+    stAD-Instance:
+        template-url: resources/ad-instance.template
+        timeout: 900
+        parameters:
+            pTaggingGroup: 'CAPITA-Active-Directory'
+            pEdition: 'Standard'
+            pADName: 'aws.capita.ad'
+            pADShortName: 'CapitaAD'
+            pADPassword: '|kms|AQICAHjbWSsLdJ1vkl2WCJB2bHVCrYo0shJvBH7nnBaq8iJsPAFiyDzFtgAOUrwn8OiRUnNTAAAAajBoBgkqhkiG9w0BBwagWzBZAgEAMFQGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMoGF2AMqOEU4kc/leAgEQgCfBJIf3/V1nkPUHXxoEOdrbFaS1dh4lzSrqrwPzhqgR95TLGaEgYaA='
+            pSubnetAId: '|Ref|stAD-Subnets.oSubnetAId'
+            pSubnetBId: '|Ref|stAD-Subnets.oSubnetBId'
+            
+            

@@ -1,0 +1,8 @@
+role: 'arn:aws:iam::443350248290:role/TradeUK_Prod_Admin'
+account: '443350248290'
+accountName: 'ccm-prod-tradeuk-connect'
+customer: 'TradeUK'
+env: 'Prod01'
+env_lowercase: 'prod01'
+pTaggingGroup: 'CAPITA-TradeUK'
+
