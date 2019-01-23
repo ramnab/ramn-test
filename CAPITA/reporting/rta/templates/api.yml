@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API setup for Capita RTA web application
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pUserPoolArn:
+    Type: String
+    Description: Arn for the Cognito User Pool
+
+Resources:
+
+  RtaApiLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join ["", ["lmbRTA", !Ref pDepartment, "-", !Ref pEnvironment]]
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../src/api/
+      Tags:
+          "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
+          "tech:Environment": !Ref pEnvironmentLowerCase
+          "bus:BusinessUnit": !Ref pDepartment
+
+  
+  RtaApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join ["", ["ConnectRta-", !Ref pDepartment, "-", !Ref pEnvironment, "Api"]]
+      Body:
+        swagger: 2.0
+        info:
+          version: 1.0.0
+          title: ConnectRtaApi
+        paths:
+          /rta:
+            post:
+              description: Invokes the lambda
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              security:
+                - CognitoAuthorizer: []
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: 200
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                uri: 
+                  Fn::Join:
+                    - ""
+                    - - "arn:aws:apigateway:"
+                      - !Ref AWS::Region
+                      - ":lambda:path/2015-03-31/functions/"
+                      - !GetAtt RtaApiLambda.Arn
+                      - "/invocations"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            options:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+        securityDefinitions:
+          CognitoAuthorizer:
+            type: "apiKey"
+            name: Authorization
+            in: header
+            x-amazon-apigateway-authtype: cognito_user_pools
+            x-amazon-apigateway-authorizer:
+              providerARNs:
+                - !Ref pUserPoolArn
+              type: "cognito_user_pools"
+
+
+  RtaAprDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      Description: Prod deployment for RTA API
+      RestApiId: !Ref RtaApi
+      StageName: prod
+      
+
+  RtaApiLambdaPermissions:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RtaApiLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:"
+            - !Ref AWS::Region
+            - ":"
+            - !Ref AWS::AccountId
+            - ":"
+            - !Ref RtaApi
+            - "/*"
+
+
+Outputs:
+  oRtaApi:
+    Value: !Ref RtaApi

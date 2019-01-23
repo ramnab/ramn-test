@@ -1,0 +1,21 @@
+region: eu-central-1
+stacks:
+  stCapita-RTA-Test-AccountSetup:
+    template-url: templates/account-setup.yml
+    timeout: 1200
+    parameters:
+      pEnvironment: TEST
+      pEnvironmentLowerCase: test
+  stCapita-RTA-Test-IdentityManagement:
+    template-url: templates/identity-management.yml
+    timeout: 1200
+    parameters:
+      pEnvironment: TEST
+  stCapita-RTA-Test-CDN:
+    template-url: templates/cdn.yml
+    timeout: 24000
+    parameters:
+      pEnvironment: TEST
+      pEnvironmentLowerCase: test
+      pDepartment: ccm
+      pCacheTimeout: 0
