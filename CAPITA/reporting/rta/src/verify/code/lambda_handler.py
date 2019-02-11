@@ -24,7 +24,7 @@ def get_schedule_from_s3(event):
     bucketname = event["Records"][0]["s3"]["bucket"]["name"]
     objectkey = event["Records"][0]["s3"]["object"]["key"]
     schedule = s3client.Object(bucketname, objectkey).get()['Body'].read().decode('utf-8')
-    schedulelist = schedule.split('\r\n')
+    schedulelist = schedule.splitlines()
     schedule = csv.DictReader(schedulelist)
     return schedule
 
@@ -43,7 +43,7 @@ def verify_schedule_contents(row):
     """Confirm row contains all required information in correct format"""
     if 'start_moment' not in row:
         print(row['payroll_no'])
-    redate = re.compile("\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}")
+    redate = re.compile("\\d{2}-\\d{2}-\\d{4}\\s+\\d{2}:\\d{2}:\\d{2}")
     if not redate.match(row['start_moment']):
         raise Exception(f'Schedule start_moment malformed for payroll_no {row["payroll_no"]}')
     if not redate.match(row['stop_moment']):
@@ -142,8 +142,8 @@ def calulate_alarm_time(schedtime, alarm, alarm_config):
                 raise Exception(f'Alarm {alarm} not formatted correctly in config')
     return schedtime.strftime('%Y-%m-%dT%H:%M')
 
-def convert_datetime(time):
+def convert_datetime(timestamp):
     """Convert datetime format to one usable by process lambda"""
-    time = datetime.strptime(time, '%d/%m/%Y %H:%M')
-    convert = time.strftime('%Y-%m-%dT%H:%M')
+    timestamp = datetime.strptime(timestamp, '%d-%m-%Y %H:%M:%S')
+    convert = timestamp.strftime('%Y-%m-%dT%H:%M')
     return convert
