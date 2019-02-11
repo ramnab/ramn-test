@@ -17,31 +17,10 @@ Parameters:
 
 Resources:
 
-  AgentScheduleBucketS3:
-    Type: AWS::S3::Bucket
-    Properties:
-      # s3-ccm-prd-common-prod-agentschedule - added an extra 'capita' into bucket name
-      BucketName: !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']]
-      Tags:
-        -
-            Key: "tech:ApplicationID"
-            Value: !Sub "capita-${pDepartment}-rta-webapp"
-        -
-            Key: "tech:Environment"
-            Value: !Ref pEnvironmentLowerCase
-        -
-            Key: "bus:BusinessUnit"
-            Value: !Ref pDepartment
-        -
-            Key: "sec:Compliance"
-            Value: PII
-
-
-
   LambdaDeploymentBucketS3:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Join ["-", ['s3', 'capita', !Ref pDepartment, !Ref pEnvironmentLowerCase, 'lambdas', !Ref "AWS::Region"]]
+      BucketName: !Sub "s3-capita-${pDepartment}-${pEnvironmentLowerCase}-lambdas-${AWS::Region}"
       Tags:
         -
             Key: "tech:ApplicationID"
@@ -56,20 +35,27 @@ Resources:
             Key: "sec:Compliance"
             Value: PII
 
-  # CommonMachineAgentStatusAccessRole:
-  #   Type: AWS::IAM::Role
-  #   Properties: 
-  #     RoleName: !Join ["-", ['AgentStatusS3AccessRole'], !Ref pEnvironment]
-
-  # CommonMachineAgentStatusAccessPolicy:
-  #   Type: AWS::IAM::Policy
-  #   Properties:
-  #     PolicyName: !Join ["-", ['AgentStatusS3AccessPolicy'], !Ref pEnvironment]
-
-
+  MachineUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub "machine-rta-${pDepartment}-${pEnvironmentLowerCase}"
+      Policies:
+      - PolicyName: !Sub "access_schedule_bucket_only_${pEnvironmentLowerCase}"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+            - "s3:*"
+            Resource:
+            - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-common-${pEnvironmentLowerCase}-rta-agentschedules"
+            - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-common-${pEnvironmentLowerCase}-rta-agentschedules/*"
   
+
 Outputs:
-  oAgentScheduleBucketArn:
-    Value: !GetAtt AgentScheduleBucketS3.Arn
   oLambdaDeploymentBucketArn:
     Value: !GetAtt LambdaDeploymentBucketS3.Arn
+  oMachineUser:
+    Value: !Ref MachineUser
+  oMachineUserArn:
+    Value: !GetAtt MachineUser.Arn

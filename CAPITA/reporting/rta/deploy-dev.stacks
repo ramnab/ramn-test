@@ -4,6 +4,7 @@ stacks:
     template-url: templates/account-setup.yml
     timeout: 1200
     parameters:
+      pDepartment: ccm
       pEnvironment: DEV
       pEnvironmentLowerCase: dev
   stCapita-RTA-Dev-IdentityManagement:

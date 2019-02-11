@@ -13,9 +13,10 @@ stacks:
       pEnvironment: TEST
   stCapita-RTA-Test-CDN:
     template-url: templates/cdn.yml
-    timeout: 24000
+    timeout: 36000
     parameters:
       pEnvironment: TEST
       pEnvironmentLowerCase: test
       pDepartment: ccm
+
       pCacheTimeout: 0

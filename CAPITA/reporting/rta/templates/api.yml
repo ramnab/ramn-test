@@ -18,17 +18,36 @@ Parameters:
   pUserPoolArn:
     Type: String
     Description: Arn for the Cognito User Pool
+  pRtaAlarmsDb:
+    Type: String
+    Description: Name of the alarms table
+  pRtaAlarmsDbArn:
+    Type: String
+    Description: ARN of the alarms table
+
 
 Resources:
 
   RtaApiLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Join ["", ["lmbRTA", !Ref pDepartment, "-", !Ref pEnvironment]]
+      FunctionName: !Join ["-", ["lmbRtaApi", !Ref pDepartment, !Ref pEnvironment]]
       Handler: lambda_handler.handler
       Runtime: python3.6
       Timeout: 180
-      CodeUri: ../src/api/
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17' # Policy Document
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Scan
+              Resource: !Ref pRtaAlarmsDbArn
+              # Resource: "arn:aws:dynamodb:eu-central-1:561300540183:table/rta-alarmsdb-ccm-dev"
+      CodeUri: ../src/api/code/
+      Environment:
+        Variables:
+          ALARM_DB: !Ref pRtaAlarmsDb
       Tags:
           "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
           "tech:Environment": !Ref pEnvironmentLowerCase

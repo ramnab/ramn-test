@@ -52,7 +52,8 @@ Further details are available at https://www.trek10.com/blog/awsume-aws-assume-m
 Awsume uses the configuration at ~/.aws/ to switch roles, so ensure the profiles have been set up. From the TradeUK Dev profile example above, to switch to this account, run:
 
 ```sh
-awsume capita-common
+awsume capita-common-nonprod
+
 ```
 
 For set up on a Windows machine using Linux sub-system, if you get the error message `error: command 'x86_64-linux-gnu-gcc' failed with exit status 1` try installing the correct python-dev package first.
@@ -64,21 +65,42 @@ sudo pip install awsume
 
 <br>
 
-## 1. Identity Management
+# Automated Deployment Script
 
-To create a Cognito User Pool and the association with the client (web app) that will use it, run DEPLOYMENT SCRIPT 1 below.
+The deployment script deploys the entire stack into Capita Common dev/test/prod environments.
 
-## 2. Dashboard CDN and Bucket
+```bash
+# switch to the target account
+awsume capita-common-nonprod
 
-To create a CloudFront Content Distribution Network, delivering content from an S3 bucket, run DEPLOYMENT SCRIPT 1 below.
+# Replace ENV with Dev / Test / Prod
+./bin/deploy.sh <ENV>
 
-## 3. API
+```
 
-Create API resources and lambda, run DEPLOYMENT SCRIPT 2.
+# Individual Steps
 
-## 4. Dashboard
+## 1. Identity Management, Dashboard CDN and Bucket
 
-Update the HTML for the web application by running DEPLOYMENT SCRIPT 3 below
+Run DEPLOYMENT SCRIPT 1 to create:
+* a Cognito User Pool and the association with the client (web app) 
+* Dashboard CDN and bucket
+
+## 2. Verify    
+
+Create the Verify stack, run DEPLOYMENT SCRIPT 2.
+
+## 3. RTA
+
+Create the RTA application, run DEPLOYMENT SCRIPT 3.
+
+## 4. API
+
+Create API resources and lambda, run DEPLOYMENT SCRIPT 4.
+
+## 5. Dashboard
+
+Update the HTML for the web application by running DEPLOYMENT SCRIPT 5 below.
 
 <br>
 
@@ -98,46 +120,123 @@ ______
 
 
 
-## DEPLOYMENT SCRIPT 2
+## DEPLOYMENT SCRIPT 2: Verify
 
-The DEPLOY-BUCKET is the s3 bucket name part from DEPLOYMENT SCRIPT 1, output oLambdaDeploymentBucketArn
-COGNITO-ARN is the Arn for the Cognito User Pool, output oUserPoolArn
+* DEPLOY-BUCKET is the s3 bucket name part from DEPLOYMENT SCRIPT 1, output `oLambdaDeploymentBucketArn`
+* SCHEDULE-BUCKET is the output `oAgentScheduleBucket`, e.g. s3-capita-ccm-common-dev-rta-agentschedules
+* ENV and ENV-LOWERCASE are the environments, e.g. 'Dev' and 'dev', respectively
+* DEPT is the department code, lowercase, e.g. 'ccm'
+* INPUT-ARN is the S3 bucket where the schedules are uploaded, from the 
+* OUTPUT-ARN is the S3 bucket where the processed schedules are uploaded
+* OUTPUT-PATH is the key for the processed schedules
+* ALARM-CFG is the key to the alarm config file
 
 ```bash
 
-aws cloudformation package --region eu-central-1 --template-file templates/api.yml --s3-bucket <DEPLOY-BUCKET> --output-template-file deploy.yml
+aws cloudformation package --region eu-central-1 --template-file templates/verify.yml \
+                           --s3-bucket <DEPLOY-BUCKET> \
+                           --output-template-file deploy-verify.yml
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy.yml --stack-name stCapita-RTA-Dev-Api --capabilities CAPABILITY_IAM --parameter-overrides pUserPoolArn=<COGNITO-ARN> pEnvironment=Test pEnvironmentLowerCase=test
+aws cloudformation deploy  --region eu-central-1 --template-file deploy-verify.yml \
+                           --stack-name stCapita-RTA-<ENV>-Verify \
+                           --capabilities CAPABILITY_IAM \
+                           --parameter-overrides \
+                                pInputBucketArn=<INPUT-ARN> \
+                                pOutputBucketArn=<OUTPUT-ARN> \
+                                pOutputFilePath=<OUTPUT-PATH> \
+                                pAlarmConfigFilePath=<ALARM-CFG> \
+                                pEnvironment=<ENV> \
+                                pEnvironmentLowerCase=<ENV-LOWERCASE> \
+                                pDepartment=ccm
+
+```
+
+
+## DEPLOYMENT SCRIPT 3: RTA App
+
+* DEPLOY-BUCKET is the s3 bucket name part from DEPLOYMENT SCRIPT 1, output `oLambdaDeploymentBucketArn`
+* SCHEDULE-BUCKET is the output `oAgentScheduleBucket`, e.g. s3-capita-ccm-common-dev-rta-agentschedules
+* ENV and ENV-LOWERCASE are the environments, e.g. 'Dev' and 'dev', respectively
+* DEPT is the department code, lowercase, e.g. 'ccm'
+
+```bash
+
+aws cloudformation package --region eu-central-1 --template-file templates/rta.yml \
+                           --s3-bucket <DEPLOY-BUCKET> \
+                           --output-template-file deploy-rta.yml
+
+aws cloudformation deploy  --region eu-central-1 --template-file deploy-rta.yml \
+                           --stack-name stCapita-RTA-<ENV>-App \
+                           --capabilities CAPABILITY_IAM \
+                           --parameter-overrides \
+                                pAgentSchedule=s3://<SCHEDULE-BUCKET>/processed/schedule.json \
+                                pEnvironment=<ENV> \
+                                pEnvironmentLowerCase=<ENV-LOWERCASE> \
+                                pDepartment=ccm
+
+```
+
+
+## DEPLOYMENT SCRIPT 4: API
+
+* DEPLOY-BUCKET is the s3 bucket name part from DEPLOYMENT SCRIPT 1, output `oLambdaDeploymentBucketArn`
+* COGNITO-ARN is the Arn for the Cognito User Pool, output `oUserPoolArn`
+* ENV and ENV-LOWERCASE are the environments, e.g. 'Dev' and 'dev', respectively
+* DEPT is the department code, lowercase, e.g. 'ccm'
+* ALARMDB is the name of the DynamoDB table created in deployment script 2 (APP), output `oRtaAlarmsDb`
+* ALARMDB-ARN is the ARN of the DynamoDB table created in deployment script 2 (APP), output `oRtaAlarmsDbArn`
+
+```bash
+
+aws cloudformation package --region eu-central-1 --template-file templates/api.yml \
+                           --s3-bucket <DEPLOY-BUCKET> \
+                           --output-template-file deploy-api.yml
+
+aws cloudformation deploy --region eu-central-1 \
+                          --template-file deploy-api.yml \
+                          --stack-name stCapita-RTA-<ENV>-Api \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pUserPoolArn=<COGNITO-ARN> \
+                                pEnvironmentLowerCase=<ENV-LOWERCASE> \
+                                pEnvironment=<ENV> \
+                                pDepartment=<DEPT> \
+                                pRtaAlarmsDb=<ALARMDB> \
+                                pRtaAlarmsDbArn=<ALARMDB-ARN>
 
 ```
 
 
 _____
 
-## DEPLOYMENT SCRIPT 3
 
-1. Update file html/js/config.js with the values from the stack outputs:
+## DEPLOYMENT SCRIPT 5: HTML
 
-
-userPoolClientId | oUserPoolClientId
-userPoolId | oUserPoolId
+#### 1. Update file html/js/config.js with the values from the stack outputs:
 
 
-2. Update the invoke_url with the REST API URL
+* userPoolClientId: use output oUserPoolClientId
+* userPoolId: use output oUserPoolId
+
+
+#### 2. Update the invoke_url with the REST API URL
+
 
 To find the URL, run 
 
 ```bash
 aws cloudformation describe-stacks --stack-name stCapita-RTA-Dev-API --query "Stacks[0].Outputs[0].OutputValue"
 ```
+
 This will return the API-ID parameter to use as the API Invoke Url:
 
 `https://<API-ID>.execute-api.eu-central-1.amazonaws.com/prod/rta`
 
-for example, `https://baoc3xefbc.execute-api.eu-central-1.amazonaws.com/prod/rta`
+For example, `https://baoc3xefbc.execute-api.eu-central-1.amazonaws.com/prod/rta`
 
 
-3. Deploy the HTML to the web bucket
+#### 3. Deploy the HTML to the web bucket
+
 
 ```bash
 # Switch to the appropriate account to deploy to, e.g. 'dev'

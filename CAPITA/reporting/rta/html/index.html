@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vue-good-table@2.16.0/dist/vue-good-table.min.js"></script>
 
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 
 
@@ -23,7 +24,6 @@
     <link rel="stylesheet" type="text/css" href="css/style.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vue-good-table@2.16.0/dist/vue-good-table.min.css">
 
-
     
 <style>
 
@@ -31,18 +31,15 @@
     .vspace {
         margin-top: 50px
     }
-
-
-    .btnDark {
-        color:#497d91
-    }
-    .actionBtn {
-        cursor: pointer
-    }
     .outer-shadow {
         -webkit-box-shadow: 2px 5px 15px 0px rgba(0, 0, 0, 0.5);
         -moz-box-shadow: 2px 5px 15px 0px rgba(0, 0, 0, 0.5);
         box-shadow: 2px 5px 15px 0px rgba(0, 0, 0, 0.5);
+    }
+    .update {
+        font-size: 8pt;
+        color: grey;
+        font-style: italic
     }
 
 
@@ -56,56 +53,115 @@
 
 
 
-
 <div class="container-fluid text-center mx-auto" id="vapp" style="position:relative" v-cloak>
 
     <div class="row">
-        <div class="col text-left"><img src="img/capita.png" style="height:30px"></div>
+        <div class="col text-left">
+            <img src="img/capita.png" style="height:30px">
+            <div style="position:absolute; bottom:19px; left:163px" class="update" v-if="env != 'PROD'">{{env}}</div>
+        </div>
         <div class="col text-right" v-if="isAuthenticated">
            
-            
             <div class="dropdown">
-                 Signed in as  <span style="cursor: pointer" class="dropdown-toggle" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                 Signed in as  
+                 <span style="cursor: pointer" class="dropdown-toggle" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     {{username}}
-                </button>
+                </span>
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                     <a class="dropdown-item" href="#" @click="changePasswordFlow()">Change password</a>
                     <a class="dropdown-item" href="#" @click="signout()">Sign out</a>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class=row v-if="lastUpdate">
+        <div class="col text-right" >
+            <div class=dropdown>
+                <span class="update dropdown-toggle" style="cursor: pointer"  data-toggle="dropdown" >Last updated: {{lastUpdate}}</span>
+                  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    <span v-if="autoRefresh>0 && !autoRefreshPaused" style="font-size:9pt; font-weight:bold">&nbsp;&nbsp;Refreshing every {{autoRefresh}} minute(s)&nbsp;&nbsp;</span>
+                    <span v-if="autoRefresh==0 || autoRefreshPaused" style="font-size:9pt; font-weight:bold">&nbsp;&nbsp;Paused autorefresh&nbsp;&nbsp;</span>
+                    <a class="dropdown-item" style="font-size:9pt" href="#" @click="hello()">Refresh now</a>
+                    
+                    <a class="dropdown-item" style="font-size:9pt" href="#" @click="autoRefreshPaused=false" v-if="autoRefreshPaused">Resume auto refesh</a>
+                    <a class="dropdown-item" style="font-size:9pt" href="#" @click="autoRefreshPaused=true" v-if="!autoRefreshPaused">Pause auto refesh</a>
+                    <a class="dropdown-item" style="font-size:9pt" href="#" data-toggle="modal" data-target="#autoRefreshModal">Change auto refresh</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal for autorefresh -->
+    <div class="modal fade" id="autoRefreshModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Set Auto-refresh</h5>
             
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Refresh every <input v-model=autoRefresh style="width:40px; text-align:right"> minute(s)
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Update</button>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for debug -->
+    <div class="modal fade" id="debugModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Alarm event</h5>
             
-            <!--<span style="font-size:8pt;font-weight:bold">{{username}}</span>
-            <button @click="signout()" class="btn btn-sm btn-primary btn-signin">&nbsp;signout&nbsp;</button>
-            -->
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <textarea class="form-control" v-model="debug_event"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+            </div>
         </div>
     </div>
 
 
     <!-- SIGN IN COMPONENT -->
-    <div class=container v-if="doSignin">
+
+    <div class=container v-show="doSignin">
         <div class="card card-container">
             <img id="profile-img" class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
             <p id="profile-name" class="profile-name-card" style="color:#005177">Log in to CAPITA Connect RTA</p>
             <p v-if="message" id="profile-name" class="profile-name-card" style="color:#808080; font-size:8pt">{{message}}</p>
             <form class="form-signin" @submit.prevent="signin">
                 <span id="reauth-email" class="reauth-email"></span>
-                <input v-model="username" type="text" id="inputUsername" class="form-control" placeholder="Username" required autofocus>
-                <input v-model="passwd" type="password" id="inputPassword" class="form-control" placeholder="Password" required>
-                
+                <input v-model="username" autocomplete="username" type="text" id="inputUsername" class="form-control" placeholder="Username" required autofocus>
+                <input v-model="passwd" autocomplete="password" type="password" id="inputPassword" class="form-control" placeholder="Password" required>
+             
+                <!--
                 <div id="remember" class="checkbox">
                     <label>
                         <input v-model="rememberMe" type="checkbox" value="remember-me"> Remember me
                     </label>
                 </div>
+                -->
+
                 
                 <span style="color:red;font-size:8pt" v-if="auth_fail">Username or password not recognised</span><br>
                 <button class="btn btn-lg btn-primary btn-block btn-signin" type="submit">Sign in</button>
             </form><!-- /form -->
-            
-            <a href="#" class="forgot-password" @click="forgotPasswordFlow()">
-                Forgot the password?
-            </a>
+           
+            <a href="#" class="forgot-password" @click="forgotPasswordFlow()">Forgot the password?</a>
             
         </div><!-- /card-container -->
     </div>
@@ -135,11 +191,15 @@
 
 
     <!-- CHANGE PW COMPONENT - USER REQUESTED -->
-    <div class=container v-if="changePwFlowState > -1">
+
+    <div class=container v-show="changePwFlowState > -1">
+
         <div class="card card-container">
             <img id="profile-img" class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
             <p id="profile-name" class="profile-name-card"></p>
             <form class="form-signin" @submit.prevent="changePasswordFlow">
+                <input style="display:none" type=text name=username v-model="username">
+
                 <span>Old password:</span>
                 <input v-model="passwd" type="password" id="inputOldPassword" class="form-control" placeholder="Original Password" required autofocus>
                 
@@ -148,7 +208,8 @@
                 <span>{{changePwMessage}}</span>
                 <br><span>&nbsp;</span><br>
                 <button class="btn btn-lg btn-primary btn-block btn-signin" type="submit">Change Password</button>
-                <a href="#" @click="changePwCancel()">Cancel</span>
+
+                <a href="#" @click="changePwCancel()">Cancel</a>
             </form><!-- /form -->
         </div><!-- /card-container -->
     </div>
@@ -175,12 +236,49 @@
                 <template v-if="forgotPwFlowState == 3">
                     <button class="btn btn-lg btn-primary btn-block btn-signin" @click="sendVerificationCode()">Send new code</button>
                 </template>
-                <a href="#" @click="forgotPwCancel()">Cancel</span>
+                <a href="#" @click="forgotPwCancel()">Cancel</a>
+
             </form><!-- /form -->
         </div><!-- /card-container -->
     </div>
     <!-- /FORGOT PW COMPONENT -->
 
+
+    <!-- RTA alarms -->
+    <div class="row vspace" v-if="isAuthenticated && alarms">
+        <div class="col-1"></div>
+        <div class=col v-show="alarms.length > 0">
+            <vue-good-table :columns="columns" :rows="alarms">
+                <template slot="table-row" slot-scope="props">
+                    <span v-if="props.column.field == 'firstname'">
+                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode) }">
+                            <span style="font-weight:bold">
+
+                                {{props.row.lastname}}, 
+                                {{props.row.firstname}}
+                            </span>
+                        </span>
+                    </span>
+                    <span v-if="props.column.field != 'firstname' && props.column.field != 'lastname'">
+                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode) }">
+                            <span style="font-weight:bold">{{props.formattedRow[props.column.field]}}</span>
+                            <span v-if="props.column.field == 'alarmcode' && verbose && props.row.reason"
+                                     style="cursor: pointer" 
+                                    data-trigger="hover" v-bind:data-content="props.row.reason" data-toggle="popover">
+                                &#x1F6C8;
+                            </span>
+                        </span>
+                    </span>
+
+                </template>
+            </vue-good-table>
+        </div>
+        <div class=col v-show="alarms.length == 0">
+            <h2 style="color: #636363">There are no active alarms</h2>
+        </div>
+        <div class="col-1"></div>
+    </div>
+    <!-- / RTA alarms -->
 
 </div>
 
@@ -193,8 +291,17 @@
 <script src="js/config.js"></script>
 <script>
 
+
+    console.log("Environment: "+ _config.env)
     axios.defaults.headers.post['Content-Type'] = 'application/json';
     let pwPolicy = "Your password needs to be at least 8 characters and contain lower and upper case and at least one symbol and one number";
+
+    let colors = {
+        RED: "#e5041b",
+        PURPLE: "#f21dd5",
+        BLUE: "#0478e5",
+        GREEN: "#0ace1a"
+    }
 
     var poolData = {
         UserPoolId: _config.cognito.userPoolId,
@@ -234,15 +341,89 @@
             forgotPwMessage: '',
             email: '',
             verificationCode: '',
-            message: ''
+            message: '',
+            alarms: [],
+            lastUpdate: '',
+            autoRefresh: 1,
+            autoRefreshInterval: null,      
+            autoRefreshPaused: false,
+            alarm_color: {
+                BBE: "PURPLE",
+                BXE: "PURPLE",
+                BSE: "BLUE",
+                BSL: "RED",
+                EBL: "PURPLE",
+                EXL: "RED",
+                ESE: "RED",
+                ESL: "BLUE",
+                SIU: "BLUE",
+                SOU: "BLUE",
+                WOB: "GREEN",
+                WOE: "GREEN"
+            },
+            columns: [
+                {
+                    label: "Name",
+                    field: 'firstname',
+                    
+                    sortable: true,
+                    filterable: true,
+                    filter: (data, str) => {
+                        return data.toLowerCase().indexOf(str.toLowerCase()) > -1;
+                    },                    
+                    thClass: 'result-header'
+                },
+                {
+                    label: "Alarm",
+                    field: 'alarmcode',
+                    sortable: true,
+                    filterable: true,
+                    filter: (data, str) => {
+                        return data.toLowerCase().indexOf(str.toLowerCase()) > -1;
+                    },
+                    thClass: 'result-header text-center',
+                    tdClass: 'text-center',
+                },
+                {
+                    label: "TS",
+                    field: 'display_ts',
+                    sortable: true,
+                    filterable: true,
+                    filter: (data, str) => {
+                        return data.toLowerCase().indexOf(str.toLowerCase()) > -1;
+                    },
+                    thClass: 'result-header text-center',
+                    tdClass: 'text-center',
+                }
+            ],
+            debug_event: ''
         },
-        computed: {},
+        computed: {
+            verbose: function() {
+                return location.search == "?verbose" || location.search == "?v"
+            },
+            env: function() {
+                if (_config.env)
+                    return _config.env.toUpperCase()
+                return ""
+            }
+        },
         watch: {
             forgotPwFlowState: function() {
                 if (this.forgotPwFlowState == 0)
                     this.forgotPwAction = "Send me a verification code";
                 if (this.forgotPwFlowState == 1)
-                    this.forgotPwAction = "Change password";                 
+                    this.forgotPwAction = "Change password";
+            },
+
+            autoRefresh: function() {
+                if (this.autoRefreshInterval) {
+                    clearInterval(this.autoRefreshInterval)
+                    if (this.autoRefresh > 0 && !this.autoRefreshPaused) {
+                        this.autoRefreshInterval = setInterval(vapp.hello(), parseInt(this.autoRefresh) * 60 * 1000)
+                    }
+                }
+
             }
         },
         methods: {
@@ -266,14 +447,33 @@
                 this.forgotPwFlowState = -1;
                 this.changePwFlowState = -1;
                 this.changePwMessage = '';
+                clearInterval(this.autoRefreshInterval);
                 
             },
 
+            get_alarm_color: function(alarmcode) {
+                return colors[this.alarm_color[alarmcode]]
+            },
+
+            debug_show_event: function(event) {
+                this.debug_event = JSON.stringify(event, null, 2);
+                $("#debugModal").modal("show");
+            },
+
             hello: function() {
-                console.log("Auth token:", axios.defaults.headers.common['Authorization']);
+                
                 axios.post(_config.api.invokeUrl, {'message':'hello'})
-                .then(result => console.log("Success!", result))
-                .catch(e => console.log("Error:", e))
+                .then(result => {
+                    console.log("Success!", result);
+                    vapp.alarms = result.data;
+                    vapp.lastUpdate = Date().toLocaleString().split("+")[0]
+                    setTimeout(function() {$('[data-toggle="popover"]').popover()}, 1000)
+                })
+                .catch(e => { 
+                    console.log("Error:", e);
+                    vapp.clean();
+                    vapp.message = "Session expired, please sign in again"
+                })
             },
 
 
@@ -319,6 +519,13 @@
                         vapp.newPasswordRequired = false;
                         vapp.cognitoUser = cognitoUser;
                         vapp.doSignin = false;
+                        
+                        if (vapp.autoRefresh > 0 && !vapp.autoRefreshPaused) {
+                            console.log("Setting auto refresh to "+ vapp.autoRefresh + " minute(s)");
+                            vapp.autoRefreshInterval = setInterval(vapp.hello, parseInt(vapp.autoRefresh) * 60 * 1000);
+                        }
+                        vapp.hello();
+
                     },
                     onFailure: function(err) {
                         console.log("Unable to log in:", err);
@@ -443,8 +650,10 @@
 
 
     $(document).ready( function() {
-        // attempt to reuse existing token...
-        vapp.refresh();
+
+        // attempt to reuse existing token... disabled
+        // vapp.refresh();
+        $('[data-toggle="popover"]').popover();
         window.onunload =function(){
             if (!vapp.rememberMe)
                 vapp.signout();
