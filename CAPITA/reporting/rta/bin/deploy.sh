@@ -76,12 +76,25 @@ if [ $LAMBDA_S3 = "None" ] || [ $COGNITO_ARN = "None" ] || [ $USERPOOLCLIENTID =
 fi
 
 
-
 echo "----------------"
 echo "Deploying Verify"
 
-# udpate here
-AGENT_S3="s3-capita-ccm-common-test-rta-agentschedules"
+aws cloudformation package --region eu-central-1 --template-file templates/verify.yml \
+                           --s3-bucket $LAMBDA_S3 \
+                           --output-template-file deploy-verify.yml
+
+aws cloudformation deploy --region eu-central-1 --template-file deploy-verify.yml \
+                          --stack-name stCapita-RTA-$ENV-Verify  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pAlarmConfigFilePath=config/alarm_config.json \
+                                pOutputFilePath=processed/agent_schedule.json \
+                                pDepartment=ccm \
+                                pEnvironment=$ENV_UPPER \
+                                pEnvironmentLowerCase=$ENV_LOWER
+
+# e.g. "s3-capita-ccm-common-test-rta-agentschedules"
+AGENT_S3=`getStackOutput stCapita-RTA-$ENV-Verify oRtaScheduleBucketName`  
 
 
 echo "-------------"
