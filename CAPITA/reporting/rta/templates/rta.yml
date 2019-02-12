@@ -50,6 +50,7 @@ Resources:
         Variables:
           ALARM_DB: !Ref RtaAlarmsDb
           AGENT_SCHEDULE: !Ref pAgentSchedule
+          LOGGING_LEVEL: "20"
       Tags:
         "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
         "tech:Environment": !Ref pEnvironmentLowerCase

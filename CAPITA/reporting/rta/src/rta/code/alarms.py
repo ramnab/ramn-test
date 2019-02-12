@@ -4,9 +4,12 @@ import boto3
 import logging
 import json
 from botocore.exceptions import ClientError
+import os
+
 
 logger = logging.getLogger()
-logger.setLevel(20)
+LOGGING_LEVEL = int(os.environ.get("LOGGING_LEVEL", "20"))
+logger.setLevel(LOGGING_LEVEL)
 
 
 class Alarm:

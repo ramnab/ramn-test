@@ -10,7 +10,8 @@ from alarms import *
 
 
 logger = logging.getLogger()
-logger.setLevel(20)
+LOGGING_LEVEL = int(os.environ.get("LOGGING_LEVEL", "20"))
+logger.setLevel(LOGGING_LEVEL)
 s3 = boto3.resource('s3')
 dynamodb = boto3.resource('dynamodb')
 
