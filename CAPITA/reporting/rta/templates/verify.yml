@@ -66,6 +66,13 @@ Resources:
           "tech:Environment": !Ref pEnvironmentLowerCase
           "bus:BusinessUnit": !Ref pDepartment
 
+  RtaApiLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RtaVerifyLambda
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${RtaVerifyLambda}"
+
   RtaVerifyLambdaPermissions:
     Type: AWS::Lambda::Permission
     Properties:
@@ -77,6 +84,7 @@ Resources:
   AgentScheduleBucketS3:
     Type: AWS::S3::Bucket
     Properties:
+      # s3-capita-ccm-common-test-rta-agentschedules
       # s3-ccm-prd-common-prod-agentschedule - added an extra 'capita' into bucket name
       BucketName: !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']]
       NotificationConfiguration: 

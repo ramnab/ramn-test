@@ -55,6 +55,13 @@ Resources:
         "tech:Environment": !Ref pEnvironmentLowerCase
         "bus:BusinessUnit": !Ref pDepartment
 
+  RtaLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RtaLambda
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${RtaLambda}"
+
   RtaAgentStatusKinesisStream:
     Type: AWS::Kinesis::Stream
     Properties: 

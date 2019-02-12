@@ -53,7 +53,7 @@ def prepare_records(records):
         event_as_str = base64.b64decode(data).decode('utf8')
         try:
             event = json.loads(event_as_str)
-            logger.info(f"Event decoded to json: {event}")
+            logger.debug(f"Event decoded to json: {event}")
             if event:
                 username = get_username(event)
                 if username:
@@ -64,7 +64,7 @@ def prepare_records(records):
             logger.error("Unable to decode json record from string: "
                          f"{event_as_string}")
 
-    logger.info(f"Prepared records: {prep}")
+    logger.debug(f"Prepared records: {prep}")
     return prep
 
 
@@ -74,7 +74,7 @@ def read_schedule(bucket, key):
         logger.info(f"Reading schedule from s3://{bucket}/{key}")
         schedule = s3.Object(bucket, key).get()['Body'].read().decode('utf-8')
         schedule_as_json = json.loads(schedule)
-        logger.info(f"Schedule: {json.dumps(schedule_as_json)}")
+        logger.debug(f"Schedule: {json.dumps(schedule_as_json)}")
         return schedule_as_json
     except ClientError as e:
         raise Exception(f"Cannot read schedule file from s3://{bucket}/{key}")
@@ -89,7 +89,7 @@ def get_current_alarms(tablename, usernames):
         fe = fe | Attr('username').eq(username)
 
     response = table.scan(FilterExpression=fe)
-    logger.info(f"get_current_alarms response={str(response)}")
+    logger.debug(f"get_current_alarms response={str(response)}")
     return response.get('Items', [])
 
 
@@ -101,10 +101,10 @@ def recalculate_alarms(tablename, schedule, prepared_records, current_alarms):
         if schedule.get(username):
             for alarm in alarms:
                 current_state = get_current_state(current_alarms, username, alarm)
-                logger.info(f"Re-processing alarm {alarm.alarmcode} "
+                logger.debug(f"Re-processing alarm {alarm.alarmcode} "
                             f"for {username},"
                             f"current state = {current_state}")
-                logger.info(f"Calling {alarm.alarmcode}.process("
+                logger.debug(f"Calling {alarm.alarmcode}.process("
                             f"{json.dumps(events)}, "
                             f"{username}, "
                             f"{current_state})")

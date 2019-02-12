@@ -47,8 +47,8 @@ class Alarm:
         t = self.get_ts(ts)
         event_ts = self.get_ts(event.get("EventTimestamp"))
         result = event_ts > t
-        logger.info(f"{self.alarmcode}: {str(event_ts)}"
-                    f" > {str(t)} = {result}")
+        logger.debug(f"{self.alarmcode}: {str(event_ts)}"
+                     f" > {str(t)} = {result}")
         return result
 
     def before(self, ts, event):
@@ -57,8 +57,8 @@ class Alarm:
         event_ts = self.get_ts(event.get("EventTimestamp"))
         t = self.get_ts(ts)
         result = event_ts < t
-        logger.info(f"{self.alarmcode}: {str(event.get('EventTimestamp'))}"
-                    f" < {str(t)} = {result}")
+        logger.debug(f"{self.alarmcode}: {str(event.get('EventTimestamp'))}"
+                     f" < {str(t)} = {result}")
 
         return result
 
@@ -94,10 +94,10 @@ class Alarm:
             "ttl": int(ttl.timestamp()),
             "httl": str(ttl)
         }
-        logger.info(f"Adding to db: {json.dumps(item, indent=2)}")
+        logger.debug(f"Adding to db: {json.dumps(item, indent=2)}")
         if self.table:
             response = self.table.put_item(Item=item)
-            logger.info(f"Put item reponse = {response}")
+            logger.debug(f"Put item reponse = {response}")
         else:
             logger.error("Dynamo db table not set!")
 
@@ -107,7 +107,7 @@ class Alarm:
             try:
                 key = {"username": username, "alarmcode": self.alarmcode}
                 response = self.table.delete_item(Key=key)
-                logger.info(response)
+                logger.debug(response)
             except ClientError as e:
                 logger.error(e)
                 raise Exception("Dynamodb exception for delete_item")
@@ -126,7 +126,7 @@ class Alarm:
                         ':d': display_ts
                     }
                 )
-                logger.info(f"Update DB response: {json.dumps(response)}")
+                logger.debug(f"Update DB response: {json.dumps(response)}")
             except ClientError as e:
                 logger.error(e)
                 raise Exception("Dynamodb exception for delete_item")
@@ -147,7 +147,7 @@ class Alarm:
     def get_alarm_times(self, username, asList=False):
         alarms = self.schedules.get(username).get('ALARMS')
         if not alarms.get(self.alarmcode):
-            logger.info(f"No alarm params exist for user {username}")
+            logger.debug(f"No alarm params exist for user {username}")
             return {}
         if asList:
             return alarms.get(self.alarmcode)
@@ -221,7 +221,8 @@ class BSE(Alarm):
                             display_ts = self.mins_pp(time_diff)
                             ttl = window.get("T2")
                             reason = (f"{username} login at {ts_pp} "
-                                      f"before shift start at {shift_start}")
+                                      f"before shift start at "
+                                      f"{self.pp_date(shift_start)}")
                             self.set_alarm(username, ts, display_ts,
                                            {"end": window.get("T2")},
                                            event, reason, ttl)
@@ -277,7 +278,8 @@ class BSL(Alarm):
                                 time_diff = self.time_diff_mins(shift_start, ts)
                                 display_ts = self.mins_pp(time_diff)
                                 reason = (f"{username} login at {ts_pp} "
-                                          f"after shift start at {shift_start}")
+                                          f"after shift start at "
+                                          f"{self.pp_date(shift_start)}")
 
                                 self.set_alarm(username, ts, display_ts,
                                                {"end": window.get('end')},
@@ -318,7 +320,8 @@ class ESE(Alarm):
                             display_ts = self.mins_pp(time_diff)
                             ttl = window.get("T1")
                             reason = (f"{username} logged out at {ts_pp} "
-                                      f"before shift end at {shift_end}")
+                                      f"before shift end at "
+                                      f"{self.pp_date(shift_end)}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason, ttl)
 
@@ -373,7 +376,8 @@ class ESL(Alarm):
                                 display_ts = self.mins_pp(time_diff)
                                 ttl = window.get("T2")
                                 reason = (f"{username} not offline at {ts_pp} "
-                                          f"after end of shift at {shift_end}")
+                                          f"after end of shift at "
+                                          f"{self.pp_date(shift_end)}")
                                 self.set_alarm(username, ts, display_ts, {},
                                                event, reason, ttl)
                                 break
@@ -412,7 +416,8 @@ class BBE(Alarm):
                             ttl = bbe.get("T2")
                             reason = (f"{username} entered break at {ts_pp} "
                                       f"earlier than expected start "
-                                      f"time of {break_start}")
+                                      f"time of "
+                                      f"{self.pp_date(break_start)}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason, ttl)
                             break
@@ -461,7 +466,7 @@ class EBL(Alarm):
                             display_ts = self.mins_pp(time_diff)
                             reason = (f"{username} has break status at "
                                       f"{ts_pp} when break finish expected "
-                                      f"at {break_end}")
+                                      f"at {self.pp_date(break_end)}")
                             self.set_alarm(username, ts, display_ts,
                                            {"start": break_start}, event,
                                            reason, ttl)
@@ -644,7 +649,8 @@ class BXE(Alarm):
                             ttl = bee.get("T2")
                             reason = (f"{username} has set an exception "
                                       f"status at {ts_pp} when exception "
-                                      f"should start at {self.pp_date(exc_start)}")
+                                      f"should start at "
+                                      f"{self.pp_date(exc_start)}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason, ttl)
                             break
@@ -693,7 +699,8 @@ class EXL(Alarm):
                                                            '%H:%M:%S %d/%m/%Y')
                             reason = (f"{username} has an exception status "
                                       f"at {ts_pp} where exception should "
-                                      f"have ended at {self.pp_date(exl.get('end'))}")
+                                      f"have ended at "
+                                      f"{self.pp_date(exl.get('end'))}")
                             self.set_alarm(username, ts, display_ts,
                                            {"end": exl.get("T2")},
                                            event, reason, ttl)
@@ -746,7 +753,8 @@ class WOE(Alarm):
                             reason = (f"{username} has a status of "
                                       f"{agent_state} at {ts_pp}, "
                                       f"expecting an exception "
-                                      f"status by {self.pp_date(woe.get('start'))}")
+                                      f"status by "
+                                      f"{self.pp_date(woe.get('start'))}")
                             self.set_alarm(username, ts, display_ts,
                                            {"start": woe.get("start")},
                                            event, reason, ttl)

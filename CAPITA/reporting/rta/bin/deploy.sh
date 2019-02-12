@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 
-
 # Ensure you are in the target account before running this script
 # by using a tool such as 'awsume'
 
 ENV=`echo $1 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }'`
-
-
 
 if [ -z "$ENV" ]; then
     echo "
@@ -17,18 +14,12 @@ Usage:
 where ENV is the environment, e.g. 'Dev', 'Test', 'Prod'
 (note the capitalisation)
 
-IMPORTANT: You need to switch to the target role using a tool such as 
-
-awsume before running this script
+** IMPORTANT: You need to switch to the target account
+using a tool such as awsume before running this script **
 
 "
     exit
 fi
-
-
-# awsume $PROFILE
-# aws s3 ls
-
 
 getStackOutput () {
     STACKNAME=$1
@@ -37,20 +28,18 @@ getStackOutput () {
     aws cloudformation describe-stacks --query "Stacks[?StackName == '$STACKNAME'].Outputs[]| [?OutputKey=='$KEY'].[OutputValue] | [0]" --output text
 }
 
-
-
 ENV_UPPER=`echo $1 | awk '{print toupper($0)}'`
 ENV_LOWER=`echo $1 | awk '{print tolower($0)}'`
 STACK="deploy-$ENV_LOWER.stacks"
 
 echo "Running into account: $AWSUME_PROFILE"
-echo "Working directory" `pwd`
+echo "Environment: $ENV"
 echo "Deploying Infrastructure stack as defined in $STACK"
 
 echo ""
-read -sp "Continue? (y/n)" cont
+read -p "Continue? (y/n) " cont
 if [ $cont != "y" ]; then
-    echo ""
+    echo "Aborting..."
     exit
 fi
 echo ""
@@ -59,11 +48,10 @@ echo "Deploying CFN-Square stackset: $STACK"
 
 cf sync -y $STACK
 
-
 LAMBDA_S3=`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-AccountSetup'].Outputs[]| [?OutputKey=='oLambdaDeploymentBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/\1/'`
-COGNITO_ARN=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolArn`                       #`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-IdentityManagement'].Outputs[]| [?OutputKey=='oUserPoolArn'].[OutputValue] | [0]" --output text`
-USERPOOLCLIENTID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolClientId`             #`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-IdentityManagement'].Outputs[]| [?OutputKey=='oUserPoolClientId'].[OutputValue] | [0]" --output text`
-USERPOOLID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolId`                         #`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-IdentityManagement'].Outputs[]| [?OutputKey=='oUserPoolId'].[OutputValue] | [0]" --output text`
+COGNITO_ARN=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolArn`
+USERPOOLCLIENTID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolClientId`
+USERPOOLID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolId`
 
 
 if [ $LAMBDA_S3 = "None" ] || [ $COGNITO_ARN = "None" ] || [ $USERPOOLCLIENTID = "None" ] || [ $USERPOOLID = "None" ]; then
@@ -74,7 +62,6 @@ if [ $LAMBDA_S3 = "None" ] || [ $COGNITO_ARN = "None" ] || [ $USERPOOLCLIENTID =
     echo "USERPOOLID: $USERPOOLID"
     exit
 fi
-
 
 echo "----------------"
 echo "Deploying Verify"
@@ -95,7 +82,6 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-verify.ym
 
 # e.g. "s3-capita-ccm-common-test-rta-agentschedules"
 AGENT_S3=`getStackOutput stCapita-RTA-$ENV-Verify oRtaScheduleBucketName`  
-
 
 echo "-------------"
 echo "Deploying RTA"
@@ -134,15 +120,12 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-api.yml \
                                                 pRtaAlarmsDb=$ALARM_DB \
                                                 pRtaAlarmsDbArn=$ALARM_DB_ARN
 
-
-API=`getStackOutput stCapita-RTA-$ENV-Api oRtaApi` #`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-Api'].Outputs[]| [?OutputKey=='oRtaApi'].[OutputValue] | [0]" --output text`
-echo "API: $API"
+API=`getStackOutput stCapita-RTA-$ENV-Api oRtaApi`
 
 if [ $API = "None" ]; then
     echo "Unable to find API in stack stCapita-RTA-$ENV-Api"
     exit
 fi
-
 
 cat > html/js/config.js << EOF
 window._config = {

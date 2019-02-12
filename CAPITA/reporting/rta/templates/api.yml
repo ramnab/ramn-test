@@ -53,6 +53,12 @@ Resources:
           "tech:Environment": !Ref pEnvironmentLowerCase
           "bus:BusinessUnit": !Ref pDepartment
 
+  RtaApiLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RtaApiLambda
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${RtaApiLambda}"
   
   RtaApi:
     Type: AWS::ApiGateway::RestApi

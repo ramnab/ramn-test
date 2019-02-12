@@ -68,8 +68,8 @@
                     {{username}}
                 </span>
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                    <a class="dropdown-item" href="#" @click="changePasswordFlow()">Change password</a>
-                    <a class="dropdown-item" href="#" @click="signout()">Sign out</a>
+                    <span class="dropdown-item" style="cursor:pointer" @click="changePasswordFlow()">Change password</span>
+                    <span class="dropdown-item" style="; cursor:pointer" @click="signout()">Sign out</span>
                 </div>
             </div>
         </div>
@@ -82,11 +82,11 @@
                   <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                     <span v-if="autoRefresh>0 && !autoRefreshPaused" style="font-size:9pt; font-weight:bold">&nbsp;&nbsp;Refreshing every {{autoRefresh}} minute(s)&nbsp;&nbsp;</span>
                     <span v-if="autoRefresh==0 || autoRefreshPaused" style="font-size:9pt; font-weight:bold">&nbsp;&nbsp;Paused autorefresh&nbsp;&nbsp;</span>
-                    <a class="dropdown-item" style="font-size:9pt" href="#" @click="hello()">Refresh now</a>
+                    <span class="dropdown-item" style="font-size:9pt; cursor:pointer" @click="hello()">Refresh now</span>
                     
-                    <a class="dropdown-item" style="font-size:9pt" href="#" @click="autoRefreshPaused=false" v-if="autoRefreshPaused">Resume auto refesh</a>
-                    <a class="dropdown-item" style="font-size:9pt" href="#" @click="autoRefreshPaused=true" v-if="!autoRefreshPaused">Pause auto refesh</a>
-                    <a class="dropdown-item" style="font-size:9pt" href="#" data-toggle="modal" data-target="#autoRefreshModal">Change auto refresh</a>
+                    <span class="dropdown-item" style="font-size:9pt; cursor:pointer" @click="autoRefreshPaused=false" v-if="autoRefreshPaused">Resume auto refesh</span>
+                    <span class="dropdown-item" style="font-size:9pt; cursor:pointer" @click="autoRefreshPaused=true" v-if="!autoRefreshPaused">Pause auto refesh</span>
+                    <span class="dropdown-item" style="font-size:9pt; cursor:pointer" data-toggle="modal" data-target="#autoRefreshModal">Change auto refresh</span>
                 </div>
             </div>
         </div>
