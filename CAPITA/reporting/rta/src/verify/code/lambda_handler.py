@@ -10,8 +10,8 @@ import boto3
 def handler(event, __context):
     """Main Handler function"""
     reader = get_schedule_from_s3(event)
-    schedule = convert_schedule_to_json(reader)
-    # validate_schedule(schedule)
+    schedule = convert_schedule_to_json(reader, event)
+    validate_work_presence(event, schedule)
 
     alarm_config = json.loads(get_alarm_config_from_s3())
     for agent in schedule:
@@ -39,17 +39,41 @@ def upload_schedule_to_s3(schedule):
 
     s3client.put_object(Bucket=bucketname, Key=objectkey, Body=schedulebytes)
 
-def verify_schedule_contents(row):
+def verify_schedule_contents(row, event):
     """Confirm row contains all required information in correct format"""
-    if 'start_moment' not in row:
-        print(row['payroll_no'])
     redate = re.compile("\\d{2}-\\d{2}-\\d{4}\\s+\\d{2}:\\d{2}:\\d{2}")
     if not redate.match(row['start_moment']):
-        raise Exception(f'Schedule start_moment malformed for payroll_no {row["payroll_no"]}')
+        sns_error(event, f'The start moment for user {row["payroll_no"]} was incorrect/missing')
     if not redate.match(row['stop_moment']):
-        raise Exception(f'Schedule stop_moment malformed for payroll_no {row["payroll_no"]}')
+        sns_error(event, f'The stop moment for user {row["payroll_no"]} was incorrect/missing')
     if not (row['code'] and row['cat']):
-        raise Exception(f'Schedule missing information for {row["payroll_no"]}')
+        sns_error(event, f'Schedule missing information for {row["payroll_no"]}')
+
+def sns_error(event, emessage):
+    """Generate error message and send to SNS, then raise exception"""
+    snsclient = boto3.client('sns')
+
+    s3key = event["Records"][0]["s3"]["object"]["key"]
+    eventtime = event["Records"][0]["eventTime"]
+    bucketname = event["Records"][0]["s3"]["bucket"]["name"]
+
+    filepath = s3key.split('/')
+    filename = filepath.pop()
+
+    bucketpath = bucketname
+    for folder in filepath:
+        bucketpath = bucketpath + "/" + folder
+
+    message = (f'The following file {filename} uploaded '
+               f'at {eventtime} to {bucketpath} had the '
+               f'following error:\n {emessage}')
+
+    snsclient.publish(
+        TopicArn=os.environ.get('sns_failure_topic'),
+        Message=message,
+        Subject=f'exception processing schedule {filename}'
+    )
+    raise Exception(message)
 
 def get_alarm_config_from_s3():
     """Fetch alarm config json from s3"""
@@ -62,12 +86,12 @@ def get_alarm_config_from_s3():
 
     return alarm_config
 
-def convert_schedule_to_json(reader):
+def convert_schedule_to_json(reader, event):
     """Convert reader-format schedule to json"""
     schedule_as_json = {}
     for row in reader:
         if row['cat'] != "Record_count":
-            verify_schedule_contents(row)
+            verify_schedule_contents(row, event)
             time1 = convert_datetime(row['start_moment'])
             time2 = convert_datetime(row['stop_moment'])
             times = {
@@ -81,19 +105,12 @@ def convert_schedule_to_json(reader):
 
     return schedule_as_json
 
-# def validate_schedule(schedule):
-#     """Run validation tests against input schedule"""
-#     validate_shift_presence(schedule)
 
-# def validate_shift_presence(schedule):
-#     """Validate all agents on schedule contain SHIFT"""
-#     noshiftagents = []
-#     for agent in schedule:
-#         if "WORK" not in schedule[agent]['SCHEDULE']:
-#             noshiftagents.append(agent)
-#     if noshiftagents:
-#         raise Exception(f'These agents have no WORK information in the schedule: {noshiftagents}')
-#         print("Some agents have no WORK information")
+def validate_work_presence(event, schedule):
+    """Validate all agents on schedule contain WORK"""
+    for agent in schedule:
+        if "WORK" not in schedule[agent]['SCHEDULE']:
+            sns_error(event, f'There is no work shift defined for user {schedule[agent]}')
 
 def create_alarms(schedule, agent, config):
     """Create all alarm time windows for agent, return alarms as json"""
