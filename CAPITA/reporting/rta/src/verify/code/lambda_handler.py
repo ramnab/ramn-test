@@ -90,7 +90,7 @@ def convert_schedule_to_json(reader, event):
     """Convert reader-format schedule to json"""
     schedule_as_json = {}
     for row in reader:
-        if row['cat'] != "Record_count":
+        if row['first_name'] != "Record_count":
             verify_schedule_contents(row, event)
             time1 = convert_datetime(row['start_moment'])
             time2 = convert_datetime(row['stop_moment'])
@@ -100,7 +100,17 @@ def convert_schedule_to_json(reader, event):
             }
             agentid = "P" + row['payroll_no']
             if agentid not in schedule_as_json:
-                schedule_as_json[agentid] = {"SCHEDULE": {}, "ALARMS": {}}
+                schedule_as_json[agentid] = {
+                  "SCHEDULE": {},
+                  "ALARMS": {},
+                  "AGENT_INFO": {
+                      "first_name": row['first_name'],
+                      "last_name": row['last_name'],
+                      "depts_code": row['depts_code'],
+                      "acd_login_id": row['acd_login_id'],
+                      "depts_descr": row['depts_descr']
+                  }
+                }
             schedule_as_json[agentid]['SCHEDULE'][row['cat']] = times
 
     return schedule_as_json
