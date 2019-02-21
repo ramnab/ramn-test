@@ -48,6 +48,7 @@ echo "Deploying CFN-Square stackset: $STACK"
 
 cf sync -y $STACK
 
+
 LAMBDA_S3=`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-AccountSetup'].Outputs[]| [?OutputKey=='oLambdaDeploymentBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/\1/'`
 COGNITO_ARN=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolArn`
 USERPOOLCLIENTID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolClientId`
@@ -95,6 +96,22 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
                                 pAgentSchedule=s3://$AGENT_S3/processed/agent-schedule.json \
+                                pEnvironment=$ENV_UPPER \
+                                pEnvironmentLowerCase=$ENV_LOWER
+
+echo "-------------"
+echo "Deploying Special HeartBeats"
+
+RTA_LAMBDA=`getStackOutput stCapita-RTA-$ENV-App oRtaLambdaArn`
+aws cloudformation package --region eu-central-1 --template-file templates/heartbeat.yml \
+                           --s3-bucket $LAMBDA_S3 \
+                           --output-template-file deploy-hb.yml
+
+aws cloudformation deploy --region eu-central-1 --template-file deploy-hb.yml \
+                          --stack-name stCapita-RTA-$ENV-HB  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pTargetLambdaArn=$RTA_LAMBDA
                                 pEnvironment=$ENV_UPPER \
                                 pEnvironmentLowerCase=$ENV_LOWER
 

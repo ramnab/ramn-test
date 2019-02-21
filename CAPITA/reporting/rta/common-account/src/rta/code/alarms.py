@@ -8,6 +8,8 @@ import os
 
 
 logger = logging.getLogger()
+# INFO = 20
+# DEBUG = 10
 LOGGING_LEVEL = int(os.environ.get("LOGGING_LEVEL", "20"))
 logger.setLevel(LOGGING_LEVEL)
 
@@ -26,51 +28,15 @@ class Alarm:
         return [event for event in events
                 if event.get("EventType") in self.event_types]
 
-    def get_ts(self, ts):
-        try:
-            ts1 = datetime.strptime(ts, '%Y-%m-%dT%H:%M:%S.%fZ')
-        except Exception:
-            ts1 = datetime.strptime(ts, '%Y-%m-%dT%H:%M')
-        return ts1
-
-    def is_between(self, w, event):
-        if not event:
-            return False
-
-        t1 = self.get_ts(w.get("T1"))
-        t2 = self.get_ts(w.get("T2"))
-        event_ts = self.get_ts(event.get("EventTimestamp"))
-        result = t1 < event_ts < t2
-        # print(f"is_between: {t1} < {event_ts} < {t2} = {result}")
-        return result
-
-    def after(self, ts, event):
-        if not event:
-            return False
-        t = self.get_ts(ts)
-        event_ts = self.get_ts(event.get("EventTimestamp"))
-        result = event_ts > t
-        logger.debug(f"{self.alarmcode}: {str(event_ts)}"
-                     f" > {str(t)} = {result}")
-        return result
-
-    def before(self, ts, event):
-        if not event:
-            return False
-        event_ts = self.get_ts(event.get("EventTimestamp"))
-        t = self.get_ts(ts)
-        result = event_ts < t
-        logger.debug(f"{self.alarmcode}: {str(event.get('EventTimestamp'))}"
-                     f" < {str(t)} = {result}")
-
-        return result
-
     def set_alarm(self, username, ts, display_ts, extra,
                   trigger, reason, ttl=None):
         logger.info(f"Setting alarm {self.alarmcode} for {username}"
                     f" at {ts} with TTL {ttl}: {display_ts} "
                     f" extra: {str(extra)}"
                     f" reason: {reason}")
+
+        logger.info(f"@ALARM|SET_ALARM|{username}|{self.alarmcode}|"
+                    f"{ts}|{reason}")
         if not ttl:
             ttl = self.get_ts(ts) + timedelta(hours=12)
         else:
@@ -98,19 +64,15 @@ class Alarm:
             "httl": str(ttl)
         }
         logger.debug(f"Adding to db: {json.dumps(item, indent=2)}")
-        if self.table:
-            response = self.table.put_item(Item=item)
-            logger.debug(f"Put item reponse = {response}")
-        else:
-            logger.error("Dynamo db table not set!")
+        self.table.write([item])
 
     def clear_alarm(self, username):
         logger.info(f"Clearing alarm {self.alarmcode} for {username}")
+        logger.info(f"@ALARM|CLEAR_ALARM|{username}|{self.alarmcode}")
         if self.table:
             try:
                 key = {"username": username, "alarmcode": self.alarmcode}
-                response = self.table.delete_item(Key=key)
-                logger.debug(response)
+                self.table.delete_item(key)
             except ClientError as e:
                 logger.error(e)
                 raise Exception("Dynamodb exception for delete_item")
@@ -120,27 +82,14 @@ class Alarm:
     def update_display_ts(self, username, display_ts):
         logger.info(f"Updating alarm {self.alarmcode} display ts "
                     f"for user {username} to {display_ts}")
-        if self.table:
-            try:
-                response = self.table.update_item(
-                    Key={"username": username, "alarmcode": self.alarmcode},
-                    UpdateExpression="set display_ts = :d",
-                    ExpressionAttributeValues={
-                        ':d': display_ts
-                    }
-                )
-                logger.debug(f"Update DB response: {json.dumps(response)}")
-            except ClientError as e:
-                logger.error(e)
-                raise Exception("Dynamodb exception for delete_item")
-        else:
-            logger.error("Dynamo db table not set!")
+        logger.info(f"@ALARM|UPDATE_ALARM|{username}|{self.alarmcode}|"
+                    f"{display_ts}")
 
-    def typed_event(self, typ, events):
-        for event in events:
-            if event.get("EventType") == typ:
-                return event
-        return None
+        self.table.update(
+            {"username": username, "alarmcode": self.alarmcode},
+            "display_ts",
+            display_ts
+        )
 
     def agent_state(self, event):
         return event.get("CurrentAgentSnapshot", {}) \
@@ -148,6 +97,10 @@ class Alarm:
                     .get("Name")
 
     def get_alarm_times(self, username, asList=False):
+        if not self.schedules.get(username):
+            logger.info(f"No schedule found for {username}")
+            return []
+
         alarms = self.schedules.get(username).get('ALARMS')
         if not alarms.get(self.alarmcode):
             logger.debug(f"No alarm params exist for user {username}")
@@ -157,10 +110,77 @@ class Alarm:
         else:
             return alarms.get(self.alarmcode)[0]
 
-    def time_diff_mins(self, t1, t2):
+    def get_schedule(self, username, code="SHIFT"):
+        return self.schedules.get(username).get('SCHEDULE').get(code)
 
-        ts1 = self.get_ts(t1)
-        ts2 = self.get_ts(t2)
+    def set_table(self, table):
+        self.table = table
+
+    def process(self, events, username, state, history=None):
+        filtered_events = self.filter(events)
+        if filtered_events:
+            if state:
+                self.process_alarm_active(filtered_events, username,
+                                          state, history)
+            else:
+                self.process_alarm_inactive(filtered_events, username,
+                                            state, history)
+
+    def process_alarm_active(self, _events, _username, _state, _history):
+        pass
+
+    def process_alarm_inactive(self, _events, _username, _state, _history):
+        pass
+
+    @staticmethod
+    def get_ts(ts):
+        if not ts:
+            return "-"
+        try:
+            ts1 = datetime.strptime(ts, '%Y-%m-%dT%H:%M:%S.%fZ')
+        except Exception:
+            ts1 = datetime.strptime(ts, '%Y-%m-%dT%H:%M')
+        return ts1
+
+    @staticmethod
+    def is_between(w, event):
+        if not event:
+            return False
+
+        t1 = Alarm.get_ts(w.get("T1"))
+        t2 = Alarm.get_ts(w.get("T2"))
+        event_ts = Alarm.get_ts(event.get("EventTimestamp"))
+        result = t1 < event_ts < t2
+        return result
+
+    @staticmethod
+    def after(ts, event):
+        if not event:
+            return False
+        t = Alarm.get_ts(ts)
+        event_ts = Alarm.get_ts(event.get("EventTimestamp"))
+        return event_ts > t
+
+    @staticmethod
+    def before(ts, event):
+        if not event:
+            return False
+        event_ts = Alarm.get_ts(event.get("EventTimestamp"))
+        t = Alarm.get_ts(ts)
+        return event_ts < t
+
+    @staticmethod
+    def typed_event(typ, events):
+        for event in events:
+            if event.get("EventType") == typ:
+                return event
+        return None
+
+    @staticmethod
+    def time_diff_mins(t1, t2):
+
+        ts1 = Alarm.get_ts(t1)
+        ts2 = Alarm.get_ts(t2)
 
         if ts1 and ts2:
             diff = ts1 - ts2
@@ -169,18 +189,16 @@ class Alarm:
             raise Exception(f"Time parse exception in time_diff_mins with "
                             f"t1={t1} and t2={t2}")
 
-    def get_schedule(self, username, code="SHIFT"):
-        return self.schedules.get(username).get('SCHEDULE').get(code)
-
-    def set_table(self, table):
-        self.table = table
-
-    def mins_pp(self, mins):
+    @staticmethod
+    def mins_pp(mins):
+        if not mins:
+            return "00:00"
         (hours, minutes) = divmod(mins, 60)
         return f"{hours:02d}:{minutes:02d}"
 
-    def pp_date(self, date):
-        d = self.get_ts(date)
+    @staticmethod
+    def pp_date(date):
+        d = Alarm.get_ts(date)
         return datetime.strftime(d, '%H:%M:%S %d/%m/%Y')
 
 
@@ -196,36 +214,35 @@ class BSE(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("BSE", ["LOGIN", "HEART_BEAT"], schedules)
+        super().__init__("BSE", ["LOGIN", "SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if state:
                 '''Clear alarm conditions'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
-                if state.get("end"):
-                    if self.after(state.get("end"), event):
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
+                if state.get("extra", {}).get("end"):
+                    if Alarm.after(state.get("extra", {}).get("end"), event):
                         self.clear_alarm(username)
 
             if not state:
                 '''Set alarm conditions'''
-                event = self.typed_event("LOGIN", filtered_events)
+                event = Alarm.typed_event("LOGIN", filtered_events)
                 if event:
                     windows = self.get_alarm_times(username, True)
                     for window in windows:
-                        print(f"window: {str(window)}")
                         if self.is_between(window, event):
                             ts = event.get("EventTimestamp")
                             ts_pp = datetime.strftime(self.get_ts(ts),
                                                       '%H:%M:%S %d/%m/%Y')
                             shift_start = window.get("start")
-                            time_diff = self.time_diff_mins(shift_start, ts)
-                            display_ts = self.mins_pp(time_diff)
+                            time_diff = Alarm.time_diff_mins(shift_start, ts)
+                            display_ts = Alarm.mins_pp(time_diff)
                             ttl = window.get("T2")
                             reason = (f"{username} login at {ts_pp} "
                                       f"before shift start at "
-                                      f"{self.pp_date(shift_start)}")
+                                      f"{Alarm.pp_date(shift_start)}")
                             self.set_alarm(username, ts, display_ts,
                                            {"end": window.get("T2")},
                                            event, reason, ttl)
@@ -243,51 +260,92 @@ class BSL(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("BSL", ["LOGIN", "HEART_BEAT"], schedules)
+        super().__init__("BSL",
+                         ["LOGIN", "SP_HEART_BEAT"],
+                         schedules)
 
-    def process(self, events, username, state):
-        filtered_events = self.filter(events)
-        if filtered_events:
-            if state:
-                '''Incremental display ts'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
-                if event:
+    def process_alarm_active(self, events, username, state, history):
+        '''Incremental display ts'''
+        event = Alarm.typed_event("LOGIN", events)
+        if event:
+            logger.info(f"@BSL {username} LOGIN detected")
+            extra = state.get("extra", {})
+            extra['BSL_LOGIN'] = "1"
+            shift_start = extra.get("start")
+            logger.info(f"@BSL Updating extra for alarm: {extra}")
+            ts = event.get("EventTimestamp")
+            reason = (f"{username} was late logging in: "
+                      f"shift expected to start at "
+                      f"{Alarm.pp_date(shift_start)} "
+                      f"but agent signed in at {Alarm.pp_date(ts)}")
+            self.table.update(
+                {"username": username, "alarmcode": self.alarmcode},
+                "extra", extra
+            )
+            self.table.update(
+                {"username": username, "alarmcode": self.alarmcode},
+                "reason", reason
+            )
+        else:
+            event = Alarm.typed_event("SP_HEART_BEAT", events)
+            if event:
+                user_already_logged_in = [
+                    h for h in history
+                    if h.get("username") == username and
+                    h.get("prop") == "LOGIN"
+                ]
+                if user_already_logged_in:
+                    logger.info(f"@BSL {username} LOGIN detected in history")
+                else:
+                    logger.info(f"@BSL {username} expect ts increment")
+                    logger.info(f"@BSL {username} state={state}")
+                    logger.info(f"@BSL {username} state.extra={state.get('extra')}")
                     event_ts = event.get("EventTimestamp")
-                    shift_start = self.shift_start(username)
-                    time_diff = self.time_diff_mins(shift_start, event_ts)
-                    display_ts = self.mins_pp(time_diff)
+                    shift_start = state.get("extra", {}).get("start")
+                    time_diff = Alarm.time_diff_mins(shift_start, event_ts)
+                    display_ts = Alarm.mins_pp(time_diff)
                     self.update_display_ts(username, display_ts)
 
-                '''Clear alarm conditions'''
-                event = self.typed_event("LOGIN", filtered_events)
-                if event:
-                    self.clear_alarm(username)
-                t2 = state.get("end")
-                if t2 and self.after(t2, event):
-                    self.clear_alarm(username)
+    def process_alarm_inactive(self, events, username, state, history):
+        '''Set alarm conditions'''
 
-            if not state:
-                '''Set alarm conditions'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
-                if event:
-                    agent_status = self.agent_state(event)
-                    if agent_status == "Offline":
-                        windows = self.get_alarm_times(username, True)
-                        for window in windows:
-                            if self.is_between(window, event):
-                                ts = event.get("EventTimestamp")
-                                ts_pp = self.pp_date(ts)
-                                shift_start = window.get("start")
-                                time_diff = self.time_diff_mins(shift_start, ts)
-                                display_ts = self.mins_pp(time_diff)
-                                reason = (f"{username} login at {ts_pp} "
-                                          f"after shift start at "
-                                          f"{self.pp_date(shift_start)}")
+        event = Alarm.typed_event("SP_HEART_BEAT", events)
 
-                                self.set_alarm(username, ts, display_ts,
-                                               {"end": window.get('end')},
-                                               event, reason)
-                                break
+        if event:
+            # ignore LOGIN event if user has already logged in
+            # previously (captured in history)
+            user_already_logged_in = [
+                h for h in history
+                if h.get("username") == username and
+                h.get("prop") == "LOGIN"
+            ]
+            logger.debug(f"BSL: User logged in already: "
+                         f"{user_already_logged_in}")
+
+            if user_already_logged_in:
+                return
+
+            # calculate whether heartbeat falls inside
+            # BSL window(s)
+            windows = self.get_alarm_times(username, True)
+            for window in windows:
+                if self.is_between(window, event):
+                    ts = event.get("EventTimestamp")
+                    ts_pp = Alarm.pp_date(ts)
+                    shift_start = window.get("start")
+                    time_diff = Alarm.time_diff_mins(shift_start, ts)
+                    display_ts = Alarm.mins_pp(time_diff)
+                    reason = (f"{username} has not logged in yet at "
+                              f"{ts_pp}, shift start at "
+                              f"{Alarm.pp_date(shift_start)}")
+
+                    extra = {
+                        "start": window.get('start'),
+                        "end": window.get('end')
+                    }
+                    self.set_alarm(username, ts, display_ts,
+                                   extra, event, reason)
+                    break
 
 
 class ESE(Alarm):
@@ -305,26 +363,26 @@ class ESE(Alarm):
     def __init__(self, schedules):
         super().__init__("ESE", ["LOGOUT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if not state:
                 '''Set alarm conditions'''
-                event = self.typed_event("LOGOUT", filtered_events)
+                event = Alarm.typed_event("LOGOUT", filtered_events)
                 if event:
+                    ts = event.get("EventTimestamp")
                     windows = self.get_alarm_times(username, True)
                     for window in windows:
-                        if self.is_between(window, event):
+                        if Alarm.before(window.get("T1"), event):
                             # the reported time shift end time
-                            ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
+                            ts_pp = Alarm.pp_date(ts)
                             shift_end = window.get("end")
-                            time_diff = self.time_diff_mins(ts, shift_end)
-                            display_ts = self.mins_pp(time_diff)
+                            time_diff = Alarm.time_diff_mins(ts, shift_end)
+                            display_ts = Alarm.mins_pp(time_diff)
                             ttl = window.get("T1")
                             reason = (f"{username} logged out at {ts_pp} "
                                       f"before shift end at "
-                                      f"{self.pp_date(shift_end)}")
+                                      f"{Alarm.pp_date(shift_end)}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason, ttl)
 
@@ -343,20 +401,20 @@ class ESL(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("ESL", ["HEART_BEAT"], schedules)
+        super().__init__("ESL", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
 
             if state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 '''Incremental display ts'''
                 if event and self.agent_state(event) != "Offline":
                     ts = event.get("EventTimestamp")
-                    shift_end = self.shift_end(username)
-                    time_diff = self.time_diff_mins(shift_end, ts)
-                    display_ts = self.mins_pp(time_diff)
+                    shift_end = state.get("extra", {}).get("end")
+                    time_diff = Alarm.time_diff_mins(shift_end, ts)
+                    display_ts = Alarm.mins_pp(time_diff)
                     self.update_display_ts(username, display_ts)
 
                 '''Clear alarm conditions'''
@@ -365,7 +423,7 @@ class ESL(Alarm):
 
             if not state:
                 '''Set alarm conditions'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     if self.agent_state(event) != "Offline":
                         windows = self.get_alarm_times(username, True)
@@ -373,15 +431,16 @@ class ESL(Alarm):
                             if self.is_between(window, event):
                                 # the reported time shift end time
                                 ts = event.get("EventTimestamp")
-                                ts_pp = self.pp_date(ts)
+                                ts_pp = Alarm.pp_date(ts)
                                 shift_end = window.get("end")
-                                time_diff = self.time_diff_mins(shift_end, ts)
-                                display_ts = self.mins_pp(time_diff)
+                                time_diff = Alarm.time_diff_mins(shift_end, ts)
+                                display_ts = Alarm.mins_pp(time_diff)
                                 ttl = window.get("T2")
                                 reason = (f"{username} not offline at {ts_pp} "
                                           f"after end of shift at "
-                                          f"{self.pp_date(shift_end)}")
-                                self.set_alarm(username, ts, display_ts, {},
+                                          f"{Alarm.pp_date(shift_end)}")
+                                self.set_alarm(username, ts, display_ts,
+                                               {"end": window.get("end")},
                                                event, reason, ttl)
                                 break
 
@@ -397,33 +456,34 @@ class BBE(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("BBE", ["HEART_BEAT"], schedules)
+        super().__init__("BBE", ["STATE_CHANGE"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if not state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("STATE_CHANGE", filtered_events)
                 if event:
                     '''Set alarm conditions'''
-                    bbes = self.get_alarm_times(username, True)
                     agent_state = self.agent_state(event)
-                    for bbe in bbes:
-                        if self.is_between(bbe, event) \
-                           and agent_state in self.BREAK_CODES:
-                            ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
-                            break_start = bbe.get("start")
-                            time_diff = self.time_diff_mins(break_start, ts)
-                            display_ts = self.mins_pp(time_diff)
-                            ttl = bbe.get("T2")
-                            reason = (f"{username} entered break at {ts_pp} "
-                                      f"earlier than expected start "
-                                      f"time of "
-                                      f"{self.pp_date(break_start)}")
-                            self.set_alarm(username, ts, display_ts, {},
-                                           event, reason, ttl)
-                            break
+                    if agent_state in self.BREAK_CODES:
+                        bbes = self.get_alarm_times(username, True)
+                        for bbe in bbes:
+                            if self.is_between(bbe, event) \
+                               and agent_state in self.BREAK_CODES:
+                                ts = event.get("EventTimestamp")
+                                ts_pp = Alarm.pp_date(ts)
+                                break_start = bbe.get("start")
+                                time_diff = Alarm.time_diff_mins(break_start, ts)
+                                display_ts = Alarm.mins_pp(time_diff)
+                                ttl = bbe.get("end")
+                                reason = (f"{username} entered break at {ts_pp} "
+                                          f"earlier than expected start "
+                                          f"time of "
+                                          f"{Alarm.pp_date(break_start)}")
+                                self.set_alarm(username, ts, display_ts, {},
+                                               event, reason, ttl)
+                                break
 
 
 class EBL(Alarm):
@@ -436,23 +496,23 @@ class EBL(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("EBL", ["HEART_BEAT"], schedules)
+        super().__init__("EBL", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
-                break_start1 = state.get("extra", {}).get("start")
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
+                break_end = state.get("extra", {}).get("end")
                 agent_state = self.agent_state(event)
-                if event and break_start1 and agent_state in self.BREAK_CODES:
+                if event and break_end and agent_state in self.BREAK_CODES:
                     event_ts = event.get("EventTimestamp")
-                    time_diff = self.time_diff_mins(break_start1, event_ts)
-                    display_ts = self.mins_pp(time_diff)
+                    time_diff = Alarm.time_diff_mins(break_end, event_ts)
+                    display_ts = Alarm.mins_pp(time_diff)
                     self.update_display_ts(username, display_ts)
 
             if not state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
                     ebls = self.get_alarm_times(username, True)
@@ -461,17 +521,20 @@ class EBL(Alarm):
                         if self.is_between(ebl, event) and \
                            agent_state in self.BREAK_CODES:
                             ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
+                            ts_pp = Alarm.pp_date(ts)
                             ttl = ebl.get("T2")
                             break_start = ebl.get("start")
                             break_end = ebl.get("end")
-                            time_diff = self.time_diff_mins(break_start, ts)
-                            display_ts = self.mins_pp(time_diff)
+                            time_diff = Alarm.time_diff_mins(break_end, ts)
+                            display_ts = Alarm.mins_pp(time_diff)
                             reason = (f"{username} has break status at "
                                       f"{ts_pp} when break finish expected "
-                                      f"at {self.pp_date(break_end)}")
+                                      f"at {Alarm.pp_date(break_end)}")
                             self.set_alarm(username, ts, display_ts,
-                                           {"start": break_start}, event,
+                                           {
+                                               "start": break_start,
+                                               "end": break_end
+                                           }, event,
                                            reason, ttl)
                             break
 
@@ -489,18 +552,19 @@ class SIU(Alarm):
     def __init__(self, schedules):
         super().__init__("SIU", ["LOGIN"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if not state:
-                event = self.typed_event("LOGIN", filtered_events)
+                event = Alarm.typed_event("LOGIN", filtered_events)
                 if event:
                     '''Set alarm conditions'''
+
                     agent_state = self.agent_state(event)
                     windows = self.get_alarm_times(username, True)
 
                     ts = event.get("EventTimestamp")
-                    display_ts = self.pp_date(ts)
+                    display_ts = Alarm.pp_date(ts)
                     if not self.schedules.get(username):
                         reason = (f"{username} logged in at {display_ts} "
                                   f" but no schedule exists for them")
@@ -510,17 +574,18 @@ class SIU(Alarm):
 
                     for window in windows:
 
-                        if self.before(window.get("T1"), event):
+                        if Alarm.before(window.get("T1"), event):
                             reason = (f"{username} logged in at {display_ts} "
                                       f"before their expected shift start "
                                       f"time of {window.get('start')}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason)
                             break
-                        if self.after(window.get("T2"), event):
+                        if Alarm.after(window.get("T2"), event):
                             reason = (f"{username} logged in at {display_ts} "
                                       f"after their expected shift ended "
-                                      f"time of {self.pp_date(window.get('end'))}")
+                                      f"time of "
+                                      f"{Alarm.pp_date(window.get('end'))}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason)
                             break
@@ -534,34 +599,34 @@ class SOU(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("SOU", ["HEART_BEAT", "LOGOUT", "LOGIN"], schedules)
+        super().__init__("SOU", ["SP_HEART_BEAT", "LOGOUT", "LOGIN"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if state:
                 '''Clear alarm conditions'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
 
-                shift_end = state.get("end")
-                if event and shift_end and self.after(shift_end, event):
+                shift_end = state.get("extra", {}).get("end")
+                if event and shift_end and Alarm.after(shift_end, event):
                     self.clear_alarm(username)
-                event = self.typed_event("LOGIN", filtered_events)
+                event = Alarm.typed_event("LOGIN", filtered_events)
                 if event:
                     self.clear_alarm(username)
 
             if not state:
-                event = self.typed_event("LOGOUT", filtered_events)
+                event = Alarm.typed_event("LOGOUT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
                     windows = self.get_alarm_times(username, True)
                     for window in windows:
-                        if self.before(window.get("T1"), event):
+                        if Alarm.before(window.get("T1"), event):
                             ts = event.get("EventTimestamp")
-                            display_ts = self.pp_date(ts)
+                            display_ts = Alarm.pp_date(ts)
                             reason = (f"{username} logged out at {display_ts} "
                                       f"before expected end of shift at "
-                                      f"{self.pp_date(window.get('end'))}")
+                                      f"{Alarm.pp_date(window.get('end'))}")
                             self.set_alarm(username, ts, display_ts,
                                            {"end": window.get("end")},
                                            event, reason)
@@ -578,40 +643,41 @@ class WOB(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("WOB", ["HEART_BEAT"], schedules)
+        super().__init__("WOB", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
 
             if state:
                 '''Incremental display ts'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     event_ts = event.get("EventTimestamp")
-                    shift_start = self.shift_start(username)
                     break_start = state.get("extra", {}).get("start")
-                    time_diff = self.time_diff_mins(event_ts, break_start)
-                    display_ts = self.mins_pp(time_diff)
+                    time_diff = Alarm.time_diff_mins(event_ts, break_start)
+                    display_ts = Alarm.mins_pp(time_diff)
                     self.update_display_ts(username, display_ts)
 
             if not state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
                     wobs = self.get_alarm_times(username, True)
                     agent_state = self.agent_state(event)
                     for wob in wobs:
                         if self.is_between(wob, event) \
-                           and agent_state not in self.BREAK_CODES:
+                           and agent_state not in self.BREAK_CODES \
+                           and agent_state != "Offline":
                             ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
-                            time_diff = self.time_diff_mins(ts, wob.get("start"))
-                            display_ts = self.mins_pp(time_diff)
+                            ts_pp = Alarm.pp_date(ts)
+                            time_diff = Alarm.time_diff_mins(ts,
+                                                             wob.get("start"))
+                            display_ts = Alarm.mins_pp(time_diff)
                             ttl = wob.get("T2")
                             reason = (f"{username} has not set a break status "
                                       f" at {ts_pp}, break start expected at "
-                                      f"{self.pp_date(wob.get('start'))}")
+                                      f"{Alarm.pp_date(wob.get('start'))}")
                             self.set_alarm(username, ts, display_ts,
                                            {"start": wob.get("start")},
                                            event, reason, ttl)
@@ -624,18 +690,19 @@ class BXE(Alarm):
     Alarm is set when an agent enters state of
     'System Down', 'Admin', 'Training' or '121'
     between
-        exception start time - window (T1) and exception start time - grace (T2)
+        exception start time - window (T1) and
+        exception start time - grace (T2)
 
     '''
 
     def __init__(self, schedules):
-        super().__init__("BXE", ["HEART_BEAT"], schedules)
+        super().__init__("BXE", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if not state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
                     bees = self.get_alarm_times(username, True)
@@ -644,16 +711,16 @@ class BXE(Alarm):
                         if self.is_between(bee, event) \
                            and agent_state in self.EXCEPTION_CODES:
                             ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
+                            ts_pp = Alarm.pp_date(ts)
                             exc_start = bee.get("start")
 
-                            time_diff = self.time_diff_mins(exc_start, ts)
-                            display_ts = self.mins_pp(time_diff)
+                            time_diff = Alarm.time_diff_mins(exc_start, ts)
+                            display_ts = Alarm.mins_pp(time_diff)
                             ttl = bee.get("T2")
-                            reason = (f"{username} has set an exception "
-                                      f"status at {ts_pp} when exception "
-                                      f"should start at "
-                                      f"{self.pp_date(exc_start)}")
+                            reason = (f"{username} has an exception status "
+                                      f"{agent_state} at {ts_pp} when "
+                                      f" exception expected to start at "
+                                      f"{Alarm.pp_date(exc_start)}")
                             self.set_alarm(username, ts, display_ts, {},
                                            event, reason, ttl)
                             break
@@ -669,24 +736,24 @@ class EXL(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("EXL", ["HEART_BEAT"], schedules)
+        super().__init__("EXL", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
 
             if state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Incremental display ts'''
                     event_ts = event.get("EventTimestamp")
-                    shift_start = self.shift_start(username)
-                    time_diff = self.time_diff_mins(event_ts, state.get("end"))
-                    display_ts = self.mins_pp(time_diff)
+                    exception_end = state.get("extra", {}).get("end")
+                    time_diff = Alarm.time_diff_mins(event_ts, exception_end)
+                    display_ts = Alarm.mins_pp(time_diff)
                     self.update_display_ts(username, display_ts)
 
             if not state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
                     exls = self.get_alarm_times(username, True)
@@ -696,14 +763,15 @@ class EXL(Alarm):
                         if self.is_between(exl, event) \
                            and agent_state in self.EXCEPTION_CODES:
                             ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
+                            ts_pp = Alarm.pp_date(ts)
                             ttl = exl.get("T2")
                             display_ts = datetime.strftime(self.get_ts(ttl),
                                                            '%H:%M:%S %d/%m/%Y')
                             reason = (f"{username} has an exception status "
+                                      f"of {agent_state} "
                                       f"at {ts_pp} where exception should "
                                       f"have ended at "
-                                      f"{self.pp_date(exl.get('end'))}")
+                                      f"{Alarm.pp_date(exl.get('end'))}")
                             self.set_alarm(username, ts, display_ts,
                                            {"end": exl.get("T2")},
                                            event, reason, ttl)
@@ -714,50 +782,51 @@ class WOE(Alarm):
     '''
     Working On Exception
     Alarm is set when an agent is available between
-        exception start time + grace (T1) and exceptoin end time - grace (T2)
+        exception start time + grace (T1) and exception end time - grace (T2)
 
     Alarm clears at T2
     '''
 
     def __init__(self, schedules):
-        super().__init__("WOE", ["HEART_BEAT"], schedules)
+        super().__init__("WOE", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state):
+    def process(self, events, username, state, _history=[]):
         filtered_events = self.filter(events)
         if filtered_events:
             if state:
                 '''Incremental display ts'''
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     event_ts = event.get("EventTimestamp")
-                    shift_start = self.shift_start(username)
                     exception_start = state.get("extra", {}).get("start")
-                    time_diff = self.time_diff_mins(event_ts,
-                                                    exception_start)
-                    display_ts = self.mins_pp(time_diff)
+                    time_diff = Alarm.time_diff_mins(event_ts,
+                                                     exception_start)
+                    display_ts = Alarm.mins_pp(time_diff)
                     self.update_display_ts(username, display_ts)
 
             if not state:
-                event = self.typed_event("HEART_BEAT", filtered_events)
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
                     woes = self.get_alarm_times(username, True)
                     agent_state = self.agent_state(event)
                     for woe in woes:
                         if self.is_between(woe, event) \
-                           and agent_state not in self.EXCEPTION_CODES:
+                           and agent_state not in self.EXCEPTION_CODES \
+                           and agent_state not in self.BREAK_CODES \
+                           and agent_state != "Offline":
                             ts = event.get("EventTimestamp")
-                            ts_pp = self.pp_date(ts)
-                            time_diff = self.time_diff_mins(ts,
-                                                            woe.get("start"))
+                            ts_pp = Alarm.pp_date(ts)
+                            time_diff = Alarm.time_diff_mins(ts,
+                                                             woe.get("start"))
 
-                            display_ts = self.mins_pp(time_diff)
+                            display_ts = Alarm.mins_pp(time_diff)
                             ttl = woe.get("T2")
                             reason = (f"{username} has a status of "
-                                      f"{agent_state} at {ts_pp}, "
-                                      f"expecting an exception "
-                                      f"status by "
-                                      f"{self.pp_date(woe.get('start'))}")
+                                      f"{agent_state} at {ts_pp}; "
+                                      f"exception scheduled for "
+                                      f"{Alarm.pp_date(woe.get('start'))}"
+                                      f"- {Alarm.pp_date(woe.get('end'))}")
                             self.set_alarm(username, ts, display_ts,
                                            {"start": woe.get("start")},
                                            event, reason, ttl)

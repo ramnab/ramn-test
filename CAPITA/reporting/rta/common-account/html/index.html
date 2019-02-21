@@ -251,7 +251,7 @@
             <vue-good-table :columns="columns" :rows="alarms">
                 <template slot="table-row" slot-scope="props">
                     <span v-if="props.column.field == 'firstname'">
-                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode) }">
+                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode,props.row.extra) }">
                             <span style="font-weight:bold">
 
                                 {{props.row.lastname}}, 
@@ -260,7 +260,7 @@
                         </span>
                     </span>
                     <span v-if="props.column.field != 'firstname' && props.column.field != 'lastname'">
-                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode) }">
+                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode, props.row.extra) }">
                             <span style="font-weight:bold">{{props.formattedRow[props.column.field]}}</span>
                             <span v-if="props.column.field == 'alarmcode' && verbose && props.row.reason"
                                      style="cursor: pointer" 
@@ -300,7 +300,8 @@
         RED: "#e5041b",
         PURPLE: "#f21dd5",
         BLUE: "#0478e5",
-        GREEN: "#0ace1a"
+        GREEN: "#01aa0f",
+        ORANGE: "#f28c10"
     }
 
     var poolData = {
@@ -451,7 +452,10 @@
                 
             },
 
-            get_alarm_color: function(alarmcode) {
+            get_alarm_color: function(alarmcode, extra) {
+                if (alarmcode == "BSL" && extra.BSL_LOGIN) {
+                    return colors["ORANGE"]
+                }
                 return colors[this.alarm_color[alarmcode]]
             },
 

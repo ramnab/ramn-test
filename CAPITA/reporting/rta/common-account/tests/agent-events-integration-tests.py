@@ -13,6 +13,63 @@ import argparse
 """
 
 client = boto3.client('kinesis', region_name='eu-central-1')
+dynamodb = boto3.resource('dynamodb')
+table = None
+
+
+def upload_schedule(env):
+    with open('agent-schedule.json', 'r') as f:
+        schedule = f.read()
+        s3 = boto3.resource('s3')
+        bucket = f's3-capita-ccm-common-{env}-rta-agentschedules'
+        key = 'processed/agent-schedule.json'
+        print(f"Uploading local schedule to s3://{bucket}/key")
+        s3.Object(bucket, key) \
+          .put(Body=open('agent-schedule.json', 'rb'))
+
+
+def clear_table():
+    global table
+    print(f"Clearing table '{table.table_name}'")
+    items = read()
+    with table.batch_writer() as batch:
+        for item in items:
+            batch.delete_item(Key={
+                "username": item.get("username"),
+                "alarmcode": item.get("alarmcode")
+            })
+
+
+def read():
+    global table
+    response = table.scan(ConsistentRead=True)
+    return response.get("Items")
+
+
+def test_pass(test, items):
+    if not test.get("expected"):
+        return True
+
+    for item in items:
+        all_match = True
+        for attr, val in test.get("expected").items():
+            if not item.get(attr):
+                all_match = False
+                break
+            if item.get(attr) != val:
+                all_match = False
+                break
+        if all_match:
+            return True
+    return False
+
+
+def run_test(test, stream):
+    print(f"\n\n{test.get('title')}")
+    send(stream, test.get("event"))
+    sleep(5)
+    db = read()
+    print(f"Expected passed? {test_pass(test, db)}")
 
 
 def send(stream, event):
@@ -22,7 +79,6 @@ def send(stream, event):
         Data=json.dumps(event),
         PartitionKey='capita-ccm-rta-producer'
     )
-    print(f"Response: {response}")
 
 
 def create(**kwargs):
@@ -47,54 +103,131 @@ def main():
 Agent events Integration Tests
 
 usage:
-    python agent-events-integration-tests.py --stream STREAM --wait DELAY
+    python agent-events-integration-tests.py --env <ENV> --test <TEST>
 
-STREAM: kinesis stream to target, e.g. 
-DELAY: seconds between each event (optional, default=10)
+ENV: which capita-common-nonprod env to use, dev or test, required
+TEST: an individual test to run, e.g. BBE, optional; if not specified
+will run all tests
 
 ''')
 
     parser.add_argument(
-        '-s', '--stream',
+        '-e', '--env',
         help='''
-Target Kinesis Stream,
-e.g. str-ccm-dev-tradeuk-connect-dev01-agent-events''',
+Environment to target in capita-common: dev or test
+''',
         required=True
     )
 
     parser.add_argument(
-        '-w', '--wait', help='Seconds to wait between events',
-        type=int, required=False, default=10
+        '-t', '--test', help='Test to run, e.g. BBE',
+        required=False
     )
 
     args = parser.parse_args()
 
-    events = [
-        ["BSE_Activated", create(typ="LOGIN", username="P0001", ts="2019-01-21T07:33:00.012Z")],
-        # ["BSE_Cleared", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T07:55:00.012Z")],
-        # ["BSL_Activated", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T08:06:00.012Z", status="Offline")],
-        # ["BSL_UpdateTS", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T08:08:00.012Z", status="Offline")],
-        # ["BSL_Cleared ", create(typ="LOGIN", username="P0001", ts="2019-01-21T16:32:00.012Z")],
-        # ["ESE_Activated", create(typ="LOGOUT", username="P0001", ts="2019-01-21T16:26:00.012Z")],
-        # ["ESL_Activated", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T16:36:00.012Z")],
-        # ["ESL_UpdateTS", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T16:38:00.012Z")],
-        # ["ESL_Cleared", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T16:38:00.012Z", status="Offline")],
-        # ["BBE_Activated", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T12:40:00.012Z", status="Lunch")],
-        # ["EBL_Activated", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T14:25:00.012Z", status="Break")],
-        # ["EBL_UpdateTS", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T14:27:00.012Z", status="Break")],
-        # ["SIU_Activated", create(typ="LOGIN", username="P0001", ts="2019-01-21T17:06:00.012Z")],
-        # ["SOU_Activated", create(typ="LOGOUT", username="P0001", ts="2019-01-21T15:50:00.012Z", status="Offline")],
-        # ["SOU_Clear_Login", create(typ="LOGIN", username="P0001", ts="2019-01-21T16:20:20.012Z", status="Offline")],
-        # ["SOU_Activated", create(typ="LOGOUT", username="P0001", ts="2019-01-21T15:50:00.012Z", status="Offline")],
-        # ["SOU_Clear_HB", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T16:31:00.012Z", status="Offline")],
-        # ["WOB_Activate", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T13:16:00.012Z")],
-        # ["WOB_UpdateTS", create(typ="HEART_BEAT", username="P0001", ts="2019-01-21T13:18:00.012Z")]
-    ]
-    for event in events:
-        print(f"\n\n{event[0]}")
-        send(args.stream, event[1])
-        print(f"Waiting {args.wait} seconds...")
-        sleep(args.wait)
+    tests = {
+        "BSL": [
+            # SHIFT START=2019-02-20T08:15 END=2019-02-20T17:15
+            # T1=2019-02-20T08:20 T2=2019-02-20T17:15
+            {
+                "title": "BSL Activated with SHB",
+                "event": create(typ="SP_HEART_BEAT",
+                                username="P21207381",
+                                ts="2019-02-20T08:21:00.012Z")
+            },
+            {
+                "title": "BSL TS Updated with SHB",
+                "event": create(typ="SP_HEART_BEAT",
+                                username="P21207381",
+                                ts="2019-02-20T08:22:00.012Z")
+            }
+        ],
+        "WOB": [
+            # BREAK START=2019-02-20T12:30 END=2019-02-20T13:00
+            # T1=2019-02-20T12:35 T2=2019-02-20T12:55
+            {
+                "title": "WOB Activated with SHB",
+                "event": create(typ="SP_HEART_BEAT",
+                                username="P21207381",
+                                ts="2019-02-20T12:36:00.012Z")
+            },
+            {
+                "title": "WOB TS Updated with SHB",
+                "event": create(typ="SP_HEART_BEAT",
+                                username="P21207381",
+                                ts="2019-02-20T12:37:00.012Z")
+            }
+        ],
+        "WOE": [
+            # EXC START=2019-02-20T13:00 END=2019-02-20T17:15
+            # T1=2019-02-20T13:05 T2=2019-02-20T17:10, status=Available
+            {
+                "title": "WOE Activated with SHB",
+                "event": create(typ="SP_HEART_BEAT",
+                                username="P21207381",
+                                ts="2019-02-20T13:06:00.012Z")
+            },
+            {
+                "title": "WOE TS Updated with SHB",
+                "event": create(typ="SP_HEART_BEAT",
+                                username="P21207381",
+                                ts="2019-02-20T13:07:00.012Z")
+            }
+        ],
+        "BBE": [
+            # BREAK START=2019-02-20T12:30 END=2019-02-20T13:00
+            # T1=019-02-20T12:15 T2=2019-02-20T12:25
+            {
+                "title": "BBE Activated with SHB",
+                "event": create(typ="STATE_CHANGE",
+                                username="P21207381",
+                                ts="2019-02-20T12:16:00.012Z",
+                                status="Break"),
+                "expected": {
+                    "username": "P21207381",
+                    "alarmcode": "BBE"
+                }
+            }
+        ],
+        "ESE": [
+            # SHIFT START=2019-02-20T08:15 END=2019-02-20T17:15
+            # T1=2019-02-20T17:10
+            {
+                "title": "ESE Activated with LOGOUT",
+                "event": create(typ="LOGOUT",
+                                username="P21207381",
+                                ts="2019-02-20T17:05:00.012Z"),
+                "expected": {
+                    "username": "P21207381",
+                    "alarmcode": "ESE"
+                }
+            }
+        ]
+    }
+    env = args.env
+    print(f"\n\nStarting tests for envrionment '{env}'")
+    stream = f"ks-ccm-agent-events-{env}"
+
+    upload_schedule(env)
+
+    global table
+    table = dynamodb.Table(f'rta-alarmsdb-ccm-{env}')
+    clear_table()
+    if args.test and not tests.get(args.test):
+        raise Exception(f"Test '{args.test}' not found")
+
+    if args.test:
+        print(f"\n\nRunning test set for {args.test}")
+        for test in tests.get(args.test):
+            run_test(test, stream)
+            sleep(5)
+    else:
+        for test_set, test_items in tests.items():
+            print(f"\n\nRunning test set for {test_set}")
+            for test in test_items:
+                run_test(test, stream)
+                sleep(5)
 
     print("Completed")
 

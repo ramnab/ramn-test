@@ -24,7 +24,7 @@ Resources:
 
   RtaLambda:
     Type: AWS::Serverless::Function
-    DependsOn: [RtaAgentStatusKinesisStream, RtaAlarmsDb]
+    DependsOn: [RtaAgentStatusKinesisStream, RtaAlarmsDb, RtaAgentEventHistoryDb]
     Properties:
       FunctionName: !Sub "lmbRtaApp-${pDepartment}-${pEnvironment}"
       Handler: lambda_handler.handler
@@ -45,11 +45,16 @@ Resources:
               Action:
                 - dynamodb:*
               Resource: !GetAtt RtaAlarmsDb.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource: !GetAtt RtaAgentEventHistoryDb.Arn
       CodeUri: ../src/rta/code
       Environment:
         Variables:
           ALARM_DB: !Ref RtaAlarmsDb
           AGENT_SCHEDULE: !Ref pAgentSchedule
+          HISTORY_DB: !Ref RtaAgentEventHistoryDb
           LOGGING_LEVEL: "20"
       Tags:
         "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
@@ -155,6 +160,42 @@ Resources:
           Key: "bus:BusinessUnit"
           Value: !Ref pDepartment
 
+  RtaAgentEventHistoryDb:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: username
+          AttributeType: S
+        -
+          AttributeName: prop
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: username
+          KeyType: "HASH"
+        -
+          AttributeName: prop
+          KeyType: "RANGE"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 3
+        WriteCapacityUnits: 1
+      TableName: !Sub "rta-eventhistory-${pDepartment}-${pEnvironmentLowerCase}"
+      TimeToLiveSpecification:
+        AttributeName: "ttl"
+        Enabled: true
+      Tags: 
+        -
+          Key: "tech:ApplicationID"
+          Value: !Sub "capita-${pDepartment}-rta-webapp"
+        -
+          Key: "tech:Environment"
+          Value: !Ref pEnvironmentLowerCase
+        -
+          Key: "bus:BusinessUnit"
+          Value: !Ref pDepartment
+
 
 Outputs:
   oAgentEventStream:
@@ -167,3 +208,9 @@ Outputs:
     Value: !GetAtt RtaAlarmsDb.Arn
   oRtaAlarmsDb:
     Value: !Ref RtaAlarmsDb
+  oRtaAgentEventsDbArn:
+    Value: !GetAtt RtaAgentEventHistoryDb.Arn
+  oRtaAgentEventsDb:
+    Value: !Ref RtaAgentEventHistoryDb
+  oRtaLambdaArn:
+    Value: !GetAtt RtaLambda.Arn
