@@ -8,6 +8,7 @@ import sys
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_path + '/../code')
 from alarms import *
+from db import *
 
 
 class AlarmTests(unittest.TestCase):
@@ -46,27 +47,15 @@ class AlarmTests(unittest.TestCase):
     @patch('alarms.BSE.clear_alarm')
     def test_BSE_Cleared(self, clear_alarm_mock):
         bse = BSE(self.SCHEDULE)
-        events2 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events2 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T07:56:0.000Z")
-        bse.process(events2, "P12125105", {"end": "2019-02-07T07:55"})
-        self.assertTrue(clear_alarm_mock.called)
-
-    @patch('alarms.BSL.set_alarm')
-    def test_BSL_Activated(self, set_alarm_mock):
-        bsl = BSL(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
-                                    ts="2019-02-07T08:10:00.012Z",
-                                    status="Offline")
-        # print(f"Event: {json.dumps(events1, indent=2)}")
-        bsl.process(events1, "P12125105", {})
-        self.assertTrue(set_alarm_mock.called)
-
-    @patch('alarms.BSL.clear_alarm')
-    def test_BSL_Cleared(self, clear_alarm_mock):
-        bsl = BSL(self.SCHEDULE)
-        events1 = self.create_event(typ="LOGIN", username="P12125105",
-                                    ts="2019-02-07T08:06:00.012Z")
-        bsl.process(events1, "P12125105", {"end": "2019-02-07T17:00"})
+        bse.process(events2,
+                    "P12125105",
+                    {
+                        "extra": {
+                            "end": "2019-02-07T07:55"
+                        }
+                    })
         self.assertTrue(clear_alarm_mock.called)
 
     @patch('alarms.ESE.set_alarm')
@@ -80,7 +69,7 @@ class AlarmTests(unittest.TestCase):
     @patch('alarms.ESL.set_alarm')
     def test_ESL_Activated(self, set_alarm_mock):
         esl = ESL(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events1 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T17:10:00.012Z")
         esl.process(events1, "P12125105", {})
         self.assertTrue(set_alarm_mock.called)
@@ -88,7 +77,7 @@ class AlarmTests(unittest.TestCase):
     @patch('alarms.BBE.set_alarm')
     def test_BBE_Activated(self, set_alarm_mock):
         bbe = BBE(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events1 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T14:47:00.012Z",
                                     status="Break")
         bbe.process(events1, "P12125105", {})
@@ -97,7 +86,7 @@ class AlarmTests(unittest.TestCase):
     @patch('alarms.EBL.set_alarm')
     def test_EBL_Activated(self, set_alarm_mock):
         ebl = EBL(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events1 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T15:27:00.012Z",
                                     status="Break")
         ebl.process(events1, "P12125105", {})
@@ -118,7 +107,6 @@ class AlarmTests(unittest.TestCase):
                                     ts="2019-02-07T17:37:00.012Z")
         siu.process(events1, "P12125105", {})
         self.assertTrue(set_alarm_mock.called)
-
 
     @patch('alarms.SOU.set_alarm')
     def test_SOU_Activated(self, set_alarm_mock):
@@ -141,16 +129,22 @@ class AlarmTests(unittest.TestCase):
     @patch('alarms.SOU.clear_alarm')
     def test_SOU_Clear_HB(self, clear_alarm_mock):
         sou = SOU(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events1 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T17:01:00.012Z",
                                     status="Offline")
-        sou.process(events1, "P12125105", {"end": "2019-02-07T17:00"})
+        sou.process(events1,
+                    "P12125105",
+                    {
+                        "extra": {
+                            "end": "2019-02-07T17:00"
+                        }
+                    })
         self.assertTrue(clear_alarm_mock.called)
 
     @patch('alarms.WOB.set_alarm')
     def test_WOB_Activate(self, set_alarm_mock):
         wob = WOB(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events1 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T15:07:00.012Z",
                                     status="Available")
         wob.process(events1, "P12125105", {})
@@ -159,11 +153,62 @@ class AlarmTests(unittest.TestCase):
     @patch('alarms.BXE.set_alarm')
     def test_BXE_WithNoExceptions(self, set_alarm_mock):
         bxe = BXE(self.SCHEDULE)
-        events1 = self.create_event(typ="HEART_BEAT", username="P12125105",
+        events1 = self.create_event(typ="SP_HEART_BEAT", username="P12125105",
                                     ts="2019-02-07T15:07:00.012Z",
                                     status="Available")
         bxe.process(events1, "P12125105", {})
         self.assertFalse(set_alarm_mock.called)
+
+    @patch('alarms.BSL.set_alarm')
+    def test_BSL_ActivateOnSpecialHB(self, set_alarm_mock):
+        bsl = BSL(self.SCHEDULE)
+        events1 = self.create_event(typ="SP_HEART_BEAT",
+                                    username="P12125105",
+                                    ts="2019-02-07T15:07:00.012Z",
+                                    status="Available")
+        bsl.process(events1, "P12125105", {}, [])
+        self.assertTrue(set_alarm_mock.called)
+
+    @patch('alarms.BSL.set_alarm')
+    def test_BSL_Not_Activate_Previously_LoggedIn(self, set_alarm_mock):
+        bsl = BSL(self.SCHEDULE)
+        events1 = self.create_event(typ="SP_HEART_BEAT",
+                                    username="P12125105",
+                                    ts="2019-02-07T15:07:00.012Z",
+                                    status="Available")
+        history = [
+            {
+                "username": "P12125105",
+                "prop": "LOGIN"
+            }
+        ]
+        bsl.process(events1, "P12125105", {}, history)
+        self.assertFalse(set_alarm_mock.called)
+
+    @patch('alarms.BSL.clear_alarm')
+    def test_BSL_Cleared(self, clear_alarm_mock):
+        bsl = BSL(self.SCHEDULE)
+        events1 = self.create_event(typ="LOGIN", username="P12125105",
+                                    ts="2019-02-07T08:06:00.012Z")
+        bsl.process(events1, "P12125105", {"end": "2019-02-07T17:00"})
+        self.assertTrue(clear_alarm_mock.called)
+
+    @patch('alarms.BSL.update_display_ts')
+    def test_BSL_UpdateTS(self, update_display_ts):
+        bsl = BSL(self.SCHEDULE)
+        events1 = self.create_event(typ="SP_HEART_BEAT",
+                                    username="P12125105",
+                                    ts="2019-02-07T08:06:00.012Z")
+        bsl.process(events1,
+                    "P12125105",
+                    {
+                        "extra": {
+                            "start": "2019-02-07T08:00",
+                            "end": "2019-02-07T17:00"
+                        }
+                    }
+                    )
+        self.assertTrue(update_display_ts.called)
 
 if __name__ == '__main__':
     unittest.main()

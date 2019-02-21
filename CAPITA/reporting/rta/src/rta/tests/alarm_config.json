@@ -14,10 +14,8 @@
     },
     "ESE": {
         "grace": 5,
-        "window":30,
         "codes": ["WORK"],
-        "T1": "SCHEDULE.CODE.T2,-ESE.grace",
-        "T2": "SCHEDULE.CODE.T2"
+        "T1": "SCHEDULE.CODE.T2,-ESE.grace"
     },
     "ESL": {
         "grace": 5,

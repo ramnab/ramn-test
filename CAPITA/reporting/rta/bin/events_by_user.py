@@ -3,7 +3,7 @@ import sys
 import os
 
 agents = {}
-results_dir = sys.argv[1] # e.g. '/mnt/c/Users/ChurcheG/Downloads/capita-connect/tradeuk3-agents/'
+results_dir = sys.argv[1]
 
 for f in sys.argv[2::]:
     print(f"Reading file: {f}")
