@@ -1,0 +1,137 @@
+rename 's/^(TradeUK.*)/$1.json/' *
+sed -i 's/}{/},{/g' TradeUK*
+sed -i '1s/^/[/' TradeUK*
+sed -ie '$a]' TradeUK*
+
+
+
+
+cat T* | jq '.[] | {Username: .CurrentAgentSnapshot.Configuration.Username, EventType: .EventType, PreviousAgentStatus: .PreviousAgentSnapshot.AgentStatus.Name, AgentStatus: .CurrentAgentSnapshot.AgentStatus.Name, PreviousNContacts: .PreviousAgentSnapshot.Contacts | length, CurrentNContacts: .CurrentAgentSnapshot.Contacts | length } | select(.EventType | contains("STATE_CHANGE"))'
+
+cat T* | jq '.[] | { ts: .EventTimestamp, status: .CurrentAgentSnapshot.AgentStatus.Name }'
+
+cat T* | jq '.[] | { username: .CurrentAgentSnapshot.Configuration.Username, ts: .EventTimestamp, eventType: .EventType, status: .CurrentAgentSnapshot.AgentStatus.Name } | select(.username | contains("P21123969"))' | clip.exe
+
+jq --slurp '.[][] | { username: .CurrentAgentSnapshot.Configuration.Username, ts: .EventTimestamp, eventType: .EventType, status: .CurrentAgentSnapshot.AgentStatus.Name } | select(.username | contains("P12073881"))' T*json | clip.exe
+
+jq --slurp '.[][] | { username: .CurrentAgentSnapshot.Configuration.Username, ts: .EventTimestamp, eventType: .EventType, status: .CurrentAgentSnapshot.AgentStatus.Name } | select(.eventType | contains("HEART_BEAT")) | select(.status | contains(""))' T*json | clip.exe
+
+
+
+#-------------------------------------------------------------------
+# RTA APP
+# package for CAPITA
+
+
+aws cloudformation package --region eu-central-1 --template-file templates/rta.yml \
+                           --s3-bucket s3-capita-ccm-test-lambdas-eu-central-1 \
+                           --output-template-file deploy-rta.yml
+
+# deploy for CAPITA TEST
+aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
+                          --stack-name stCapita-RTA-Test-App  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pAgentSchedule=s3://s3-capita-ccm-common-test-rta-agentschedules/processed/agent-schedule.json \
+                                pEnvironment=TEST \
+                                pEnvironmentLowerCase=test
+
+# deploy for CAPITA DEV
+aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
+                          --stack-name stCapita-RTA-Dev-App  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pAgentSchedule=s3://s3-capita-ccm-common-dev-rta-agentschedules/processed/agent-schedule.json \
+                                pEnvironment=DEV \
+                                pEnvironmentLowerCase=dev
+
+
+#-------------------------------------------------------------------
+# RTA API
+# package for CAPITA
+
+aws cloudformation package --region eu-central-1 --template-file templates/api.yml \
+                           --s3-bucket s3-capita-ccm-dev-lambdas-eu-central-1 \
+                           --output-template-file deploy-api.yml
+
+# deploy for CAPITA TEST
+aws cloudformation deploy  --region eu-central-1 --template-file deploy-api.yml \
+                           --stack-name stCapita-RTA-Test-Api --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                           --parameter-overrides pUserPoolArn=arn:aws:cognito-idp:eu-central-1:049293504011:userpool/eu-central-1_5vpngTHt2 \
+                                                 pRtaAlarmsDb=rta-alarmsdb-ccm-test \
+                                                 pRtaAlarmsDbArn=arn:aws:dynamodb:eu-central-1:049293504011:table/rta-alarmsdb-ccm-test \
+                                                 pEnvironment=TEST \
+                                                 pEnvironmentLowerCase=test
+
+
+
+#-------------------------------------------------------------------
+# RTA VERIFY
+# package for CAPITA
+
+aws cloudformation package --region eu-central-1 --template-file templates/verify.yml \
+                           --s3-bucket s3-capita-ccm-test-lambdas-eu-central-1 \
+                           --output-template-file deploy-verify.yml
+
+
+
+
+#-------------------------------------------------------------------
+# RTA HB
+# package for CAPITA
+
+aws cloudformation package --template-file templates/heartbeat.yml \
+                           --s3-bucket s3-capita-ccm-test-lambdas-eu-central-1 \
+                           --output-template-file deploy-hb.yml
+
+# deploy for CAPITA DEV
+aws cloudformation deploy  --template-file deploy-hb.yml \
+                           --stack-name stCapitaRTA-Dev-HB  \
+                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                           --parameter-overrides pTargetLambdaArn=arn:aws:lambda:eu-central-1:049293504011:function:lmbRtaApp-ccm-DEV
+
+# deploy for CAPITA TEST
+aws cloudformation deploy --region eu-central-1 --template-file deploy-hb.yml \
+                          --stack-name stCapita-RTA-Test-HB  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pTargetLambdaArn=arn:aws:lambda:eu-central-1:049293504011:function:lmbRtaApp-ccm-TEST \
+                                pEnvironment=TEST \
+                                pEnvironmentLowerCase=test
+
+------------------------------------------------------------------------------------
+APP PLAY
+aws cloudformation package --region eu-central-1 --template-file templates/rta.yml \
+                           --s3-bucket s3-gavinchurcher-lambdas-eu-central-1 \
+                           --output-template-file deploy-rta.yml
+
+aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
+                           --stack-name stRtaApp  \
+                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                           --parameter-overrides pAgentSchedule=s3://s3-gchurcher-dumping-ground/schedule.json
+
+aws s3 cp html/index.html s3://s3-capita-gc-rta-webpapp-dev/
+
+-----------------
+SCHEDULER PLAY
+aws cloudformation package --template-file templates/heartbeat.yml \
+                           --s3-bucket s3-gavinchurcher-lambdas \
+                           --output-template-file deploy-hb.yml
+
+aws cloudformation deploy  --template-file deploy-hb.yml \
+                           --stack-name stRtaHb  \
+                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                           --parameter-overrides pTargetLambdaArn=arn:aws:lambda:eu-west-1:561300540183:function:hello-world
+
+-----------------
+
+
+class Alarm:
+    def process(self, event):
+        self.process_alarm_set(event)
+
+class BSL(Alarm):
+    def process_alarm_set(self, event):
+        print("Got event")
+
+BSL().process({})

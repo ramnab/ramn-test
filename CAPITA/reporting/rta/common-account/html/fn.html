@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CAPITA CONNECT RTA DASH</title>
+
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.13/vue.min.js"></script>
+
+</head>
+<body id="vapp">
+
+
+
+<script src="js/aws-cognito-sdk.min.js"></script>
+<script src="js/amazon-cognito-identity.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+
+    var poolData = {
+        UserPoolId: _config.cognito.userPoolId,
+        ClientId: _config.cognito.userPoolClientId
+    };
+    var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+    var CognitoUserPool = AmazonCognitoIdentity.CognitoUserPool;
+
+    function createCognitoUser(email) {
+        return new AmazonCognitoIdentity.CognitoUser({
+            Username: email,
+            Pool: userPool
+        });
+    }
+
+    let api = window._config.api.invokeUrl
+
+
+    axios.defaults.headers.post['Content-Type'] = 'application/json';
+
+    let vapp = new Vue({
+
+        el: "#vapp",
+        data: {
+            cognitoUser: null,
+            userAttributes: null,
+            isAuthenticated: false,
+            newPasswordRequired: false,
+            username: '',
+            passwd: '',
+            newpw: null,
+            auth_fail: false,
+            rememberMe: false
+        },
+        computed: {
+            tokens: function() {
+                try {
+                    return JSON.parse(sessionStorage.getItem('tokens'))
+                } catch (e) {
+                    return {}
+                }
+            }
+        },
+        watch: {},
+        methods: {
+
+            clean : function() {
+                if (this.cognitoUser)
+                    this.cognitoUser.clearCachedTokens()
+
+                this.cognitoUser = null;
+                this.isAuthenticated = false;
+                this.username = '';
+                this.passwd = '';
+                this.newpw = null; 
+                this.rememberMe = false;
+                axios.defaults.headers.common['Authorization'] = null;
+
+            },
+
+            refresh: function() {
+
+                this.cognitoUser = userPool.getCurrentUser();
+                console.log("Cognito User: ", this.cognitoUser);
+                if (this.cognitoUser) {
+                    this.cognitoUser.getSession((err,session) => {
+                        console.log("Session", session);
+                        id_token = session.idToken.getJwtToken();
+                        console.log("ID token: ", id_token);
+                        axios.defaults.headers.common['Authorization'] = id_token;
+                        vapp.isAuthenticated = true;
+                        vapp.rememberMe = true;
+                    });
+                } else {
+                    console.log("No user... please sign in")
+                }
+            },
+
+            hello: function() {
+                console.log("Auth token:", axios.defaults.headers.common['Authorization']);
+                axios.post(window._config.api.invokeUrl, {'message':'hello'})
+                .then(result => console.log("Success!", result))
+                .catch(e => console.log("Error:", e))
+            },
+
+
+            signin: function() {
+                let cognitoUser = createCognitoUser(this.username);
+                console.log("Attempting to log in");
+                let authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+                    Username: vapp.username,
+                    Password: vapp.passwd
+                });
+                this.auth_fail = false;
+
+                cognitoUser.authenticateUser(authenticationDetails, {
+                    onSuccess: function(result) { 
+                        console.log("Successfully logged in", result);
+                        let accessToken = result.getAccessToken().getJwtToken();
+
+                        cognitoUser.getSession( function(e,session) {
+                            axios.defaults.headers.common['Authorization'] = session.getIdToken().getJwtToken();
+                        });
+                        
+                        vapp.isAuthenticated = true;
+                        vapp.newPasswordRequired = false;
+                        vapp.cognitoUser = cognitoUser;
+                    },
+                    onFailure: function(err) {
+                        console.log("Unable to log in:", err);
+                        vapp.cognitoUser = null;
+                        vapp.isAuthenticated = false;
+                        vapp.auth_fail = true
+                    },
+                    newPasswordRequired: function(userAttributes, reqAttr) {
+                        console.log("Password change required");
+                        vapp.isAuthenticated = false;
+                        vapp.newPasswordRequired = true;
+                        
+                        if (vapp.newpw) {
+                            console.log("Changing password...");
+                            delete userAttributes.email_verified;
+                            cognitoUser.completeNewPasswordChallenge(vapp.newpw, userAttributes, this);
+                        } else 
+                            console.log("Presenting change password form...");
+                    }
+                });
+            },
+
+            signout: function() {
+                if (userPool.getCurrentUser()) {
+                    userPool.getCurrentUser().signOut();
+                    this.clean();
+                    console.log("Logged out...");
+                } else {
+                    console.log("Not logged in...");
+                }
+            }
+        }
+    });
+
+
+
+
+    $(document).ready( function() {
+        // attempt to reuse existing token...
+        vapp.refresh();
+        window.onunload =function(){
+            if (!vapp.rememberMe)
+                vapp.signout();
+        }
+    })
+</script>
+
+</body>
+</html>
