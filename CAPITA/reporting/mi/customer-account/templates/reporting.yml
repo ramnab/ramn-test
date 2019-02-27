@@ -1,0 +1,541 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MI reporting stack for Customer Account
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Customer/Client identifier
+  pAgentReportDestinationArn:
+    Type: String
+    Description: Arn for agent reports to be delivered by firehose into common account bucket
+  pQueueReportDestinationArn:
+    Type: String
+    Description: Arn for queue reports to be delivered by firehose into common account bucket
+
+  pCustomUpdateToken:
+    Type: String
+    Description: Triggers update for custom resources
+
+
+Resources:
+
+  ReportingBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: [AgentReportLambda, QueueReportLambda,QueueReportLambdaPermissions, AgentReportLambdaPermissions]
+    Properties:
+      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting"
+      BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+      NotificationConfiguration: 
+        LambdaConfigurations: 
+          -
+            Event: s3:ObjectCreated:*
+            Filter: 
+              S3Key:
+                Rules:
+                  -
+                    Name: prefix
+                    Value: agent_interval/
+            Function:
+              !GetAtt AgentReportLambda.Arn
+          -
+            Event: s3:ObjectCreated:*
+            Filter: 
+              S3Key:
+                Rules:
+                  -
+                    Name: prefix
+                    Value: queue_interval/
+            Function:
+              !GetAtt QueueReportLambda.Arn
+      LifecycleConfiguration:
+        Rules:
+        -
+          Id: raw-ctr-removal
+          Status: Enabled
+          Prefix: raw-ctr
+          ExpirationInDays: 30
+        -
+          Id: raw-agentevents-removal
+          Status: Enabled
+          Prefix: raw-agentevents
+          ExpirationInDays: 30
+        -
+          Id: reports-removal
+          Status: Enabled
+          Prefix: reports
+          ExpirationInDays: 7
+      Tags:
+        -
+            Key: "tech:ApplicationID"
+            Value: !Sub "capita-${pDepartment}-connect"
+        -
+            Key: "tech:Environment"
+            Value: !Ref pEnvironmentLowerCase
+        -
+            Key: "tech:ApplicationRole"
+            Value: "reporting"
+        -
+            Key: "bus:BusinessUnit"
+            Value: !Ref pDepartment
+        -
+            Key: "bus:Business"
+            Value: !Ref pClient
+        -
+            Key: "sec:Compliance"
+            Value: PII
+  
+
+  AgentReportLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "lmbMiAgentReporting-${pDepartment}-${pEnvironment}"
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../src/agent-reporting/code/
+      Policies: 
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting/agent_interval/*"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+
+  
+  AgentReportLambdaPermissions:
+    Type: AWS::Lambda::Permission
+    DependsOn: [AgentReportLambda]
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AgentReportLambda
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting"
+
+  AgentReportLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: AgentReportLambda
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${AgentReportLambda}"
+
+  QueueReportLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "lmbMiQueueReporting-${pDepartment}-${pEnvironment}"
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../src/queue-reporting/code/
+      Policies: 
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting/queue_interval/*"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+
+  
+  QueueReportLambdaPermissions:
+    Type: AWS::Lambda::Permission
+    DependsOn: [QueueReportLambda]
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref QueueReportLambda
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting"
+
+  QueueReportLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: [QueueReportLambda]
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${QueueReportLambda}"
+  
+  CsvConverterLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "lmbMiConverter-${pDepartment}-${pEnvironment}"
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../src/converter/code/
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+
+
+  #-------- Agent Report Firehose Resources ------------
+  #         -------------------------------
+
+
+  AgentReportFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    DependsOn: [AgentReportLambda, AgentIntervalFirehoseRole]
+    Properties:
+      DeliveryStreamName: !Sub "kfh-ccm-agent-intervals-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      
+      # see https://docs.aws.amazon.com/firehose/latest/APIReference/API_ExtendedS3DestinationConfiguration.html
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Ref pAgentReportDestinationArn
+        Prefix: "agent_interval/processed/"
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 64
+        CompressionFormat: UNCOMPRESSED
+        RoleARN: !GetAtt AgentIntervalFirehoseRole.Arn
+
+  AgentIntervalFirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "rl_mi_agent_interval_${pEnvironmentLowerCase}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+      - PolicyName: !Sub "pl_mi_agent_interval_glue_${pEnvironmentLowerCase}"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action: 
+            - "glue:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "lambda:InvokeFunction"
+            - "lambda:GetFunctionConfiguration"
+            Resource: !GetAtt CsvConverterLambda.Arn
+
+
+  #------------------- GLUE stuff -------------------
+  #                    ----------
+
+  GlueDb:
+    Type: AWS::Glue::Database
+    Properties:
+      DatabaseInput:
+        Name: !Sub "gl_${pEnvironmentLowerCase}"
+      CatalogId: !Ref AWS::AccountId
+
+  GlueAgentIntervalTable:
+    Type: AWS::Glue::Table
+    DependsOn: [GlueDb]
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "glt_agent_interval_${pEnvironmentLowerCase}"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: json
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          SerdeInfo:
+             Name: "serde-info"
+             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Type: string
+            Name: "agent" 
+          - Type: int
+            Name: "contact_count" 
+          # - Type: string
+          #   Name: "startinterval" 
+          # - Type: string
+          #   Name: "endinterval" 
+          # - Type: string
+          #   Name: "agent name" 
+          # - Type: string
+          #   Name: "agent first name" 
+          # - Type: string
+          #   Name: "agent last name" 
+          # - Type: int
+          #   Name: "after_contact_work_time" 
+          # - Type: int
+          #   Name: "agent on contact time" 
+          # - Type: int
+          #   Name: "agent idle time" 
+          # - Type: int
+          #   Name: "nonproductive time" 
+          # - Type: string
+          #   Name: "average queue abandon time" 
+          # - Type: int
+          #   Name: "average after contact work time" 
+          # - Type: int
+          #   Name: "average queue answer time" 
+          # - Type: int
+          #   Name: "average handle time" 
+          # - Type: int
+          #   Name: "average customer hold time" 
+          # - Type: int
+          #   Name: "average agent interaction and customer hold time" 
+          # - Type: int
+          #   Name: "average agent interaction time" 
+          # - Type: int
+          #   Name: "contacts abandoned" 
+          # - Type: string
+          #   Name: "contacts abandoned in 15 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 20 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 25 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 30 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 45 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 60 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 90 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 120 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 180 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 240 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 300 seconds" 
+          # - Type: string
+          #   Name: "contacts abandoned in 600 seconds" 
+          # - Type: int
+          #   Name: "contacts agent hung up first" 
+          # - Type: int
+          #   Name: "contacts consulted" 
+          # - Type: int
+          #   Name: "contacts handled" 
+          # - Type: int
+          #   Name: "contacts handled incoming" 
+          # - Type: int
+          #   Name: "contacts handled outbound" 
+          # - Type: int
+          #   Name: "callback contacts handled" 
+          # - Type: int
+          #   Name: "contacts put on hold" 
+          # - Type: int
+          #   Name: "contacts hold disconnect" 
+          # - Type: int
+          #   Name: "contacts hold agent disconnect" 
+          # - Type: int
+          #   Name: "contacts hold customer disconnect" 
+          # - Type: int
+          #   Name: "contacts incoming" 
+          # - Type: int
+          #   Name: "callback contacts" 
+          # - Type: int
+          #   Name: "contacts answered in 15 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 20 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 25 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 30 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 45 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 60 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 90 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 120 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 180 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 240 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 300 seconds" 
+          # - Type: int
+          #   Name: "contacts answered in 600 seconds" 
+          # - Type: int
+          #   Name: "contacts queued" 
+          # - Type: int
+          #   Name: "contacts transferred in" 
+          # - Type: int
+          #   Name: "contacts transferred out" 
+          # - Type: int
+          #   Name: "contacts transferred out internal" 
+          # - Type: int
+          #   Name: "contacts transferred out external" 
+          # - Type: int
+          #   Name: "contacts transferred in from queue" 
+          # - Type: int
+          #   Name: "contacts transferred out from queue" 
+          # - Type: string
+          #   Name: "error status time" 
+          # - Type: int
+          #   Name: "customer hold time" 
+          # - Type: string
+          #   Name: "agent answer rate" 
+          # - Type: int
+          #   Name: "maximum queued time" 
+          # - Type: int
+          #   Name: "contacts missed" 
+          # - Type: int
+          #   Name: "contact handle time" 
+          # - Type: int
+          #   Name: "contact flow time" 
+          # - Type: string
+          #   Name: "occupancy" 
+          # - Type: string
+          #   Name: "service level 15 seconds" 
+          # - Type: string
+          #   Name: "service level 20 seconds" 
+          # - Type: string
+          #   Name: "service level 25 seconds" 
+          # - Type: string
+          #   Name: "service level 30 seconds" 
+          # - Type: string
+          #   Name: "service level 45 seconds" 
+          # - Type: string
+          #   Name: "service level 60 seconds" 
+          # - Type: string
+          #   Name: "service level 90 seconds" 
+          # - Type: string
+          #   Name: "service level 120 seconds" 
+          # - Type: string
+          #   Name: "service level 180 seconds" 
+          # - Type: string
+          #   Name: "service level 240 seconds" 
+          # - Type: string
+          #   Name: "service level 300 seconds" 
+          # - Type: string
+          #   Name: "service level 600 seconds" 
+          # - Type: int
+          #   Name: "online time" 
+          # - Type: int
+          #   Name: "agent interaction and hold time" 
+          # - Type: int
+          #   Name: "agent interaction time" 
+          # - Type: int
+          #   Name: "average outbound agent interaction time" 
+          # - Type: int
+          #   Name: "average outbound after contact work time" 
+          # - Type: int
+          #   Name: "break time" 
+          # - Type: int
+          #   Name: "lunch time" 
+          # - Type: string
+          #   Name: "mentor time" 
+          # - Type: int
+          #   Name: "admin time" 
+          # - Type: string
+          #   Name: "training time" 
+          # - Type: int
+          #   Name: "meeting time" 
+          # - Type: string
+          #   Name: "one to one time" 
+          # - Type: int
+          #   Name: "outbound time" 
+          # - Type: string
+          #   Name: "special 1 time"
+
+
+
+  # AddTransformationToAgentFirehose:
+  #   Type: Custom::AgentTransformation
+  #   DependsOn: [AddTransformationToAgentFirehoseLambda, AgentReportFirehose]
+  #   Properties:
+  #     ServiceToken: !GetAtt AddTransformationToAgentFirehoseLambda.Arn
+  #     FirehoseName: !Ref AgentReportFirehose
+  #     ClientId: !Ref pClient
+  #     CustomResourceToken: !Ref pCustomUpdateToken
+
+
+
+  AddTransformationToAgentFirehoseLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "lmbMiAgentFirehoseModder-${pDepartment}-${pEnvironment}"
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../src/firehose-mod/code/
+      Policies: 
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "firehose:*"
+              Resource:
+                - !GetAtt AgentReportFirehose.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - iam:GetRole
+                - iam:PassRole
+              Resource: !GetAtt AgentIntervalFirehoseRole.Arn
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+
+  # QueueReportFirehose:
+  #   Type: AWS::KinesisFirehose::DeliveryStream
+  #   DependsOn: [QueueReportLambda]
+  #   Properties:
+  #     DeliveryStreamType: DirectPut
+  #     # see https://docs.aws.amazon.com/firehose/latest/APIReference/API_ExtendedS3DestinationConfiguration.html
+  #     ExtendedS3DestinationConfiguration:
+  #       BucketARN: !Ref pQueueReportDestinationArn
+  #       Prefix: !Sub "queue_interval/"
+  #       DataFormatConversionConfiguration:
+  #         OutputFormatConfiguration:
+  #           Serializer:
+  #             ParquetSerDe:
+  #               Compression: SNAPPY
+  #       ProcessingConfiguration:
+  #         Processors:
+  #           - Type: Lambda
+  #             Parameters:
+  #               - ParameterName: LambdaArn
+  #                 ParameterValue: !GetAtt QueueReportLambda.Arn
+  #       RoleARN: !Ref pQueueCommonAccountRoleArn
+
+
+Outputs:
+  oCustomerReportingBucketArn:
+    Value: !GetAtt ReportingBucket.Arn
+  

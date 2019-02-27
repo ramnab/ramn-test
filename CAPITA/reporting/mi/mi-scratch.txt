@@ -1,0 +1,55 @@
+
+#-------------------------------------------------------------------
+# MI Reporting
+# package for CAPITA CUSTOMER Account
+
+aws cloudformation package --region eu-central-1 --template-file templates/reporting.yml \
+                           --s3-bucket s3-gavinchurcher-lambdas-eu-central-1 \
+                           --output-template-file deploy-reporting.yml
+
+# deploy for CAPITA DEV
+aws cloudformation deploy --region eu-central-1 --template-file deploy-reporting.yml \
+                          --stack-name stCapita-MI-Dev-Reporting  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pClient=tradeuk \
+                                pAgentReportDestinationArn=arn:aws:s3:::s3-gchurcher-dumping-ground \
+                                pQueueReportDestinationArn=arn:aws:s3:::s3-gchurcher-dumping-ground\
+                                pEnvironment=DEV \
+                                pEnvironmentLowerCase=dev \
+                                pDepartment=gc \
+                                pCustomUpdateToken=1
+
+export PIPENV_VENV_IN_PROJECT=1
+                        
+
+#--------------------------------------------------------------------
+
+from converter.code.lambda_handler import *
+import boto3
+with open('converter/tests/agent_interval_example.csv', 'r') as f:
+    c = f.read()
+entries = convert_csv_to_json(c)
+client = boto3.client('firehose', region_name='eu-central-1')
+client.put_record(DeliveryStreamName='kfh-ccm-agent-interval-dev', Record={'Data':entries[0]})
+
+
+#-----------------------------------------------------------------
+
+import boto3
+import json
+client = boto3.client('firehose', region_name='eu-central-1')
+def send(entry):
+    data = json.dumps(entry)
+    response = client.put_record(DeliveryStreamName='kfh-ccm-agent-intervals-dev',
+                                 Record={'Data': bytes(data, 'utf-8')})
+    print(response)
+
+send({"agent": "P123", "contact_count": 10})
+
+
+#---------------------------------------------------------------------
+import base64
+data = "eyJhZ2VudCI6ICJQMTIzIiwgImFmdGVyIGNvbnRhY3Qgd29yayB0aW1lIjogMTB9"
+base64.b64decode(data).decode('utf8')
+

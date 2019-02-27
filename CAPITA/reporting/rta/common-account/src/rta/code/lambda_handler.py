@@ -26,7 +26,7 @@ def handler(event, context):
 
     """
 
-    logger.debug("Called with events:" + json.dumps(event, indent=2))
+    logger.info("Called with events:" + json.dumps(event, indent=2))
 
     try:
 
@@ -42,19 +42,26 @@ def handler(event, context):
 
         if event.get("EventType") == "SP_HEART_BEAT":
             logger.info(f"Special Heart Beat")
-            prepared_records = prepare_heart_beat_update(schedule, history)
+            prepared_records = prepare_heart_beat_update(schedule, history, event)
         elif event.get("Records"):
             prepared_records = prepare_records(event.get("Records"))
             capture_history(schedule, prepared_records, history)
+
+        if not prepared_records:
+            logger.info("Nothing to process")
+            return {}
 
         alarmTablename = os.environ.get("ALARM_DB")
         active_alarms = DbTable(alarmTablename)
 
         logger.info(f"Active alarms = {str(active_alarms.items)}")
-        recalculate_alarms(schedule,
-                           prepared_records,
-                           active_alarms,
-                           history)
+        db_updates = recalculate_alarms(schedule,
+                                        prepared_records,
+                                        active_alarms,
+                                        history)
+
+        logger.info(f"Alarm updates: {str(db_updates)}")
+        active_alarms.run_updates(db_updates)
 
     except Exception as e:
         logger.error(e)
@@ -62,13 +69,16 @@ def handler(event, context):
     return {}
 
 
-def prepare_heart_beat_update(schedule, history):
+def prepare_heart_beat_update(schedule, history, event):
     '''
     Generate a new event for each agent in the schedule,
     using their last known status from the history db
     (or offline, if no status present)
     '''
     now = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    if event.get("ts"):
+        now = event.get("ts")
+
     logger.info(f"@ALARM|SPECIAL_HB|ts={now}")
     prep = {}
     for username, entry in schedule.items():
@@ -106,18 +116,18 @@ def prepare_records(records):
         event_as_str = base64.b64decode(data).decode('utf8')
         try:
             event = json.loads(event_as_str)
-            logger.debug(f"Event decoded to json: {event}")
-            if event:
-                username = event.get("CurrentConfiguration", {}) \
-                                .get("Configuration", {}) \
-                                .get("Username")
+            logger.info(f"Event decoded to json: {event}")
+            
+            if event and event.get("EventType") in Alarm.EVENT_TYPES:
+                username = get_username(event)
+                logger.info(f"username = {username}")
                 if "@" in username:
                     logger.info(f"Skipping ADMIN login "
                                 f"from Console: {username}")
                     continue
 
                 log_event(event)
-                username = get_username(event)
+                
                 if username:
                     if not prep.get(username):
                         prep[username] = []
@@ -126,7 +136,7 @@ def prepare_records(records):
             logger.error("Unable to decode json record from string: "
                          f"{event_as_string}")
 
-    logger.debug(f"Prepared records: {prep}")
+    logger.info(f"Prepared records: {prep}")
     return prep
 
 
@@ -157,6 +167,7 @@ def recalculate_alarms(schedule, prepared_records,
 
     alarms = get_all_alarms(schedule, alarm_states_db)
 
+    all_db_updates = []
     for username, events in prepared_records.items():
         # if schedule.get(username):
         user_history = history_db.get(username)
@@ -171,7 +182,13 @@ def recalculate_alarms(schedule, prepared_records,
                         f"for {username},"
                         f"current state = {alarm_state}, "
                         f"user history = {user_history}")
-            alarm.process(events, username, alarm_state, user_history)
+            db_updates = alarm.process(events, username, alarm_state, user_history)
+            
+            if db_updates:
+                for db_update in db_updates:
+                    all_db_updates.append(db_update)
+    logger.info(f"Alarm db updates: {str(all_db_updates)}")
+    return all_db_updates
 
 
 def get_all_alarms(schedules, table):
@@ -189,8 +206,6 @@ def get_all_alarms(schedules, table):
         BXE(schedules),
         EXL(schedules)
     ]
-    for alarm in alarms:
-        alarm.set_table(table)
     return alarms
 
 
@@ -198,7 +213,7 @@ def get_username(event):
     '''Returns the username from a Connect Agent Log event'''
     return event.get("CurrentAgentSnapshot", {}) \
                 .get("Configuration", {}) \
-                .get("Username")
+                .get("Username", "UNKNOWN_USER")
 
 
 def split_s3(uri):

@@ -15,17 +15,17 @@ import argparse
 client = boto3.client('kinesis', region_name='eu-central-1')
 dynamodb = boto3.resource('dynamodb')
 table = None
+lambda_client = boto3.client("lambda")
 
 
 def upload_schedule(env):
-    with open('agent-schedule.json', 'r') as f:
-        schedule = f.read()
-        s3 = boto3.resource('s3')
-        bucket = f's3-capita-ccm-common-{env}-rta-agentschedules'
-        key = 'processed/agent-schedule.json'
-        print(f"Uploading local schedule to s3://{bucket}/key")
-        s3.Object(bucket, key) \
-          .put(Body=open('agent-schedule.json', 'rb'))
+
+    s3 = boto3.resource('s3')
+    bucket = f's3-capita-ccm-common-{env}-rta-agentschedules'
+    key = 'processed/agent-schedule.json'
+    print(f"Uploading local schedule to s3://{bucket}/key")
+    s3.Object(bucket, key) \
+        .put(Body=open('tests/agent-schedule.json', 'rb'))
 
 
 def clear_table():
@@ -64,21 +64,36 @@ def test_pass(test, items):
     return False
 
 
-def run_test(test, stream):
+def run_test(test, stream, env):
     print(f"\n\n{test.get('title')}")
-    send(stream, test.get("event"))
+    send(stream, test, env)
     sleep(5)
     db = read()
     print(f"Expected passed? {test_pass(test, db)}")
 
 
-def send(stream, event):
-    print(f"Sending event: {json.dumps(event)}")
-    response = client.put_record(
-        StreamName=stream,
-        Data=json.dumps(event),
-        PartitionKey='capita-ccm-rta-producer'
-    )
+def send(stream, test, env):
+    print(f"Sending test: {json.dumps(test)}")
+    if test.get("event"):
+        response = client.put_record(
+            StreamName=stream,
+            Data=json.dumps(test.get("event")),
+            PartitionKey='capita-ccm-rta-producer'
+        )
+        print(f"KS response = {response}")
+    elif test.get("hb"):
+        fn = f"lmbRtaApp-ccm-{env.upper()}"
+        event = {
+            "EventType": "SP_HEART_BEAT"
+        }
+        ts = test.get("hb", {}).get("ts")
+
+        if ts:
+            event['ts'] = ts
+        
+        response = lambda_client.invoke(FunctionName=fn,
+                                        Payload=json.dumps(event))
+        print(f"Invoke response = {response}")
 
 
 def create(**kwargs):
@@ -132,13 +147,15 @@ Environment to target in capita-common: dev or test
             # T1=2019-02-20T08:20 T2=2019-02-20T17:15
             {
                 "title": "BSL Activated with SHB",
-                "event": create(typ="SP_HEART_BEAT",
-                                username="P21207381",
-                                ts="2019-02-20T08:21:00.012Z")
+                "hb": {"ts": "2019-02-20T08:21:00.012Z"}
             },
             {
-                "title": "BSL TS Updated with SHB",
-                "event": create(typ="SP_HEART_BEAT",
+                "title": "BSL TS Update with SHB",
+                "hb": {"ts": "2019-02-20T08:22:00.012Z"}
+            },
+            {
+                "title": "BSL Login detected",
+                "event": create(typ="LOGIN",
                                 username="P21207381",
                                 ts="2019-02-20T08:22:00.012Z")
             }
@@ -148,15 +165,12 @@ Environment to target in capita-common: dev or test
             # T1=2019-02-20T12:35 T2=2019-02-20T12:55
             {
                 "title": "WOB Activated with SHB",
-                "event": create(typ="SP_HEART_BEAT",
-                                username="P21207381",
-                                ts="2019-02-20T12:36:00.012Z")
+                "hb": {"ts": "2019-02-20T12:36:00.012Z"}
+                
             },
             {
                 "title": "WOB TS Updated with SHB",
-                "event": create(typ="SP_HEART_BEAT",
-                                username="P21207381",
-                                ts="2019-02-20T12:37:00.012Z")
+                "hb": {"ts": "2019-02-20T12:37:00.012Z"}
             }
         ],
         "WOE": [
@@ -164,15 +178,11 @@ Environment to target in capita-common: dev or test
             # T1=2019-02-20T13:05 T2=2019-02-20T17:10, status=Available
             {
                 "title": "WOE Activated with SHB",
-                "event": create(typ="SP_HEART_BEAT",
-                                username="P21207381",
-                                ts="2019-02-20T13:06:00.012Z")
+                "hb": {"ts": "2019-02-20T13:06:00.012Z"}
             },
             {
                 "title": "WOE TS Updated with SHB",
-                "event": create(typ="SP_HEART_BEAT",
-                                username="P21207381",
-                                ts="2019-02-20T13:07:00.012Z")
+                "event": {"ts": "2019-02-20T13:07:00.012Z"}
             }
         ],
         "BBE": [
@@ -220,13 +230,13 @@ Environment to target in capita-common: dev or test
     if args.test:
         print(f"\n\nRunning test set for {args.test}")
         for test in tests.get(args.test):
-            run_test(test, stream)
+            run_test(test, stream, env)
             sleep(5)
     else:
         for test_set, test_items in tests.items():
             print(f"\n\nRunning test set for {test_set}")
             for test in test_items:
-                run_test(test, stream)
+                run_test(test, stream, env)
                 sleep(5)
 
     print("Completed")

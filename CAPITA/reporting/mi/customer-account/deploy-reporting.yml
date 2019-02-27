@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MI reporting stack for Customer Account
+Outputs:
+  oCustomerReportingBucketArn:
+    Value:
+      Fn::GetAtt:
+      - ReportingBucket
+      - Arn
+Parameters:
+  pAgentReportDestinationArn:
+    Description: Arn for agent reports to be delivered by firehose into common account
+      bucket
+    Type: String
+  pClient:
+    Description: Customer/Client identifier
+    Type: String
+  pCustomUpdateToken:
+    Description: Triggers update for custom resources
+    Type: String
+  pDepartment:
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+    Type: String
+  pEnvironment:
+    Default: DEV
+    Description: Environment label to apply to resources naming
+    Type: String
+  pEnvironmentLowerCase:
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+    Type: String
+  pQueueReportDestinationArn:
+    Description: Arn for queue reports to be delivered by firehose into common account
+      bucket
+    Type: String
+Resources:
+  AddTransformationToAgentFirehoseLambda:
+    Properties:
+      CodeUri: s3://s3-gavinchurcher-lambdas-eu-central-1/e6b29e10dd17f14028801d0db9bd516e
+      FunctionName:
+        Fn::Sub: lmbMiAgentFirehoseModder-${pDepartment}-${pEnvironment}
+      Handler: lambda_handler.handler
+      Policies:
+      - AWSLambdaExecute
+      - Statement:
+        - Action:
+          - firehose:*
+          Effect: Allow
+          Resource:
+          - Fn::GetAtt:
+            - AgentReportFirehose
+            - Arn
+        Version: '2012-10-17'
+      - Statement:
+        - Action:
+          - iam:GetRole
+          - iam:PassRole
+          Effect: Allow
+          Resource:
+            Fn::GetAtt:
+            - AgentIntervalFirehoseRole
+            - Arn
+        Version: '2012-10-17'
+      Runtime: python3.6
+      Tags:
+        bus:Business:
+          Ref: pClient
+        bus:BusinessUnit:
+          Ref: pDepartment
+        tech:ApplicationID:
+          Fn::Sub: capita-${pDepartment}-connect
+        tech:ApplicationRole: reporting
+        tech:Environment:
+          Ref: pEnvironmentLowerCase
+      Timeout: 180
+    Type: AWS::Serverless::Function
+  AgentIntervalFirehoseRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: firehose.amazonaws.com
+        Version: '2012-10-17'
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - glue:*
+            Effect: Allow
+            Resource: '*'
+          - Action:
+            - lambda:InvokeFunction
+            - lambda:GetFunctionConfiguration
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+              - CsvConverterLambda
+              - Arn
+          Version: '2012-10-17'
+        PolicyName:
+          Fn::Sub: pl_mi_agent_interval_glue_${pEnvironmentLowerCase}
+      RoleName:
+        Fn::Sub: rl_mi_agent_interval_${pEnvironmentLowerCase}
+    Type: AWS::IAM::Role
+  AgentReportFirehose:
+    DependsOn:
+    - AgentReportLambda
+    - AgentIntervalFirehoseRole
+    Properties:
+      DeliveryStreamName:
+        Fn::Sub: kfh-ccm-agent-intervals-${pEnvironmentLowerCase}
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Ref: pAgentReportDestinationArn
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 64
+        CompressionFormat: UNCOMPRESSED
+        Prefix: agent_interval/processed/
+        RoleARN:
+          Fn::GetAtt:
+          - AgentIntervalFirehoseRole
+          - Arn
+    Type: AWS::KinesisFirehose::DeliveryStream
+  AgentReportLambda:
+    Properties:
+      CodeUri: s3://s3-gavinchurcher-lambdas-eu-central-1/bff0fab80c88138190199d2e051c9e3a
+      FunctionName:
+        Fn::Sub: lmbMiAgentReporting-${pDepartment}-${pEnvironment}
+      Handler: lambda_handler.handler
+      Policies:
+      - AWSLambdaExecute
+      - Statement:
+        - Action:
+          - s3:GetObject
+          Effect: Allow
+          Resource:
+            Fn::Sub: arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting/agent_interval/*
+        Version: '2012-10-17'
+      Runtime: python3.6
+      Tags:
+        bus:Business:
+          Ref: pClient
+        bus:BusinessUnit:
+          Ref: pDepartment
+        tech:ApplicationID:
+          Fn::Sub: capita-${pDepartment}-connect
+        tech:ApplicationRole: reporting
+        tech:Environment:
+          Ref: pEnvironmentLowerCase
+      Timeout: 180
+    Type: AWS::Serverless::Function
+  AgentReportLambdaLogGroup:
+    DependsOn: AgentReportLambda
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${AgentReportLambda}
+      RetentionInDays: 3
+    Type: AWS::Logs::LogGroup
+  AgentReportLambdaPermissions:
+    DependsOn:
+    - AgentReportLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: AgentReportLambda
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting
+    Type: AWS::Lambda::Permission
+  CsvConverterLambda:
+    Properties:
+      CodeUri: s3://s3-gavinchurcher-lambdas-eu-central-1/4c6f29085e0aa7d3ea4058a98f26e651
+      FunctionName:
+        Fn::Sub: lmbMiConverter-${pDepartment}-${pEnvironment}
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Tags:
+        bus:Business:
+          Ref: pClient
+        bus:BusinessUnit:
+          Ref: pDepartment
+        tech:ApplicationID:
+          Fn::Sub: capita-${pDepartment}-connect
+        tech:ApplicationRole: reporting
+        tech:Environment:
+          Ref: pEnvironmentLowerCase
+      Timeout: 180
+    Type: AWS::Serverless::Function
+  GlueAgentIntervalTable:
+    DependsOn:
+    - GlueDb
+    Properties:
+      CatalogId:
+        Ref: AWS::AccountId
+      DatabaseName:
+        Ref: GlueDb
+      TableInput:
+        Name:
+          Fn::Sub: glt_agent_interval_${pEnvironmentLowerCase}
+        Parameters:
+          classification: json
+        StorageDescriptor:
+          Columns:
+          - Name: agent
+            Type: string
+          - Name: contact_count
+            Type: int
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          SerdeInfo:
+            Name: serde-info
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+        TableType: EXTERNAL_TABLE
+    Type: AWS::Glue::Table
+  GlueDb:
+    Properties:
+      CatalogId:
+        Ref: AWS::AccountId
+      DatabaseInput:
+        Name:
+          Fn::Sub: gl_${pEnvironmentLowerCase}
+    Type: AWS::Glue::Database
+  QueueReportLambda:
+    Properties:
+      CodeUri: s3://s3-gavinchurcher-lambdas-eu-central-1/060ad623285f0ddc8f384e0b9667cf4e
+      FunctionName:
+        Fn::Sub: lmbMiQueueReporting-${pDepartment}-${pEnvironment}
+      Handler: lambda_handler.handler
+      Policies:
+      - AWSLambdaExecute
+      - Statement:
+        - Action:
+          - s3:GetObject
+          Effect: Allow
+          Resource:
+            Fn::Sub: arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting/queue_interval/*
+        Version: '2012-10-17'
+      Runtime: python3.6
+      Tags:
+        bus:Business:
+          Ref: pClient
+        bus:BusinessUnit:
+          Ref: pDepartment
+        tech:ApplicationID:
+          Fn::Sub: capita-${pDepartment}-connect
+        tech:ApplicationRole: reporting
+        tech:Environment:
+          Ref: pEnvironmentLowerCase
+      Timeout: 180
+    Type: AWS::Serverless::Function
+  QueueReportLambdaLogGroup:
+    DependsOn:
+    - QueueReportLambda
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${QueueReportLambda}
+      RetentionInDays: 3
+    Type: AWS::Logs::LogGroup
+  QueueReportLambdaPermissions:
+    DependsOn:
+    - QueueReportLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: QueueReportLambda
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting
+    Type: AWS::Lambda::Permission
+  ReportingBucket:
+    DependsOn:
+    - AgentReportLambda
+    - QueueReportLambda
+    - QueueReportLambdaPermissions
+    - AgentReportLambdaPermissions
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      BucketName:
+        Fn::Sub: s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting
+      LifecycleConfiguration:
+        Rules:
+        - ExpirationInDays: 30
+          Id: raw-ctr-removal
+          Prefix: raw-ctr
+          Status: Enabled
+        - ExpirationInDays: 30
+          Id: raw-agentevents-removal
+          Prefix: raw-agentevents
+          Status: Enabled
+        - ExpirationInDays: 7
+          Id: reports-removal
+          Prefix: reports
+          Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+        - Event: s3:ObjectCreated:*
+          Filter:
+            S3Key:
+              Rules:
+              - Name: prefix
+                Value: agent_interval/
+          Function:
+            Fn::GetAtt:
+            - AgentReportLambda
+            - Arn
+        - Event: s3:ObjectCreated:*
+          Filter:
+            S3Key:
+              Rules:
+              - Name: prefix
+                Value: queue_interval/
+          Function:
+            Fn::GetAtt:
+            - QueueReportLambda
+            - Arn
+      Tags:
+      - Key: tech:ApplicationID
+        Value:
+          Fn::Sub: capita-${pDepartment}-connect
+      - Key: tech:Environment
+        Value:
+          Ref: pEnvironmentLowerCase
+      - Key: tech:ApplicationRole
+        Value: reporting
+      - Key: bus:BusinessUnit
+        Value:
+          Ref: pDepartment
+      - Key: bus:Business
+        Value:
+          Ref: pClient
+      - Key: sec:Compliance
+        Value: PII
+    Type: AWS::S3::Bucket
+Transform: AWS::Serverless-2016-10-31

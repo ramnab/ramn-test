@@ -33,7 +33,8 @@
     "SOU": {
         "grace": 5,
         "codes": ["WORK"],
-        "T1": "SCHEDULE.CODE.T2,-SOU.grace"
+        "T1": "SCHEDULE.CODE.T1",
+        "T2": "SCHEDULE.CODE.T2,-SOU.grace"
     },
     "BBE": {
         "grace":5,
