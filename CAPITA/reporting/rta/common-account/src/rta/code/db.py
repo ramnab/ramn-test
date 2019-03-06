@@ -14,6 +14,7 @@ logger.setLevel(LOGGING_LEVEL)
 
 dynamodb = boto3.resource('dynamodb')
 
+
 class DbTable():
 
     items = []
@@ -31,11 +32,11 @@ class DbTable():
 
     def write(self, entries):
         logger.info(f"db write to table {self.tablename}: {entries}")
-        
+
         table = dynamodb.Table(self.tablename)
         with table.batch_writer() as batch:
             for h in entries:
-                response = batch.put_item(Item=h)
+                batch.put_item(Item=h)
         self.load()
 
     def get(self, username, prop=None):
@@ -63,7 +64,7 @@ class DbTable():
             }
         )
         logger.info(f"@DB|update {key}, {field_name} = {new_value};"
-                     f"response = {str(response)}")
+                    f"response = {str(response)}")
         self.load()
 
     def run_updates(self, updates):

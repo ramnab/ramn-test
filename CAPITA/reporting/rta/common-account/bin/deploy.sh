@@ -3,7 +3,7 @@
 # Ensure you are in the target account before running this script
 # by using a tool such as 'awsume'
 
-ENV=`echo $1 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }'`
+ENV=$(echo $1 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 
 if [ -z "$ENV" ]; then
     echo "
@@ -28,8 +28,8 @@ getStackOutput () {
     aws cloudformation describe-stacks --query "Stacks[?StackName == '$STACKNAME'].Outputs[]| [?OutputKey=='$KEY'].[OutputValue] | [0]" --output text
 }
 
-ENV_UPPER=`echo $1 | awk '{print toupper($0)}'`
-ENV_LOWER=`echo $1 | awk '{print tolower($0)}'`
+ENV_UPPER=$(echo $1 | awk '{print toupper($0)}')
+ENV_LOWER=$(echo $1 | awk '{print tolower($0)}')
 STACK="deploy-$ENV_LOWER.stacks"
 
 echo "Running into account: $AWSUME_PROFILE"
@@ -49,10 +49,10 @@ echo "Deploying CFN-Square stackset: $STACK"
 cf sync -y $STACK
 
 
-LAMBDA_S3=`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-AccountSetup'].Outputs[]| [?OutputKey=='oLambdaDeploymentBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/\1/'`
-COGNITO_ARN=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolArn`
-USERPOOLCLIENTID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolClientId`
-USERPOOLID=`getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolId`
+LAMBDA_S3=$(aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-AccountSetup'].Outputs[]| [?OutputKey=='oLambdaDeploymentBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/\1/')
+COGNITO_ARN=$(getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolArn)
+USERPOOLCLIENTID=$(getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolClientId)
+USERPOOLID=$(getStackOutput stCapita-RTA-$ENV-IdentityManagement oUserPoolId)
 
 
 if [ $LAMBDA_S3 = "None" ] || [ $COGNITO_ARN = "None" ] || [ $USERPOOLCLIENTID = "None" ] || [ $USERPOOLID = "None" ]; then
@@ -82,7 +82,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-verify.ym
                                 pEnvironmentLowerCase=$ENV_LOWER
 
 # e.g. "s3-capita-ccm-common-test-rta-agentschedules"
-AGENT_S3=`getStackOutput stCapita-RTA-$ENV-Verify oRtaScheduleBucketName`  
+AGENT_S3=$(getStackOutput stCapita-RTA-$ENV-Verify oRtaScheduleBucketName)  
 
 echo "-------------"
 echo "Deploying RTA"
@@ -102,7 +102,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
 echo "-------------"
 echo "Deploying Special HeartBeats"
 
-RTA_LAMBDA=`getStackOutput stCapita-RTA-$ENV-App oRtaLambdaArn`
+RTA_LAMBDA=$(getStackOutput stCapita-RTA-$ENV-App oRtaLambdaArn)
 aws cloudformation package --region eu-central-1 --template-file templates/heartbeat.yml \
                            --s3-bucket $LAMBDA_S3 \
                            --output-template-file deploy-hb.yml
@@ -118,8 +118,8 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-hb.yml \
 echo "-------------"
 echo "Deploying API"
 
-ALARM_DB=`getStackOutput stCapita-RTA-$ENV-App oRtaAlarmsDb`
-ALARM_DB_ARN=`getStackOutput stCapita-RTA-$ENV-App oRtaAlarmsDbArn`
+ALARM_DB=$(getStackOutput stCapita-RTA-$ENV-App oRtaAlarmsDb)
+ALARM_DB_ARN=$(getStackOutput stCapita-RTA-$ENV-App oRtaAlarmsDbArn)
 
 if [ $ALARM_DB = "None" ] || [ $ALARM_DB_ARN = "None" ]; then
     echo "Unable to find reference to the alarms db"
@@ -137,7 +137,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-api.yml \
                                                 pRtaAlarmsDb=$ALARM_DB \
                                                 pRtaAlarmsDbArn=$ALARM_DB_ARN
 
-API=`getStackOutput stCapita-RTA-$ENV-Api oRtaApi`
+API=$(getStackOutput stCapita-RTA-$ENV-Api oRtaApi)
 
 if [ $API = "None" ]; then
     echo "Unable to find API in stack stCapita-RTA-$ENV-Api"
@@ -147,23 +147,21 @@ fi
 cat > html/js/config.js << EOF
 window._config = {
     cognito: {
-        userPoolId: '$USERPOOLID',
-        userPoolClientId: '$USERPOOLCLIENTID', 
-        region: 'eu-central-1'
+        userPoolId: "$USERPOOLID",
+        userPoolClientId: "$USERPOOLCLIENTID", 
+        region: "eu-central-1"
     },
     api: {
-        invokeUrl: 'https://$API.execute-api.eu-central-1.amazonaws.com/prod/rta'
+        invokeUrl: "https://$API.execute-api.eu-central-1.amazonaws.com/prod/rta"
     },
-    env: '$ENV_LOWER'
+    env: "$ENV_LOWER"
 };
 EOF
 
 echo "--------------"
 echo "Uploading HTML"
 
-WEB_S3=`aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-CDN'].Outputs[]| [?OutputKey=='oWebAppBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/s3:\/\/\1\//'`
+WEB_S3=$(aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-$ENV-CDN'].Outputs[]| [?OutputKey=='oWebAppBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/s3:\/\/\1\//')
 echo "Uploading to $WEB_S3"
 
 aws s3 sync html/. $WEB_S3
-
-

@@ -166,7 +166,6 @@ Environment to target in capita-common: dev or test
             {
                 "title": "WOB Activated with SHB",
                 "hb": {"ts": "2019-02-20T12:36:00.012Z"}
-                
             },
             {
                 "title": "WOB TS Updated with SHB",

@@ -8,27 +8,27 @@ results_dir = sys.argv[1]
 for f in sys.argv[2::]:
     print(f"Reading file: {f}")
     with open(f) as j:
-        str = j.read()
-        if "}{" in str:
-            str = "[" + str.replace("}{", "}, {") + "]"
+        fstr = j.read()
+        if "}{" in fstr:
+            fstr = "[" + fstr.replace("}{", "}, {") + "]"
 
-        data = json.loads(str)
+        data = json.loads(fstr)
         for datum in data:
-            id = datum.get("CurrentAgentSnapshot", {}) \
+            agent_id = datum.get("CurrentAgentSnapshot", {}) \
                       .get("Configuration", {}) \
                       .get("Username")
 
-            if id and "@" not in id:
-                if not agents.get(id):
-                    agents[id] = []
-                agents.get(id).append(datum)
+            if agent_id and "@" not in agent_id:
+                if not agents.get(agent_id):
+                    agents[agent_id] = []
+                agents.get(agent_id).append(datum)
 
-for id, events in agents.items():
+for agent_id, events in agents.items():
     try:
-        print(f"Processing agent {id}")
-        if not os.path.exists(f'{results_dir}{id}'):
-            os.makedirs(f'{results_dir}{id}')
-        with open(f'{results_dir}{id}/agent_events.json', 'w') as f:
+        print(f"Processing agent {agent_id}")
+        if not os.path.exists(f'{results_dir}{agent_id}'):
+            os.makedirs(f'{results_dir}{agent_id}')
+        with open(f'{results_dir}{agent_id}/agent_events.json', 'w') as f:
             f.write(json.dumps(events))
     except Exception as e:
-        print(f"Unable to write for agent id {id}")
+        print(f"Unable to write for agent id {agent_id}")

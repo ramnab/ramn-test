@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA MI CTR Resources
+
+Parameters:
+  pTransformationDb:
+    Type: String
+    Description: Name of Glue database in this account, used for transformation
+  pCustomUpdateToken:
+    Type: String
+    Default: "1"
+    Description: Used to force invoke the firehose modder
+  pCtrCommonDestination:
+    Type: String
+    Description: S3 Bucket in the common account for CTR records
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lower case
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+
+Resources:
+
+  CustomerParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-ctr-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pCtrCommonDestination}"
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref CtrFirehoseLogGroup
+          LogStreamName: !Ref CtrFirehoseLogStream
+        # EncryptionConfiguration:
+        #   KMSEncryptionConfig:
+        #     AWSKMSKeyARN: !Ref pKmsArn
+        S3BackupMode: Enabled
+        S3BackupConfiguration:
+          RoleARN: !GetAtt CtrFirehoseIAMRole.Arn
+          BucketARN: !Sub "arn:aws:s3:::${pCtrCommonDestination}"
+          Prefix: "raw_ctr/"
+          BufferingHints:
+            IntervalInSeconds: 300
+            SizeInMBs: 128
+          CompressionFormat: UNCOMPRESSED
+        Prefix: "contact_record/"
+        RoleARN: !GetAtt CtrFirehoseIAMRole.Arn
+
+  CtrFirehoseIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "rl_mi_ctr_${pEnvironmentLowerCase}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Sid: "firehosecommoncrossaccountbucketaccess"
+            Action: "sts:AssumeRole"
+            Principal: 
+              "Service": "firehose.amazonaws.com"
+      Policies:
+      - PolicyName: !Sub "access_reporting_bucket_only_${pEnvironmentLowerCase}"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - "glue:*"
+            Effect: Allow
+            Resource: "*"
+          - Action:
+            - s3:AbortMultipartUpload
+            - s3:GetBucketLocation
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:ListBucketMultipartUploads
+            - s3:PutObject
+            - s3:PutObjectAcl
+            Resource:
+            - !Sub "arn:aws:s3:::${pCtrCommonDestination}"
+            - !Sub "arn:aws:s3:::${pCtrCommonDestination}/*"
+            Effect: Allow
+            Sid: clientreportfirehoses3
+          - Action:
+            - logs:PutLogEvents
+            Resource: !GetAtt CtrFirehoseLogGroup.Arn
+            Effect: Allow
+            Sid: clientreportfirehoselogs
+
+  CtrFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub "/firehose/mi-${pEnvironmentLowerCase}-ctr"
+
+  CtrFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref CtrFirehoseLogGroup
+
+
+  #--------------- GLUE Stuff ---------------
+  #                ----------
+
+  GlueCTRTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref pTransformationDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "glt_ctr_${pEnvironmentLowerCase}"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: json
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          SerdeInfo:
+             Name: "serde-info"
+             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          -  Name: AWSAccountId
+             Type: string
+          -  Name: AWSContactTraceRecordFormatVersion
+             Type: string
+          -  Name: Agent
+             Type: string
+          -  Name: AgentConnectionAttempts
+             Type: string
+          -  Name: Attributes
+             Type: string
+          -  Name: Channel
+             Type: string
+          -  Name: ConnectedToSystemTimestamp
+             Type: timestamp
+          -  Name: ContactId
+             Type: string
+          -  Name: CustomerEndpoint
+             Type: string
+          -  Name: DisconnectTimestamp
+             Type: timestamp
+          -  Name: InitialContactId
+             Type: string
+          -  Name: InitiationMethod
+             Type: string
+          -  Name: InitiationTimestamp
+             Type: timestamp
+          -  Name: InstanceARN
+             Type: string
+          -  Name: LastUpdateTimestamp
+             Type: timestamp
+          -  Name: MediaStreams
+             Type: string
+          -  Name: NextContactId
+             Type: string
+          -  Name: PreviousContactId
+             Type: string
+          -  Name: Queue
+             Type: string
+          -  Name: Recording
+             Type: string
+          -  Name: Recordings
+             Type: string
+          -  Name: SystemEndpoint
+             Type: string
+          -  Name: TransferCompletedTimestamp
+             Type: timestamp
+          -  Name: TransferredToEndpoint
+             Type: string
+
+
+  # AddTransformationToCTRFirehose:
+  #   Type: Custom::AgentTransformation
+  #   DependsOn: [GlueCTRTable, CustomerParquetFirehose]
+  #   Properties:
+  #     ServiceToken: !Ref pFirehoseModder
+  #     FirehoseName: !Ref CustomerParquetFirehose
+  #     Prefix: !Sub "contact_record/clientname=${pClient}/rowdate=!{timestamp:yyyy-MM-dd}/"
+  #     ErrorPrefix: !Sub "errors/contact_record/!{firehose:error-output-type}/clientname=${pClient}/rowdate=!{timestamp:yyyy-MM-dd}/"
+  #     TransformationDb: !Ref pTransformationDb
+  #     TransformationTable: !Ref GlueCTRTable
+  #     TransformationRole: !GetAtt CtrFirehoseIAMRole.Arn
+  #     CustomResourceToken: !Ref pCustomUpdateToken

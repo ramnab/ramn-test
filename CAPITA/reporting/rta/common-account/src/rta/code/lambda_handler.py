@@ -183,7 +183,7 @@ def recalculate_alarms(schedule, prepared_records,
                         f"current state = {alarm_state}, "
                         f"user history = {user_history}")
             db_updates = alarm.process(events, username, alarm_state, user_history)
-            
+
             if db_updates:
                 for db_update in db_updates:
                     all_db_updates.append(db_update)

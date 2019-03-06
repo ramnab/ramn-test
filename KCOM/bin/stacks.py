@@ -34,7 +34,7 @@ def update_config(session, config):
 
     stacks = dict()
     for s in cf.describe_stacks()['Stacks']:
-        stacks[s['StackName']] = s.get('Outputs') 
+        stacks[s['StackName']] = s.get('Outputs')
 
     p = re.compile(r'\|Ref\|(st.+)\.(o.+)')
     for key, val in config.items():
@@ -43,7 +43,7 @@ def update_config(session, config):
             stack = m.group(1)
             output = m.group(2)
             if stacks.get(stack):
-                replaced = next(o['OutputValue'] 
+                replaced = next(o['OutputValue']
                                 for o in stacks.get(stack)
                                 if o['OutputKey'] == output)
 
@@ -142,7 +142,7 @@ def get_change_set(session, template, stack_name, config, change_type):
         ChangeSetName=change_set_name,
         ChangeSetType=change_type
     )
-    return wait_for_change_set_created(cf, change_set_name, stack_name)    
+    return wait_for_change_set_created(cf, change_set_name, stack_name)
 
 
 def wait_for_change_set_created(cf, change_set_name, stack_name):
@@ -238,8 +238,8 @@ def get_opts():
         '-y', help='Auto accept changes', action='store_true'
     )
     args = parser.parse_args()
-    config = yaml.load(open(args.defaults))
-    config.update(yaml.load(open(args.config)))
+    config = yaml.safe_load(open(args.defaults))
+    config.update(yaml.safe_load(open(args.config)))
     print(config)
 
     pattern = r'\[([_a-zA-Z0-9-\s]+)\]'

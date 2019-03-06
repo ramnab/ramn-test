@@ -1,0 +1,11 @@
+region: '[region]'
+stacks:
+ stCapita-MI-[env]-CustomerReportingBucket:
+    template-url: resources/reporting-bucket.yml
+    timeout: 1200
+    parameters:
+      pClient: '[client]'
+      pDepartment: '[department]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
+      

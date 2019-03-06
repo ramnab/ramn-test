@@ -90,7 +90,8 @@ class Alarm:
             "val": display_ts
         }
 
-    def agent_state(self, event):
+    @staticmethod
+    def agent_state(event):
         return event.get("CurrentAgentSnapshot", {}) \
                     .get("AgentStatus", {}) \
                     .get("Name")
@@ -427,7 +428,7 @@ class ESL(Alarm):
             if state:
                 event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 '''Incremental display ts'''
-                if event and self.agent_state(event) != "Offline":
+                if event and Alarm.agent_state(event) != "Offline":
                     ts = event.get("EventTimestamp")
                     shift_end = state.get("extra", {}).get("end")
                     time_diff = Alarm.time_diff_mins(shift_end, ts)
@@ -435,14 +436,14 @@ class ESL(Alarm):
                     db_updates.append(self.create_update_display_ts(username, display_ts))
 
                 '''Clear alarm conditions'''
-                if event and self.agent_state(event) == "Offline":
+                if event and Alarm.agent_state(event) == "Offline":
                     db_updates.append(self.create_clear_alarm(username))
 
             if not state:
                 '''Set alarm conditions'''
                 event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
-                    if self.agent_state(event) != "Offline":
+                    if Alarm.agent_state(event) != "Offline":
                         windows = self.get_alarm_times(username, True)
                         for window in windows:
                             if Alarm.is_between(window, event):
@@ -484,7 +485,7 @@ class BBE(Alarm):
                 event = Alarm.typed_event("STATE_CHANGE", filtered_events)
                 if event:
                     '''Set alarm conditions'''
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
                     if agent_state in self.BREAK_CODES:
                         bbes = self.get_alarm_times(username, True)
                         for bbe in bbes:
@@ -525,7 +526,7 @@ class EBL(Alarm):
             if state:
                 event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 break_end = state.get("extra", {}).get("end")
-                agent_state = self.agent_state(event)
+                agent_state = Alarm.agent_state(event)
                 if event and break_end and agent_state in self.BREAK_CODES:
                     event_ts = event.get("EventTimestamp")
                     time_diff = Alarm.time_diff_mins(break_end, event_ts)
@@ -537,7 +538,7 @@ class EBL(Alarm):
                 if event:
                     '''Set alarm conditions'''
                     ebls = self.get_alarm_times(username, True)
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
                     for ebl in ebls:
                         if Alarm.is_between(ebl, event) and \
                            agent_state in self.BREAK_CODES:
@@ -579,7 +580,7 @@ class SIU(Alarm):
         db_updates = []
         if filtered_events:
             if state:
-                event = Alarm.typed_event("SP_HEART_BEAT")
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Incremental ts update'''
                     ts = event.get("EventTimestamp")
@@ -594,7 +595,7 @@ class SIU(Alarm):
                 event = Alarm.typed_event("LOGIN", filtered_events)
                 if event:
                     '''Set alarm conditions'''
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
                     windows = self.get_alarm_times(username, True)
 
                     ts = event.get("EventTimestamp")
@@ -717,7 +718,7 @@ class WOB(Alarm):
                 if event:
                     '''Set alarm conditions'''
                     wobs = self.get_alarm_times(username, True)
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
                     for wob in wobs:
                         if Alarm.is_between(wob, event) \
                            and agent_state not in self.BREAK_CODES \
@@ -762,7 +763,7 @@ class BXE(Alarm):
                 if event:
                     '''Set alarm conditions'''
                     bees = self.get_alarm_times(username, True)
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
                     for bee in bees:
                         if Alarm.is_between(bee, event) \
                            and agent_state in self.EXCEPTION_CODES:
@@ -815,7 +816,7 @@ class EXL(Alarm):
                 if event:
                     '''Set alarm conditions'''
                     exls = self.get_alarm_times(username, True)
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
 
                     for exl in exls:
                         if Alarm.is_between(exl, event) \
@@ -869,7 +870,7 @@ class WOE(Alarm):
                 if event:
                     '''Set alarm conditions'''
                     woes = self.get_alarm_times(username, True)
-                    agent_state = self.agent_state(event)
+                    agent_state = Alarm.agent_state(event)
                     for woe in woes:
                         if Alarm.is_between(woe, event) \
                            and agent_state not in self.EXCEPTION_CODES \
