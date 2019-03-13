@@ -281,6 +281,19 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-ctr.yml \
   }
 }
 
+# CUSTOMER TRADEUK QUEUE INTERVAL **DEV**
+{
+  "debug": true,
+  "ResourceProperties": {
+    "FirehoseName": "kfh-ccm-qi-dev",
+    "Prefix": "queue_interval/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "ErrorPrefix": "errors/queue_interval/!{firehose:error-output-type}/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "TransformationDb": "gl_ccm_dev",
+    "TransformationTable": "glt_queue_intervals_dev",
+    "TransformationRole": "arn:aws:iam::907290942892:role/rl_mi_queue_interval_dev"
+  }
+}
+
 #------------------------------------------------
 # ATHENA setup Common
 

@@ -1,0 +1,327 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CAPITA MI Reporting Queue Interval
+
+Parameters:
+  pTransformationDb:
+    Type: String
+    Description: Name of Glue database in this account, used for transformation
+  pCommonDestination:
+    Type: String
+    Description: Name of S3 Bucket in Common account for the reports
+  pCustomerReportBucket:
+    Type: String
+    Description: Name of Customer S3 Bucket to trigger lambda
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Customer/Client identifier
+
+Resources:
+  QueueIntervalLambda:
+    Type: AWS::Serverless::Function
+    DependsOn: QueueIntervalParquetFirehose
+    Properties:
+      FunctionName: !Sub "lmbQueueInterval-${pDepartment}-${pEnvironment}"
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../../../src/queue-intervals/code/
+      Environment:
+        Variables:
+          FIREHOSE: !Ref QueueIntervalParquetFirehose
+          CONFIG: "queue,startinterval,endinterval,servicelevel15seconds,servicelevel20seconds,servicelevel25seconds,servicelevel30seconds,servicelevel45seconds,servicelevel60seconds,servicelevel90seconds,servicelevel120seconds,servicelevel180seconds,servicelevel240seconds,servicelevel300seconds,servicelevel600seconds"
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "firehose:*"
+              Resource: "*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - iam:GetRole
+                - iam:PassRole
+              Resource: "*"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+
+  QueueIntervalReportTriggerPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: QueueIntervalLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref QueueIntervalLambda
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${pCustomerReportBucket}"
+
+  QueueIntervalParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-qi-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref QueueIntervalFirehoseLogGroup
+          LogStreamName: !Ref QueueIntervalFirehoseLogStream
+        Prefix: "queue_interval/"
+        RoleARN: !GetAtt QueueIntervalFirehoseIAMRole.Arn
+
+  QueueIntervalFirehoseIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "rl_mi_queue_interval_${pEnvironmentLowerCase}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+#            Sid: "fh_common_x_accountbucketaccess_queueinterval"
+            Action: "sts:AssumeRole"
+            Principal:
+              "Service": "firehose.amazonaws.com"
+      Policies:
+        - PolicyName: !Sub "access_reporting_bucket_only_queue_interval_${pEnvironmentLowerCase}"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "glue:*"
+                Effect: Allow
+                Resource: "*"
+              - Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub "arn:aws:s3:::${pCommonDestination}"
+                  - !Sub "arn:aws:s3:::${pCommonDestination}/*"
+                Effect: Allow
+                Sid: queueintervalreportfirehoses
+              - Action:
+                  - logs:PutLogEvents
+                Resource: !GetAtt QueueIntervalFirehoseLogGroup.Arn
+                Effect: Allow
+                Sid: queueintervalreportfirehoselogs
+
+  QueueIntervalFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub "/firehose/mi-${pEnvironmentLowerCase}-queue-interval"
+
+  QueueIntervalFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref QueueIntervalFirehoseLogGroup
+
+  GlueQueueIntervalTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref pTransformationDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "glt_queue_intervals_${pEnvironmentLowerCase}"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: json
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          SerdeInfo:
+            Name: "serde-info"
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+            - Name: queue
+              Type: string
+            - Name: startinterval
+              Type: timestamp
+            - Name: endinterval
+              Type: timestamp
+            - Name: aftercontactworktime
+              Type: int
+            - Name: agentoncontacttime
+              Type: int
+            - Name: agentidletime
+              Type: int
+            - Name: averagequeueabandontime
+              Type: int
+            - Name: averageaftercontactworktime
+              Type: int
+            - Name: averagequeueanswertime
+              Type: int
+            - Name: averagehandletime
+              Type: int
+            - Name: averagecustomerholdtime
+              Type: int
+            - Name: averageagentinteractionandcustomerholdtime
+              Type: int
+            - Name: averageagentinteractiontime
+              Type: int
+            - Name: contactsabandoned
+              Type: int
+            - Name: contactsabandonedin15seconds
+              Type: int
+            - Name: contactsabandonedin20seconds
+              Type: int
+            - Name: contactsabandonedin25seconds
+              Type: int
+            - Name: contactsabandonedin30seconds
+              Type: int
+            - Name: contactsabandonedin45seconds
+              Type: int
+            - Name: contactsabandonedin60seconds
+              Type: int
+            - Name: contactsabandonedin90seconds
+              Type: int
+            - Name: contactsabandonedin120seconds
+              Type: int
+            - Name: contactsabandonedin180seconds
+              Type: int
+            - Name: contactsabandonedin240seconds
+              Type: int
+            - Name: contactsabandonedin300seconds
+              Type: int
+            - Name: contactsabandonedin600seconds
+              Type: int
+            - Name: contactsagenthungupfirst
+              Type: int
+            - Name: contactsconsulted
+              Type: int
+            - Name: contactshandled
+              Type: int
+            - Name: contactshandledincoming
+              Type: int
+            - Name: contactshandledoutbound
+              Type: int
+            - Name: callbackcontactshandled
+              Type: int
+            - Name: contactsputonhold
+              Type: int
+            - Name: contactsholddisconnect
+              Type: int
+            - Name: contactsholdagentdisconnect
+              Type: int
+            - Name: contactsholdcustomerdisconnect
+              Type: int
+            - Name: contactsincoming
+              Type: int
+            - Name: callbackcontacts
+              Type: int
+            - Name: contactsansweredin15seconds
+              Type: int
+            - Name: contactsansweredin20seconds
+              Type: int
+            - Name: contactsansweredin25seconds
+              Type: int
+            - Name: contactsansweredin30seconds
+              Type: int
+            - Name: contactsansweredin45seconds
+              Type: int
+            - Name: contactsansweredin60seconds
+              Type: int
+            - Name: contactsansweredin90seconds
+              Type: int
+            - Name: contactsansweredin120seconds
+              Type: int
+            - Name: contactsansweredin180seconds
+              Type: int
+            - Name: contactsansweredin240seconds
+              Type: int
+            - Name: contactsansweredin300seconds
+              Type: int
+            - Name: contactsansweredin600seconds
+              Type: int
+            - Name: contactsqueued
+              Type: int
+            - Name: contactstransferredin
+              Type: int
+            - Name: contactstransferredout
+              Type: int
+            - Name: contactstransferredoutinternal
+              Type: int
+            - Name: contactstransferredoutexternal
+              Type: int
+            - Name: contactstransferredinfromqueue
+              Type: int
+            - Name: contactstransferredoutfromqueue
+              Type: int
+            - Name: customerholdtime
+              Type: int
+            - Name: agentanswerrate
+              Type: int
+            - Name: maximumqueuedtime
+              Type: int
+            - Name: contactsmissed
+              Type: int
+            - Name: contacthandletime
+              Type: int
+            - Name: contactflowtime
+              Type: int
+            - Name: occupancy
+              Type: int
+            - Name: servicelevel15seconds
+              Type: string
+            - Name: servicelevel20seconds
+              Type: string
+            - Name: servicelevel25seconds
+              Type: string
+            - Name: servicelevel30seconds
+              Type: string
+            - Name: servicelevel45seconds
+              Type: string
+            - Name: servicelevel60seconds
+              Type: string
+            - Name: servicelevel90seconds
+              Type: string
+            - Name: servicelevel120seconds
+              Type: string
+            - Name: servicelevel180seconds
+              Type: string
+            - Name: servicelevel240seconds
+              Type: string
+            - Name: servicelevel300seconds
+              Type: string
+            - Name: servicelevel600seconds
+              Type: string
+            - Name: agentinteractionandholdtime
+              Type: int
+            - Name: agentinteractiontime
+              Type: int
+            - Name: averageoutboundagentinteractiontime
+              Type: int
+            - Name: averageoutboundaftercontactworktime
+              Type: int
+
+Outputs:
+  oQueueIntervalLambdaArn:
+    Value: !GetAtt QueueIntervalLambda.Arn
+  oQueueIntervalFirehose:
+    Value: !Ref QueueIntervalParquetFirehose
