@@ -2,6 +2,7 @@ import boto3
 import json
 from time import sleep
 import argparse
+from pathlib import Path
 
 """
     Send test events to a target Kinesis Stream
@@ -14,25 +15,39 @@ import argparse
 
 client = boto3.client('kinesis', region_name='eu-central-1')
 dynamodb = boto3.resource('dynamodb')
-table = None
+alarms_table = None
+status_table = None
 lambda_client = boto3.client("lambda")
+
+
+def slp(t):
+    if t:
+        print(f"... pausing for {t} seconds...", end='\r')
+        sleep(1)
+        t -= 1
+        slp(t)
+    else:
+        print("\n")
 
 
 def upload_schedule(env):
 
     s3 = boto3.resource('s3')
     bucket = f's3-capita-ccm-common-{env}-rta-agentschedules'
-    key = 'processed/agent-schedule.json'
+    key = 'processed/agent-schedule-testing.json'
     print(f"Uploading local schedule to s3://{bucket}/key")
+    cwd = Path(__file__).parents[0]
+    agent_file_path = cwd / 'agent-schedule-testing.json'
+
     s3.Object(bucket, key) \
-        .put(Body=open('tests/agent-schedule.json', 'rb'))
+        .put(Body=open(agent_file_path, 'rb'))
 
 
-def clear_table():
-    global table
-    print(f"Clearing table '{table.table_name}'")
-    items = read()
-    with table.batch_writer() as batch:
+def clear_alarms_table():
+    global alarms_table
+    print("Clearing alarms table")
+    items = read_alarms()
+    with alarms_table.batch_writer() as batch:
         for item in items:
             batch.delete_item(Key={
                 "username": item.get("username"),
@@ -40,9 +55,27 @@ def clear_table():
             })
 
 
-def read():
-    global table
-    response = table.scan(ConsistentRead=True)
+def clear_status_table():
+    global status_table
+    print("Clearing status table")
+    items = read_status()
+    with status_table.batch_writer() as batch:
+        for item in items:
+            batch.delete_item(Key={
+                "username": item.get("username"),
+                "prop": item.get("prop")
+            })
+
+
+def read_alarms():
+    global alarms_table
+    response = alarms_table.scan(ConsistentRead=True)
+    return response.get("Items")
+
+
+def read_status():
+    global status_table
+    response = status_table.scan(ConsistentRead=True)
     return response.get("Items")
 
 
@@ -66,21 +99,26 @@ def test_pass(test, items):
 
 def run_test(test, stream, env):
     print(f"\n\n{test.get('title')}")
+    if test.get("clear", "") == "alarms":
+        clear_alarms_table()
     send(stream, test, env)
-    sleep(5)
-    db = read()
-    print(f"Expected passed? {test_pass(test, db)}")
+    sleep(2)
+    db = read_alarms()
+    if test.get("expected"):
+        print(f"Expected passed? {test_pass(test, db)}")
+    else:
+        print("No tests set")
 
 
 def send(stream, test, env):
     print(f"Sending test: {json.dumps(test)}")
     if test.get("event"):
-        response = client.put_record(
+        client.put_record(
             StreamName=stream,
             Data=json.dumps(test.get("event")),
             PartitionKey='capita-ccm-rta-producer'
         )
-        print(f"KS response = {response}")
+
     elif test.get("hb"):
         fn = f"lmbRtaApp-ccm-{env.upper()}"
         event = {
@@ -90,10 +128,11 @@ def send(stream, test, env):
 
         if ts:
             event['ts'] = ts
-        
-        response = lambda_client.invoke(FunctionName=fn,
-                                        Payload=json.dumps(event))
-        print(f"Invoke response = {response}")
+
+        print(f"\nInvoking with event: {event}\n")
+
+        lambda_client.invoke(FunctionName=fn,
+                             Payload=json.dumps(event))
 
 
 def create(**kwargs):
@@ -142,6 +181,29 @@ Environment to target in capita-common: dev or test
     args = parser.parse_args()
 
     tests = {
+        "SIU": [
+            # SHIFT START=2019-02-20T08:15 END=2019-02-20T17:15
+            {
+                "title": "SIU Activated Before SHIFT",
+                "event": create(typ="LOGIN",
+                                username="P21207381",
+                                ts="2019-02-20T07:30:00.012Z")
+            },
+            {
+                "title": "SIU Activated After SHIFT",
+                "event": create(typ="LOGIN",
+                                username="P21207381",
+                                ts="2019-02-20T17:55:00.012Z"),
+                "clear": "alarms"
+            },
+            {
+                "title": "SIU Activated WITH NO SCHEDULE",
+                "event": create(typ="LOGIN",
+                                username="P123",
+                                ts="2019-02-20T17:55:00.012Z"),
+                "clear": "alarms"
+            }
+        ],
         "BSL": [
             # SHIFT START=2019-02-20T08:15 END=2019-02-20T17:15
             # T1=2019-02-20T08:20 T2=2019-02-20T17:15
@@ -164,24 +226,84 @@ Environment to target in capita-common: dev or test
             # BREAK START=2019-02-20T12:30 END=2019-02-20T13:00
             # T1=2019-02-20T12:35 T2=2019-02-20T12:55
             {
+                "title": "WOB Set up: setting LOGIN with a work status",
+                "event": create(typ="LOGIN",
+                                username="P21207381",
+                                ts="2019-02-20T08:15:00.012Z")
+            },
+            {
                 "title": "WOB Activated with SHB",
                 "hb": {"ts": "2019-02-20T12:36:00.012Z"}
             },
             {
                 "title": "WOB TS Updated with SHB",
                 "hb": {"ts": "2019-02-20T12:37:00.012Z"}
+            },
+            {
+                "title": "WOB Cleared with State Change to non-work status",
+                "event": create(typ="STATE_CHANGE",
+                                username="P21207381",
+                                ts="2019-02-20T12:38:00.012Z",
+                                status="Break")
+            },
+            {
+                "title": ("WOB Activated during scheduled exception with "
+                          "State Change to a work status - PENDING status"),
+                "event": create(typ="STATE_CHANGE",
+                                username="P21207381",
+                                ts="2019-02-20T12:36:00.012Z",
+                                status="Available")
+            },
+            {
+                "title": ("WOB Activated during scheduled exception with "
+                          "State Change to a work status - ACTIVE status"),
+                "hb": {"ts": "2019-02-20T12:42:00.012Z"}
+            },
+            {
+                "title": "WOE ts updated",
+                "hb": {"ts": "2019-02-20T12:43:00.012Z"}
             }
         ],
         "WOE": [
             # EXC START=2019-02-20T13:00 END=2019-02-20T17:15
             # T1=2019-02-20T13:05 T2=2019-02-20T17:10, status=Available
             {
+                "title": "WOE Set up: setting LOGIN with a work status",
+                "event": create(typ="LOGIN",
+                                username="P21207381",
+                                ts="2019-02-20T08:15:00.012Z")
+            },
+            {
                 "title": "WOE Activated with SHB",
                 "hb": {"ts": "2019-02-20T13:06:00.012Z"}
             },
             {
                 "title": "WOE TS Updated with SHB",
-                "event": {"ts": "2019-02-20T13:07:00.012Z"}
+                "hb": {"ts": "2019-02-20T13:07:00.012Z"}
+            },
+            {
+                "title": "WOE Cleared with State Change to non-work status",
+                "event": create(typ="STATE_CHANGE",
+                                username="P21207381",
+                                ts="2019-02-20T13:08:00.012Z",
+                                status="Break")
+            },
+            {
+                "title": ("WOE Activated during scheduled exception with "
+                          "State Change to a work status - PENDING status"),
+                "event": create(typ="STATE_CHANGE",
+                                username="P21207381",
+                                ts="2019-02-20T13:01:00.012Z",
+                                status="Available")
+            },
+            {
+                "title": ("WOE Activated during scheduled exception with "
+                          "State Change to a work status - ACTIVE status"),
+                "hb": {"ts": "2019-02-20T13:07:00.012Z"}
+            },
+            {
+                "title": "WOE ts updated",
+                "hb": {"ts": "2019-02-20T13:08:00.012Z"}
             }
         ],
         "BBE": [
@@ -220,23 +342,38 @@ Environment to target in capita-common: dev or test
 
     upload_schedule(env)
 
-    global table
-    table = dynamodb.Table(f'rta-alarmsdb-ccm-{env}')
-    clear_table()
+    global alarms_table
+    global status_table
+    alarms_table = dynamodb.Table(f'rta-alarmsdb-ccm-{env}')
+    status_table = dynamodb.Table(f'rta-eventhistory-ccm-{env}')
     if args.test and not tests.get(args.test):
         raise Exception(f"Test '{args.test}' not found")
 
     if args.test:
-        print(f"\n\nRunning test set for {args.test}")
+        print(f"""
+
++-----------------------------------+
+Running test set for {args.test}
+
+""")
+        clear_alarms_table()
+        clear_status_table()
         for test in tests.get(args.test):
             run_test(test, stream, env)
-            sleep(5)
+            slp(10)
     else:
         for test_set, test_items in tests.items():
-            print(f"\n\nRunning test set for {test_set}")
+            print(f"""
+
++-----------------------------------+
+Running test set for {test_set}
+
+""")
+            clear_alarms_table()
+            clear_status_table()
             for test in test_items:
                 run_test(test, stream, env)
-                sleep(5)
+                slp(10)
 
     print("Completed")
 

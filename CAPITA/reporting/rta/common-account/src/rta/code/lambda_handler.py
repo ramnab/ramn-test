@@ -4,7 +4,6 @@ import logging
 import re
 import boto3
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Attr
 import os
 from datetime import datetime
 from db import *
@@ -117,7 +116,7 @@ def prepare_records(records):
         try:
             event = json.loads(event_as_str)
             logger.info(f"Event decoded to json: {event}")
-            
+
             if event and event.get("EventType") in Alarm.EVENT_TYPES:
                 username = get_username(event)
                 logger.info(f"username = {username}")
@@ -127,7 +126,7 @@ def prepare_records(records):
                     continue
 
                 log_event(event)
-                
+
                 if username:
                     if not prep.get(username):
                         prep[username] = []
@@ -195,7 +194,8 @@ def get_all_alarms(schedules, table):
     alarms = [
         BSE(schedules),
         BSL(schedules),
-        ESE(schedules),
+        # ESE alarm disabled
+        # ESE(schedules),
         ESL(schedules),
         BBE(schedules),
         EBL(schedules),

@@ -469,7 +469,14 @@
                 axios.post(_config.api.invokeUrl, {'message':'hello'})
                 .then(result => {
                     console.log("Success!", result);
-                    vapp.alarms = result.data;
+                    // prune pending
+                    vapp.alarms = [];
+                    for (let alarm of result.data) {
+                        if (alarm.extra && alarm.extra.status == "pending")
+                            console.log("Muting alarm: ", alarm)
+                        else
+                            vapp.alarms.push(alarm)
+                    }
                     vapp.lastUpdate = Date().toLocaleString().split("+")[0]
                     setTimeout(function() {$('[data-toggle="popover"]').popover()}, 1000)
                 })

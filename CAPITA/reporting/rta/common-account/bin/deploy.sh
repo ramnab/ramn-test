@@ -99,7 +99,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
                                 pEnvironment=$ENV_UPPER \
                                 pEnvironmentLowerCase=$ENV_LOWER
 
-echo "-------------"
+echo "----------------------------"
 echo "Deploying Special HeartBeats"
 
 RTA_LAMBDA=$(getStackOutput stCapita-RTA-$ENV-App oRtaLambdaArn)

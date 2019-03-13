@@ -16,8 +16,10 @@ logger.setLevel(LOGGING_LEVEL)
 
 class Alarm:
 
+    WORK_CODES = ["Available", "After Call", "System Down",
+                  "Admin", "Outbound"]
     BREAK_CODES = ["Break", "Lunch"]
-    EXCEPTION_CODES = ['System Down', 'Admin', 'Training', '121']
+    EXCEPTION_CODES = ['Training', '121']
     EVENT_TYPES = ['SP_HEART_BEAT', 'STATE_CHANGE', 'LOGIN', 'LOGOUT']
 
     def __init__(self, alarmcode, event_types, schedules):
@@ -90,13 +92,22 @@ class Alarm:
             "val": display_ts
         }
 
+    def incr_display_ts(self, username, ts, events):
+        event = Alarm.typed_event("SP_HEART_BEAT", events)
+        if event:
+            event_ts = event.get("EventTimestamp")
+            time_diff = Alarm.time_diff_mins(event_ts, ts)
+            display_ts = Alarm.mins_pp(time_diff)
+            return self.create_update_display_ts(username, display_ts)
+        return None
+
     @staticmethod
     def agent_state(event):
         return event.get("CurrentAgentSnapshot", {}) \
                     .get("AgentStatus", {}) \
                     .get("Name")
 
-    def get_alarm_times(self, username, asList=False):
+    def get_alarm_times(self, username):
         if not self.schedules.get(username):
             logger.info(f"No schedule found for {username}")
             return []
@@ -105,10 +116,8 @@ class Alarm:
         if not alarms.get(self.alarmcode):
             logger.debug(f"No alarm params exist for user {username}")
             return {}
-        if asList:
-            return alarms.get(self.alarmcode)
-        else:
-            return alarms.get(self.alarmcode)[0]
+
+        return alarms.get(self.alarmcode)
 
     def get_schedule(self, username, code="SHIFT"):
         return self.schedules.get(username).get('SCHEDULE').get(code)
@@ -118,10 +127,10 @@ class Alarm:
         if filtered_events:
             if state:
                 return self.process_alarm_active(filtered_events, username,
-                                          state, history)
+                                                 state, history)
             else:
                 return self.process_alarm_inactive(filtered_events, username,
-                                            state, history)
+                                                   state, history)
 
     def process_alarm_active(self, _events, _username, _state, _history):
         pass
@@ -191,9 +200,9 @@ class Alarm:
     @staticmethod
     def mins_pp(mins):
         if not mins:
-            return "00:00"
+            return "00:00:00"
         (hours, minutes) = divmod(mins, 60)
-        return f"{hours:02d}:{minutes:02d}"
+        return f"{hours:02d}:{minutes:02d}:00"
 
     @staticmethod
     def pp_date(date):
@@ -216,41 +225,47 @@ class BSE(Alarm):
         super().__init__("BSE", ["LOGIN", "SP_HEART_BEAT"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
-        db_updates = []
-        if filtered_events:
-            if state:
-                '''Clear alarm conditions'''
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if state.get("extra", {}).get("end"):
-                    if Alarm.after(state.get("extra", {}).get("end"), event):
-                        db_updates.append(self.create_clear_alarm(username))
+        filtered = self.filter(events)
 
-            if not state:
-                '''Set alarm conditions'''
-                event = Alarm.typed_event("LOGIN", filtered_events)
-                if event:
-                    windows = self.get_alarm_times(username, True)
-                    for window in windows:
-                        if Alarm.is_between(window, event):
-                            ts = event.get("EventTimestamp")
-                            ts_pp = datetime.strftime(self.get_ts(ts),
-                                                      '%H:%M:%S %d/%m/%Y')
-                            shift_start = window.get("start")
-                            shift_end = window.get("end")
-                            time_diff = Alarm.time_diff_mins(shift_start, ts)
-                            display_ts = Alarm.mins_pp(time_diff)
-                            ttl = shift_end
-                            reason = (f"{username} login at {ts_pp} "
-                                      f"before shift start at "
-                                      f"{Alarm.pp_date(shift_start)}")
-                            
-                            db_update = self.create_set_alarm(username, ts, display_ts,
-                                                              {"end": window.get("T2")},
-                                                              event, reason, ttl)
-                            print(f"update: {str(db_update)}")
-                            db_updates.append(db_update)
-                            break
+        if not filtered:
+            return []
+
+        db_updates = []
+
+        if state:
+            '''Clear alarm conditions'''
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if state.get("extra", {}).get("end"):
+                if Alarm.after(state.get("extra", {}).get("end"), event):
+                    db_updates.append(self.create_clear_alarm(username))
+
+        if not state:
+            '''Set alarm conditions'''
+            event = Alarm.typed_event("LOGIN", filtered)
+            if event:
+                windows = self.get_alarm_times(username)
+                for window in windows:
+                    if Alarm.is_between(window, event):
+                        ts = event.get("EventTimestamp")
+                        ts_pp = datetime.strftime(self.get_ts(ts),
+                                                  '%H:%M:%S %d/%m/%Y')
+                        shift_start = window.get("start")
+                        shift_end = window.get("end")
+                        time_diff = Alarm.time_diff_mins(shift_start, ts)
+                        display_ts = Alarm.mins_pp(time_diff)
+                        ttl = shift_start
+                        reason = (f"{username} login at {ts_pp} "
+                                  f"before shift start at "
+                                  f"{Alarm.pp_date(shift_start)}")
+
+                        extra = {"end": window.get("T2")}
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       extra,
+                                                       event, reason, ttl)
+                        if update:
+                            db_updates.append(update)
+                        break
         return db_updates
 
 
@@ -310,12 +325,16 @@ class BSL(Alarm):
                 else:
                     logger.info(f"@BSL {username} expect ts increment")
                     logger.info(f"@BSL {username} state={state}")
-                    logger.info(f"@BSL {username} state.extra={state.get('extra')}")
+                    logger.info(f"@BSL {username} "
+                                f"state.extra={state.get('extra')}")
                     event_ts = event.get("EventTimestamp")
                     shift_start = state.get("extra", {}).get("start")
                     time_diff = Alarm.time_diff_mins(shift_start, event_ts)
                     display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
+                    update = self.create_update_display_ts(username,
+                                                           display_ts)
+                    if update:
+                        db_updates.append(update)
         return db_updates
 
     def process_alarm_inactive(self, events, username, state, history):
@@ -340,7 +359,7 @@ class BSL(Alarm):
 
             # calculate whether heartbeat falls inside
             # BSL window(s)
-            windows = self.get_alarm_times(username, True)
+            windows = self.get_alarm_times(username)
             for window in windows:
                 if Alarm.is_between(window, event):
                     ts = event.get("EventTimestamp")
@@ -356,8 +375,10 @@ class BSL(Alarm):
                         "start": window.get('start'),
                         "end": window.get('end')
                     }
-                    db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                                            extra, event, reason))
+                    update = self.create_set_alarm(username, ts, display_ts,
+                                                   extra, event, reason)
+                    if update:
+                        db_updates.append(update)
                     break
         return db_updates
 
@@ -378,29 +399,36 @@ class ESE(Alarm):
         super().__init__("ESE", ["LOGOUT"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
-        db_updates = []
-        if filtered_events:
-            if not state:
-                '''Set alarm conditions'''
-                event = Alarm.typed_event("LOGOUT", filtered_events)
-                if event:
-                    ts = event.get("EventTimestamp")
-                    windows = self.get_alarm_times(username, True)
-                    for window in windows:
-                        if Alarm.before(window.get("T1"), event):
-                            # the reported time shift end time
-                            ts_pp = Alarm.pp_date(ts)
-                            shift_end = window.get("end")
-                            time_diff = Alarm.time_diff_mins(ts, shift_end)
-                            display_ts = Alarm.mins_pp(time_diff)
-                            ttl = shift_end
-                            reason = (f"{username} logged out at {ts_pp} "
-                                      f"before shift end at "
-                                      f"{Alarm.pp_date(shift_end)}")
+        filtered = self.filter(events)
 
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts, {},
-                                                             event, reason, ttl))
+        if not filtered:
+            return []
+
+        db_updates = []
+
+        if not state:
+            '''Set alarm conditions'''
+            event = Alarm.typed_event("LOGOUT", filtered)
+            if event:
+                ts = event.get("EventTimestamp")
+                windows = self.get_alarm_times(username)
+                for window in windows:
+                    if Alarm.before(window.get("T1"), event):
+                        # the reported time shift end time
+                        ts_pp = Alarm.pp_date(ts)
+                        shift_end = window.get("end")
+                        time_diff = Alarm.time_diff_mins(ts, shift_end)
+                        display_ts = Alarm.mins_pp(time_diff)
+                        ttl = shift_end
+                        reason = (f"{username} logged out at {ts_pp} "
+                                  f"before shift end at "
+                                  f"{Alarm.pp_date(shift_end)}")
+
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts, {},
+                                                       event, reason, ttl)
+                        if update:
+                            db_updates.append(update)
         return db_updates
 
 
@@ -421,48 +449,62 @@ class ESL(Alarm):
         super().__init__("ESL", ["SP_HEART_BEAT"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
+        filtered = self.filter(events)
+
+        if not filtered:
+            return []
+
         db_updates = []
-        if filtered_events:
 
-            if state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                '''Incremental display ts'''
-                if event and Alarm.agent_state(event) != "Offline":
-                    ts = event.get("EventTimestamp")
-                    shift_end = state.get("extra", {}).get("end")
-                    time_diff = Alarm.time_diff_mins(shift_end, ts)
-                    display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
+        if state:
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            '''Incremental display ts'''
+            if event and Alarm.agent_state(event) != "Offline":
+                ts = event.get("EventTimestamp")
+                shift_end = state.get("extra", {}).get("end")
+                time_diff = Alarm.time_diff_mins(shift_end, ts)
+                display_ts = Alarm.mins_pp(time_diff)
 
-                '''Clear alarm conditions'''
-                if event and Alarm.agent_state(event) == "Offline":
-                    db_updates.append(self.create_clear_alarm(username))
+                update = self.create_update_display_ts(username,
+                                                       display_ts)
+                if update:
+                    db_updates.append(update)
 
-            if not state:
-                '''Set alarm conditions'''
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    if Alarm.agent_state(event) != "Offline":
-                        windows = self.get_alarm_times(username, True)
-                        for window in windows:
-                            if Alarm.is_between(window, event):
-                                # the reported time shift end time
-                                ts = event.get("EventTimestamp")
-                                ts_pp = Alarm.pp_date(ts)
-                                shift_end = window.get("end")
-                                time_diff = Alarm.time_diff_mins(shift_end, ts)
-                                display_ts = Alarm.mins_pp(time_diff)
-                                ttl = window.get("T2")
-                                reason = (f"{username} not offline at {ts_pp} "
-                                          f"after end of shift at "
-                                          f"{Alarm.pp_date(shift_end)}")
-                                db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                                 {"end": window.get("end")},
-                                                 event, reason, ttl))
-                                break
-        
+            '''Clear alarm conditions'''
+            if event and Alarm.agent_state(event) == "Offline":
+                db_updates.append(self.create_clear_alarm(username))
+
+        if not state:
+            '''Set alarm conditions'''
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                if Alarm.agent_state(event) != "Offline":
+                    windows = self.get_alarm_times(username)
+                    for window in windows:
+                        if Alarm.is_between(window, event):
+                            # the reported time shift end time
+                            ts = event.get("EventTimestamp")
+                            ts_pp = Alarm.pp_date(ts)
+                            shift_end = window.get("end")
+                            time_diff = Alarm.time_diff_mins(shift_end, ts)
+                            display_ts = Alarm.mins_pp(time_diff)
+                            ttl = window.get("T2")
+                            reason = (f"{username} not offline at {ts_pp} "
+                                      f"after end of shift at "
+                                      f"{Alarm.pp_date(shift_end)}")
+
+                            extra = {"end": window.get("end")}
+                            update = self.create_set_alarm(username, ts,
+                                                           display_ts,
+                                                           extra,
+                                                           event, reason,
+                                                           ttl)
+                            if update:
+                                db_updates.append(update)
+                            break
+
         return db_updates
+
 
 class BBE(Alarm):
     '''
@@ -478,34 +520,48 @@ class BBE(Alarm):
         super().__init__("BBE", ["STATE_CHANGE"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
+        filtered = self.filter(events)
+
+        if not filtered:
+            return []
+
         db_updates = []
-        if filtered_events:
-            if not state:
-                event = Alarm.typed_event("STATE_CHANGE", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    agent_state = Alarm.agent_state(event)
-                    if agent_state in self.BREAK_CODES:
-                        bbes = self.get_alarm_times(username, True)
-                        for bbe in bbes:
-                            if Alarm.is_between(bbe, event) \
-                               and agent_state in self.BREAK_CODES:
-                                ts = event.get("EventTimestamp")
-                                ts_pp = Alarm.pp_date(ts)
-                                break_start = bbe.get("start")
-                                time_diff = Alarm.time_diff_mins(break_start, ts)
-                                display_ts = Alarm.mins_pp(time_diff)
-                                ttl = bbe.get("end")
-                                reason = (f"{username} entered break at {ts_pp} "
-                                          f"earlier than expected start "
-                                          f"time of "
-                                          f"{Alarm.pp_date(break_start)}")
-                                db_updates.append(self.create_set_alarm(username, ts, display_ts, {},
-                                               event, reason, ttl))
-                                break
+
+        if not state:
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
+            if event:
+                '''Set alarm conditions'''
+                agent_state = Alarm.agent_state(event)
+                if agent_state in self.BREAK_CODES:
+                    bbes = self.get_alarm_times(username)
+                    for bbe in bbes:
+                        if Alarm.is_between(bbe, event) and \
+                           agent_state in self.BREAK_CODES:
+                            ts = event.get("EventTimestamp")
+                            ts_pp = Alarm.pp_date(ts)
+                            break_start = bbe.get("start")
+                            time_diff = Alarm.time_diff_mins(break_start,
+                                                             ts)
+
+                            display_ts = Alarm.mins_pp(time_diff)
+                            ttl = break_start
+                            reason = (f"{username} entered break at "
+                                      f"{ts_pp}"
+                                      f" earlier than expected start "
+                                      f"time of "
+                                      f"{Alarm.pp_date(break_start)}")
+
+                            update = self.create_set_alarm(username, ts,
+                                                           display_ts, {},
+                                                           event, reason,
+                                                           ttl)
+
+                            if update:
+                                db_updates.append(update)
+                            break
 
         return db_updates
+
 
 class EBL(Alarm):
     '''
@@ -517,50 +573,72 @@ class EBL(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("EBL", ["SP_HEART_BEAT"], schedules)
+        super().__init__("EBL", ["STATE_CHANGE", "SP_HEART_BEAT"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
+        filtered = self.filter(events)
+
+        if not filtered:
+            return []
+
         db_updates = []
-        if filtered_events:
-            if state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
+
+        if state:
+            '''Clear Alarm Conditions'''
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
+            if event:
+                agent_state = Alarm.agent_state(event)
+                if agent_state not in self.BREAK_CODES:
+                    update = self.create_clear_alarm(username)
+                    if update:
+                        db_updates.append(update)
+
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
                 break_end = state.get("extra", {}).get("end")
                 agent_state = Alarm.agent_state(event)
                 if event and break_end and agent_state in self.BREAK_CODES:
                     event_ts = event.get("EventTimestamp")
-                    time_diff = Alarm.time_diff_mins(break_end, event_ts)
-                    display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
 
-            if not state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    ebls = self.get_alarm_times(username, True)
-                    agent_state = Alarm.agent_state(event)
-                    for ebl in ebls:
-                        if Alarm.is_between(ebl, event) and \
-                           agent_state in self.BREAK_CODES:
-                            ts = event.get("EventTimestamp")
-                            ts_pp = Alarm.pp_date(ts)
-                            ttl = ebl.get("T2")
-                            break_start = ebl.get("start")
-                            break_end = ebl.get("end")
-                            time_diff = Alarm.time_diff_mins(break_end, ts)
-                            display_ts = Alarm.mins_pp(time_diff)
-                            reason = (f"{username} has break status at "
-                                      f"{ts_pp} when break finish expected "
-                                      f"at {Alarm.pp_date(break_end)}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                                            {
-                                                                "start": break_start,
-                                                                "end": break_end
-                                                            }, event,
-                                                            reason, ttl))
-                            break
+                    update = self.incr_display_ts(username, break_end,
+                                                  filtered)
+                    if update:
+                        db_updates.append(update)
+
+        if not state:
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                '''Set alarm conditions'''
+                ebls = self.get_alarm_times(username)
+                agent_state = Alarm.agent_state(event)
+                for ebl in ebls:
+                    if Alarm.is_between(ebl, event) and \
+                       agent_state in self.BREAK_CODES:
+                        ts = event.get("EventTimestamp")
+                        ts_pp = Alarm.pp_date(ts)
+                        ttl = ebl.get("T2")
+                        break_start = ebl.get("start")
+                        break_end = ebl.get("end")
+                        time_diff = Alarm.time_diff_mins(break_end, ts)
+                        display_ts = Alarm.mins_pp(time_diff)
+                        reason = (f"{username} has break status at "
+                                  f"{ts_pp} when break finish expected "
+                                  f"at {Alarm.pp_date(break_end)}")
+
+                        extra = {
+                            "start": break_start,
+                            "end": break_end
+                        }
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       extra, event,
+                                                       reason, ttl)
+                        if update:
+                            db_updates.append(update)
+                        break
 
         return db_updates
+
 
 class SIU(Alarm):
     '''
@@ -576,59 +654,85 @@ class SIU(Alarm):
         super().__init__("SIU", ["LOGIN", "SP_HEART_BEAT"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
+        filtered = self.filter(events)
+
+        if not filtered:
+            return []
+
         db_updates = []
-        if filtered_events:
-            if state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Incremental ts update'''
-                    ts = event.get("EventTimestamp")
-                    login_ts = state.get("extra",{}).get("login")
-                    if login_ts:
-                        logger.info("SIU ts updating")
-                        time_diff = Alarm.time_diff_mins(login_ts, ts)
-                        display_ts = Alarm.mins_pp(time_diff)
-                        db_updates.append(self.create_update_display_ts(username, display_ts))
 
-            if not state:
-                event = Alarm.typed_event("LOGIN", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    agent_state = Alarm.agent_state(event)
-                    windows = self.get_alarm_times(username, True)
+        if state:
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                '''Incremental ts update'''
+                ts = event.get("EventTimestamp")
+                login_ts = state.get("extra", {}).get("login")
+                if login_ts:
+                    logger.info("SIU ts updating")
+                    time_diff = Alarm.time_diff_mins(login_ts, ts)
+                    display_ts = Alarm.mins_pp(time_diff)
 
-                    ts = event.get("EventTimestamp")
-                    display_ts = Alarm.pp_date(ts)
-                    if not self.schedules.get(username):
+                    update = self.create_update_display_ts(username,
+                                                           display_ts)
+
+                    if update:
+                        db_updates.append(update)
+
+        if not state:
+            event = Alarm.typed_event("LOGIN", filtered)
+            if event:
+                '''Set alarm conditions'''
+                agent_state = Alarm.agent_state(event)
+                windows = self.get_alarm_times(username)
+
+                ts = event.get("EventTimestamp")
+                display_ts = Alarm.pp_date(ts)
+                if not self.schedules.get(username):
+                    reason = (f"{username} logged in at {display_ts} "
+                              f" but no schedule exists for them")
+
+                    update = self.create_set_alarm(username, ts,
+                                                   display_ts,
+                                                   {"login": ts},
+                                                   event, reason)
+
+                    if update:
+                        db_updates.append(update)
+                    return db_updates
+
+                for window in windows:
+
+                    if Alarm.before(window.get("T1"), event):
                         reason = (f"{username} logged in at {display_ts} "
-                                  f" but no schedule exists for them")
-                        db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                          {"login": ts},
-                                          event, reason))
-                        return db_updates
+                                  f"before their expected shift start "
+                                  f"time of {window.get('start')}")
 
-                    for window in windows:
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       {"login": ts},
+                                                       event, reason)
 
-                        if Alarm.before(window.get("T1"), event):
-                            reason = (f"{username} logged in at {display_ts} "
-                                      f"before their expected shift start "
-                                      f"time of {window.get('start')}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                              {"login": ts},
-                                              event, reason))
-                            break
-                        if Alarm.after(window.get("T2"), event):
-                            reason = (f"{username} logged in at {display_ts} "
-                                      f"after their expected shift ended "
-                                      f"time of "
-                                      f"{Alarm.pp_date(window.get('end'))}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                              {"login": ts},
-                                              event, reason))
-                            break
+                        if update:
+                            db_updates.append(update)
+                        break
+
+                    if Alarm.after(window.get("T2"), event):
+                        reason = (f"{username} logged in at {display_ts} "
+                                  f"after their expected shift ended "
+                                  f"time of "
+                                  f"{Alarm.pp_date(window.get('end'))}")
+
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       {"login": ts},
+                                                       event, reason)
+
+                        if update:
+                            db_updates.append(update)
+                        break
 
         return db_updates
+
 
 class SOU(Alarm):
     '''
@@ -638,54 +742,196 @@ class SOU(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("SOU", ["SP_HEART_BEAT", "LOGOUT", "LOGIN"], schedules)
+        super().__init__("SOU", ["SP_HEART_BEAT", "LOGOUT", "LOGIN"],
+                         schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
-        db_updates = []
-        if filtered_events:
-            if state:
-                '''Clear alarm conditions'''
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                shift_end = state.get("extra", {}).get("end")
-                if event and shift_end and Alarm.after(shift_end, event):
-                    db_updates.append(self.create_clear_alarm(username))
-                
-                event = Alarm.typed_event("LOGIN", filtered_events)
-                if event:
-                    db_updates.append(self.create_clear_alarm(username))
-                    return db_updates
-                
-                '''Update incremental ts'''
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                ts = event.get("EventTimestamp")
-                logout_ts = state.get("extra", {}).get("logout")
-                if event and logout_ts:
-                    time_diff = Alarm.time_diff_mins(logout_ts, ts)
-                    display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
+        filtered = self.filter(events)
 
-            if not state:
-                event = Alarm.typed_event("LOGOUT", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    windows = self.get_alarm_times(username, True)
-                    for window in windows:
-                        if Alarm.is_between(window, event):
-                        # if Alarm.before(window.get("T1"), event):
-                            ts = event.get("EventTimestamp")
-                            display_ts = Alarm.pp_date(ts)
-                            reason = (f"{username} logged out at {display_ts} "
-                                      f"before expected end of shift at "
-                                      f"{Alarm.pp_date(window.get('end'))}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                              {"end": window.get("end"), "logout": ts},
-                                              event, reason))
-                            break
+        if not filtered:
+            return []
+        db_updates = []
+
+        if state:
+            '''Clear alarm conditions'''
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            shift_end = state.get("extra", {}).get("end")
+            if event and shift_end and Alarm.after(shift_end, event):
+                db_updates.append(self.create_clear_alarm(username))
+
+            event = Alarm.typed_event("LOGIN", filtered)
+            if event:
+                db_updates.append(self.create_clear_alarm(username))
+                return db_updates
+
+            '''Update incremental ts'''
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            ts = event.get("EventTimestamp")
+            logout_ts = state.get("extra", {}).get("logout")
+            if event and logout_ts:
+                time_diff = Alarm.time_diff_mins(logout_ts, ts)
+                display_ts = Alarm.mins_pp(time_diff)
+
+                update = self.create_update_display_ts(username,
+                                                       display_ts)
+                if update:
+                    db_updates.append(update)
+
+        if not state:
+            event = Alarm.typed_event("LOGOUT", filtered)
+            if event:
+                '''Set alarm conditions'''
+                windows = self.get_alarm_times(username)
+                for window in windows:
+                    if Alarm.is_between(window, event):
+                        ts = event.get("EventTimestamp")
+                        display_ts = Alarm.pp_date(ts)
+                        reason = (f"{username} logged out at {display_ts} "
+                                  f"before expected end of shift at "
+                                  f"{Alarm.pp_date(window.get('end'))}")
+
+                        extra = {"end": window.get("end"), "logout": ts}
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       extra,
+                                                       event, reason)
+
+                        if update:
+                            db_updates.append(update)
+                        break
 
         return db_updates
 
+
 class WOB(Alarm):
+    '''
+    Working On Break
+    From Exception version
+    Alarm is set when an agent has a work state between
+        exception start time + grace (T1) and exception end time - grace (T2)
+
+    Alarm clears at T2 or when the state changes to any other
+    than a work status
+    '''
+
+    def __init__(self, schedules):
+        super().__init__("WOB", ["SP_HEART_BEAT", "STATE_CHANGE"], schedules)
+
+    def process(self, events, username, state, _history=None):
+        filtered = self.filter(events)
+
+        if not filtered:
+            return []
+
+        db_updates = []
+
+        if state:
+            '''Clear alarm'''
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
+            if event and Alarm.agent_state(event) not in self.WORK_CODES:
+                update = self.create_clear_alarm(username)
+                if update:
+                    db_updates.append(update)
+
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                '''Change pending alarm to active'''
+                is_pending = state.get("extra", {}) \
+                                  .get("status", "") == "pending"
+
+                if is_pending:
+
+                    ts = event.get("EventTimestamp")
+                    start = state.get("extra", {}).get("start")
+                    time_diff = Alarm.time_diff_mins(ts, start)
+
+                    if time_diff >= 5:
+                        extra = state.get("extra", {})
+                        extra['status'] = "active"
+                        update = {
+                            "type": "update",
+                            "key": {
+                                    "username": username,
+                                    "alarmcode": self.alarmcode
+                            },
+                            "field": "extra",
+                            "val": extra
+                        }
+                        db_updates.append(update)
+
+                '''Incremental display ts'''
+                start = state.get("extra", {}).get("start")
+                if start:
+                    update = self.incr_display_ts(username,
+                                                  start,
+                                                  filtered)
+                    if update:
+                        db_updates.append(update)
+
+        if not state:
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
+            if not event:
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                '''Set alarm conditions'''
+                wobs = self.get_alarm_times(username)
+                agent_state = Alarm.agent_state(event)
+                for wob in wobs:
+                    window = wob
+
+                    if event.get("EventType") == "STATE_CHANGE":
+                        window = {
+                            "T1": wob.get("start"),
+                            "T2": wob.get("end")
+                        }
+
+                    if Alarm.is_between(window, event) and \
+                       agent_state in self.WORK_CODES:
+
+                        # default display time is from start of break
+                        ts = event.get("EventTimestamp")
+                        start = wob.get("start")
+                        time_diff = Alarm.time_diff_mins(ts,
+                                                         wob.get("start"))
+
+                        # on state change to working type, reset the
+                        # display time
+                        if event.get("EventType") == "STATE_CHANGE":
+                            if Alarm.after(wob.get("start"), event):
+                                start = ts
+                                time_diff = 0
+
+                        ts_pp = Alarm.pp_date(ts)
+
+                        display_ts = Alarm.mins_pp(time_diff)
+                        ttl = wob.get("T2")
+
+                        alarm_status = "active"
+                        if event.get("EventType") == "STATE_CHANGE":
+                            alarm_status = "pending"
+
+                        reason = (f"{username} has a status of "
+                                  f"{agent_state} at {ts_pp}; "
+                                  f"break scheduled for "
+                                  f"{Alarm.pp_date(wob.get('start'))}"
+                                  f"- {Alarm.pp_date(wob.get('end'))}")
+
+                        extra = {
+                            "start": start,
+                            "status": alarm_status
+                        }
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       extra,
+                                                       event, reason, ttl)
+                        if update:
+                            db_updates.append(update)
+                        break
+
+        return db_updates
+
+
+class WOB_p1(Alarm):
     '''
     Working On Break
     Alarm is set when an agent is available between
@@ -711,13 +957,17 @@ class WOB(Alarm):
                     break_start = state.get("extra", {}).get("start")
                     time_diff = Alarm.time_diff_mins(event_ts, break_start)
                     display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
+
+                    update = self.create_update_display_ts(username,
+                                                           display_ts)
+                    if update:
+                        db_updates.append(update)
 
             if not state:
                 event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
                 if event:
                     '''Set alarm conditions'''
-                    wobs = self.get_alarm_times(username, True)
+                    wobs = self.get_alarm_times(username)
                     agent_state = Alarm.agent_state(event)
                     for wob in wobs:
                         if Alarm.is_between(wob, event) \
@@ -733,18 +983,24 @@ class WOB(Alarm):
                                       f" at {ts_pp}, break start expected at "
                                       f"{Alarm.pp_date(wob.get('start'))}")
                             logger.info(f"@WOB|Set alarm|reason={reason}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                              {"start": wob.get("start")},
-                                              event, reason, ttl))
+
+                            extra = {"start": wob.get("start")}
+                            update = self.create_set_alarm(username, ts,
+                                                           display_ts,
+                                                           extra, event,
+                                                           reason, ttl)
+                            if update:
+                                db_updates.append(update)
                             break
-        
+
         return db_updates
+
 
 class BXE(Alarm):
     '''
     Begin Exception Early
     Alarm is set when an agent enters state of
-    'System Down', 'Admin', 'Training' or '121'
+    'Training' or '121'
     between
         exception start time - window (T1) and
         exception start time - grace (T2)
@@ -752,37 +1008,46 @@ class BXE(Alarm):
     '''
 
     def __init__(self, schedules):
-        super().__init__("BXE", ["SP_HEART_BEAT"], schedules)
+        super().__init__("BXE", ["STATE_CHANGE"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
-        db_updates = []
-        if filtered_events:
-            if not state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    bees = self.get_alarm_times(username, True)
-                    agent_state = Alarm.agent_state(event)
-                    for bee in bees:
-                        if Alarm.is_between(bee, event) \
-                           and agent_state in self.EXCEPTION_CODES:
-                            ts = event.get("EventTimestamp")
-                            ts_pp = Alarm.pp_date(ts)
-                            exc_start = bee.get("start")
+        filtered = self.filter(events)
 
-                            time_diff = Alarm.time_diff_mins(exc_start, ts)
-                            display_ts = Alarm.mins_pp(time_diff)
-                            ttl = bee.get("T2")
-                            reason = (f"{username} has an exception status "
-                                      f"{agent_state} at {ts_pp} when "
-                                      f" exception expected to start at "
-                                      f"{Alarm.pp_date(exc_start)}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts, {},
-                                              event, reason, ttl))
-                            break
+        if not filtered:
+            return []
+
+        db_updates = []
+
+        if not state:
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
+            if event:
+                '''Set alarm conditions'''
+                bees = self.get_alarm_times(username)
+                agent_state = Alarm.agent_state(event)
+                for bee in bees:
+                    if Alarm.is_between(bee, event) \
+                       and agent_state in self.EXCEPTION_CODES:
+                        ts = event.get("EventTimestamp")
+                        ts_pp = Alarm.pp_date(ts)
+                        exc_start = bee.get("start")
+
+                        time_diff = Alarm.time_diff_mins(exc_start, ts)
+                        display_ts = Alarm.mins_pp(time_diff)
+                        ttl = bee.get("T2")
+                        reason = (f"{username} has changed to an exception status "
+                                  f"{agent_state} at {ts_pp} when "
+                                  f" exception expected to start at "
+                                  f"{Alarm.pp_date(exc_start)}")
+
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts, {},
+                                                       event, reason, ttl)
+                        if update:
+                            db_updates.append(update)
+                        break
 
         return db_updates
+
 
 class EXL(Alarm):
     '''
@@ -797,100 +1062,174 @@ class EXL(Alarm):
         super().__init__("EXL", ["SP_HEART_BEAT"], schedules)
 
     def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
+        filtered = self.filter(events)
+
+        if not filtered:
+            return []
+
         db_updates = []
-        if filtered_events:
 
-            if state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Incremental display ts'''
-                    event_ts = event.get("EventTimestamp")
-                    exception_end = state.get("extra", {}).get("end")
-                    time_diff = Alarm.time_diff_mins(event_ts, exception_end)
-                    display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
+        if state:
+            '''Incremental display ts'''
+            exc_end = state.get("extra", {}).get("end")
+            if exc_end:
+                update = self.incr_display_ts(username, exc_end, filtered)
 
-            if not state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    exls = self.get_alarm_times(username, True)
-                    agent_state = Alarm.agent_state(event)
+                if update:
+                    db_updates.append(update)
 
-                    for exl in exls:
-                        if Alarm.is_between(exl, event) \
-                           and agent_state in self.EXCEPTION_CODES:
-                            ts = event.get("EventTimestamp")
-                            ts_pp = Alarm.pp_date(ts)
-                            ttl = exl.get("T2")
-                            display_ts = datetime.strftime(self.get_ts(ttl),
-                                                           '%H:%M:%S %d/%m/%Y')
-                            reason = (f"{username} has an exception status "
-                                      f"of {agent_state} "
-                                      f"at {ts_pp} where exception should "
-                                      f"have ended at "
-                                      f"{Alarm.pp_date(exl.get('end'))}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                              {"end": exl.get("T2")},
-                                              event, reason, ttl))
-                            break
+        if not state:
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                '''Set alarm conditions'''
+                exls = self.get_alarm_times(username)
+                agent_state = Alarm.agent_state(event)
+
+                for exl in exls:
+                    if Alarm.is_between(exl, event) and \
+                       agent_state in self.EXCEPTION_CODES:
+                        ts = event.get("EventTimestamp")
+                        ts_pp = Alarm.pp_date(ts)
+                        ttl = exl.get("T2")
+                        display_ts = datetime.strftime(self.get_ts(ttl),
+                                                       '%H:%M:%S %d/%m/%Y')
+                        reason = (f"{username} has an exception status "
+                                  f"of {agent_state} "
+                                  f"at {ts_pp} where exception should "
+                                  f"have ended at "
+                                  f"{Alarm.pp_date(exl.get('end'))}")
+
+                        extra = {"end": exl.get("T2")}
+                        update = self.create_set_alarm(username,
+                                                       ts, display_ts,
+                                                       extra, event,
+                                                       reason, ttl)
+                        if update:
+                            db_updates.append(update)
+                        break
 
         return db_updates
+
 
 class WOE(Alarm):
     '''
     Working On Exception
-    Alarm is set when an agent is available between
+    Alarm is set when an agent has a work state between
         exception start time + grace (T1) and exception end time - grace (T2)
 
-    Alarm clears at T2
+    Alarm clears at T2 or when the state changes to any other
+    than a work status
     '''
 
     def __init__(self, schedules):
-        super().__init__("WOE", ["SP_HEART_BEAT"], schedules)
+        super().__init__("WOE", ["SP_HEART_BEAT", "STATE_CHANGE"], schedules)
 
-    def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
+    def process(self, events, username, state, _history=None):
+        filtered = self.filter(events)
+        if not filtered:
+            return []
         db_updates = []
-        if filtered_events:
-            if state:
+
+        if state:
+            '''Clear alarm'''
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
+            if event and Alarm.agent_state(event) not in self.WORK_CODES:
+                update = self.create_clear_alarm(username)
+                if update:
+                    db_updates.append(update)
+
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+            if event:
+                '''Change pending alarm to active'''
+                is_pending = state.get("extra", {}) \
+                                  .get("status", "") == "pending"
+
+                if is_pending:
+
+                    ts = event.get("EventTimestamp")
+                    start = state.get("extra", {}).get("start")
+                    time_diff = Alarm.time_diff_mins(ts, start)
+
+                    if time_diff >= 5:
+                        extra = state.get("extra", {})
+                        extra['status'] = "active"
+                        update = {
+                            "type": "update",
+                            "key": {
+                                    "username": username,
+                                    "alarmcode": self.alarmcode
+                            },
+                            "field": "extra",
+                            "val": extra
+                        }
+                        db_updates.append(update)
+
                 '''Incremental display ts'''
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    event_ts = event.get("EventTimestamp")
-                    exception_start = state.get("extra", {}).get("start")
-                    time_diff = Alarm.time_diff_mins(event_ts,
-                                                     exception_start)
-                    display_ts = Alarm.mins_pp(time_diff)
-                    db_updates.append(self.create_update_display_ts(username, display_ts))
+                start = state.get("extra", {}).get("start")
+                if start:
+                    update = self.incr_display_ts(username, start,
+                                                  filtered)
+                    if update:
+                        db_updates.append(update)
 
-            if not state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    woes = self.get_alarm_times(username, True)
-                    agent_state = Alarm.agent_state(event)
-                    for woe in woes:
-                        if Alarm.is_between(woe, event) \
-                           and agent_state not in self.EXCEPTION_CODES \
-                           and agent_state not in self.BREAK_CODES \
-                           and agent_state != "Offline":
-                            ts = event.get("EventTimestamp")
-                            ts_pp = Alarm.pp_date(ts)
-                            time_diff = Alarm.time_diff_mins(ts,
-                                                             woe.get("start"))
+        if not state:
+            event = Alarm.typed_event("STATE_CHANGE", filtered)
 
-                            display_ts = Alarm.mins_pp(time_diff)
-                            ttl = woe.get("T2")
-                            reason = (f"{username} has a status of "
-                                      f"{agent_state} at {ts_pp}; "
-                                      f"exception scheduled for "
-                                      f"{Alarm.pp_date(woe.get('start'))}"
-                                      f"- {Alarm.pp_date(woe.get('end'))}")
-                            db_updates.append(self.create_set_alarm(username, ts, display_ts,
-                                              {"start": woe.get("start")},
-                                              event, reason, ttl))
-                            break
+            if not event:
+                event = Alarm.typed_event("SP_HEART_BEAT", filtered)
+
+            if event:
+                '''Set alarm conditions'''
+                woes = self.get_alarm_times(username)
+                agent_state = Alarm.agent_state(event)
+                for woe in woes:
+                    window = woe
+                    if event.get("EventType") == "STATE_CHANGE":
+                        window = {
+                            "T1": woe.get("start"),
+                            "T2": woe.get("end")
+                        }
+                    if Alarm.is_between(window, event) and \
+                       agent_state in self.WORK_CODES:
+
+                        # default display time is from start of exception
+                        ts = event.get("EventTimestamp")
+                        start = woe.get("start")
+                        time_diff = Alarm.time_diff_mins(ts, woe.get("start"))
+
+                        # on state change to working type, reset the
+                        # display time
+                        if event.get("EventType") == "STATE_CHANGE":
+                            if Alarm.after(woe.get("start"), event):
+                                start = ts
+                                time_diff = 0
+
+                        ts_pp = Alarm.pp_date(ts)
+
+                        display_ts = Alarm.mins_pp(time_diff)
+                        ttl = woe.get("T2")
+
+                        alarm_status = "active"
+                        if event.get("EventType") == "STATE_CHANGE":
+                            alarm_status = "pending"
+
+                        reason = (f"{username} has a status of "
+                                  f"{agent_state} at {ts_pp}; "
+                                  f"exception scheduled for "
+                                  f"{Alarm.pp_date(woe.get('start'))}"
+                                  f"- {Alarm.pp_date(woe.get('end'))}")
+
+                        extra = {
+                            "start": start,
+                            "status": alarm_status
+                        }
+
+                        update = self.create_set_alarm(username, ts,
+                                                       display_ts,
+                                                       extra,
+                                                       event, reason, ttl)
+                        if update:
+                            db_updates.append(update)
+                        break
 
         return db_updates
