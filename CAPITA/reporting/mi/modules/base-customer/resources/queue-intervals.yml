@@ -33,7 +33,7 @@ Resources:
     Type: AWS::Serverless::Function
     DependsOn: QueueIntervalParquetFirehose
     Properties:
-      FunctionName: !Sub "lmbQueueInterval-${pDepartment}-${pEnvironment}"
+      FunctionName: !Sub "lmbMIQueueInterval-${pDepartment}-${pEnvironment}"
       Handler: lambda_handler.handler
       Runtime: python3.6
       Timeout: 180
@@ -63,6 +63,15 @@ Resources:
         "tech:ApplicationRole": "reporting"
         "bus:BusinessUnit": !Ref pDepartment
         "bus:Business": !Ref pClient
+
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: QueueIntervalLambda
+    Properties:
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${QueueIntervalLambda}"
+
 
   QueueIntervalReportTriggerPermission:
     Type: AWS::Lambda::Permission

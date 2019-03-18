@@ -23,6 +23,7 @@ def handler(event, context):
     preProcessorArn = rp.get("PreProcessorArn")
 
     client = boto3.client('firehose')
+    account_id = boto3.client('sts').get_caller_identity().get('Account')
 
     try:
         # Look up existing firehose resource
@@ -55,6 +56,7 @@ def handler(event, context):
                   f"{transformation_table}")
             print(f"Setting transformation role arn to: {transformation_role}")
 
+            transformation_role = f"arn:aws:iam::{account_id}:role/{transformation_role}"
             update['DataFormatConversionConfiguration'] = {
                 'SchemaConfiguration': {
                     'RoleARN': transformation_role,

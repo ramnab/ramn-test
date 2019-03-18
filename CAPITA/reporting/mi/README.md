@@ -6,8 +6,14 @@ This solution is to be deployed across a COMMON account and a CUSTOMER account (
 There are a number of inter-dependencies which means deployment needs to occur in a specific sequence.
 
 
+![Common and Shared Solution](mi-common-deployment-flow.png)
 
-## 1. Create Common Reporting Bucket
+<br>
+
+## 1. Set up Resources in Common Account
+
+
+### 1.1  Create Common Reporting Bucket
 
 ```bash
 # in common account: 
@@ -22,16 +28,29 @@ cf sync -y --context transforms/config-ccm-common-dev.yml \
    modules/base-common/common-reporting-bucket.stacks
 ```
 
+### 1.2 Create Athena Resources in Common Account
+
+```bash
+# in common account:
+scripts/common-athena.sh ENV
+```
+
+for example, to create the athena user in common account dev:
+```bash
+scripts/common-athena-dev.sh dev
+```
+
 <br>
 
-## 2. Deploy Reporting Baseline in Customer Account
+## 2. Set up Shared Resources in Customer Account
 
-### 2.1 Deploy the customer reporting bucket:
+
+### 2.1 Create Customer Reporting Bucket
 
 ```bash
 # in customer account, e.g. tradeuk
-cf sync -y stacks-<client>/<env>/deploy-reporting-bucket.stacks
-e.g. > cf sync -y stacks-tradeuk/dev/deploy-reporting-bucket.stacks
+cf sync -y --context transforms/config-ccm-[CLIENT]-[ENV].yml \
+   modules/base-customer/customer-reporting-bucket.stacks
 ```
 
 for example, to deploy the customer reporting bucket for tradeuk dev:
@@ -40,7 +59,7 @@ cf sync -y --context transforms/config-ccm-tradeuk-dev.yml \
    modules/base-customer/customer-reporting-bucket.stacks
 ```
 
-### 2.2 Deploy the Firehose Modder:
+### 2.2 Deploy Firehose Modder Lambda
 
 ```bash
 # in customer account, e.g. tradeuk
@@ -48,13 +67,11 @@ scripts/customer-fh-modder.sh CLIENT ENV
 ```
 
 for example, to deploy the customer Firehose modder in dev:
-
 ```bash
-scripts/customer-tradeuk-ctr-modder-dev.sh tradeuk dev
+scripts/customer-fh-modder.sh tradeuk dev
 ```
 
-
-### 2.3 Deploy Customer Glue DB:
+### 2.3 Create Customer Glue Database
 
 ```bash
 # in customer account, e.g. tradeuk
@@ -67,9 +84,30 @@ for example, to deploy the customer glue db in tradeuk dev:
 cf sync -y --context transforms/config-ccm-tradeuk-dev.yml \
    modules/base-customer/common-db.stacks
 ```
+
+### 2.4 Deploy Customer Reporting Bucket Modder Lambda
+
+```bash
+# in customer account
+scripts/customer-bucket-modder.sh CLIENT ENV
+```
+
+for example, to update for tradeuk dev:
+```bash
+scripts/customer-bucket-modder.sh tradeuk dev
+```
+
 <br>
 
-## 3. Deploy CTR Solution:
+## 3. Deploy CTR Solution
+
+Deploy the CTR solution using the cfn square cloudformation scripts.
+
+Once deployed, run the script to update the firehose delivery stream
+to transform the data to Parquet along with setting the prefixes.
+
+
+### 3.1 Deploy the resources
 
 ```bash
 # in customer account, e.g. tradeuk
@@ -83,89 +121,32 @@ cf sync -y --context transforms/config-ccm-tradeuk-dev.yml \
    modules/base-customer/ctr-resources.stacks
 ```
 
-### 3.1 Update CTR Firehose
-
-(manual process for now - run lambda with)
-
-```json
-{
-  "debug": true,
-  "ResourceProperties": {
-    "FirehoseName": "kfh-ccm-ctr-ENV",
-    "Prefix": "contact_record/clientname=CLIENT/rowdate=!{timestamp:yyyy-MM-dd}/",
-    "ErrorPrefix": "errors/contact_record/!{firehose:error-output-type}/clientname=CLIENT/rowdate=!{timestamp:yyyy-MM-dd}/",
-    "TransformationDb": "gl_ccm_ENV",
-    "TransformationTable": "glt_ctr_ENV",
-    "TransformationRole": "arn:aws:iam::907290942892:role/rl_mi_ctr_ENV"
-  }
-}
-```
-
-for example, to deploy for tradeuk dev:
-
-```json
-{
-  "debug": true,
-  "ResourceProperties": {
-    "FirehoseName": "kfh-ccm-ctr-dev",
-    "Prefix": "contact_record/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
-    "ErrorPrefix": "errors/contact_record/!{firehose:error-output-type}/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
-    "TransformationDb": "gl_ccm_dev",
-    "TransformationTable": "glt_ctr_dev",
-    "TransformationRole": "arn:aws:iam::907290942892:role/rl_mi_ctr_dev"
-  }
-}
-```
-
-
-<br>
-
-## 4. Update the Common Reporting Bucket Permissions
+### 3.2 Update the CTR Firehose
 
 ```bash
-# in common account: 
-cf sync -y --context transforms/config-ccm-common-<env>.yml \
-   modules/base-common/reporting-bucket-policies.stacks
+# in customer account
+scripts/update-customer-ctr-fh.sh CLIENT ENV
 ```
 
-for example, to deploy to common dev:
+for example, to update the firehose for tradeuk dev: 
 ```bash
-cf sync -y --context transforms/config-ccm-common-dev.yml \
-   modules/base-common/reporting-bucket-policies.stacks
+# in customer account
+scripts/update-customer-ctr-fh.sh tradeuk dev
 ```
 
 <br>
 
-## 5. Create Common Athena User and DB
+## 4. Deploy Queue Interval Solution
 
-```bash
-# in common account:
-scripts/common-athena.sh ENV
-```
+Deploy the Queue Interval solution using the SAM deloyment script.
 
-for example, to create the athena user in common account dev:
-```bash
-scripts/common-athena-dev.sh dev
-```
+Once deployed, run the script to update the firehose delivery stream
+to transform the data to Parquet along with setting the prefixes.  
+Then run the script to update the notification policy on the reporting
+bucket to trigger the QI lambda.
 
-TODO: Create Athena CTR table in COMMON
 
-<br>
-
-## 6. Deploy MI Queue Interval Solution 
-
-This section deploys the MI Queue Interval Solution. Note that the reporting bucket updates
-for both the customer and common accounts are to be merged with the Agent Interval 
-solution once in place.
-
-There are three steps to this solution: 
-1. The QI Lambda, Firehose and supporting infrastructure in the customer account
-2. Updating the customer reporting bucket to trigger the QI lambda
-3. Updating the common reporting bucket to allow the QI Firehose to write to it
-
-<br>
-
-### 6.1 Deploy QI Lambda to Customer Account
+### 4.1 Deploy QI Lambda and Resources to Customer Account
 
 ```bash
 # in customer account
@@ -177,81 +158,97 @@ for example, to deploy to tradeuk dev:
 scripts/customer-queue-intervals.sh tradeuk dev
 ```
 
-#### 6.1.1 Update the firehose config
-
-Currently a manual step - this will be run as a custom resource
-
-Go to the lmbQueueInterval-ccm-ENV lambda in the AWS Console and run the following test event:
-
-Example for dev environment:
-```json
-{
-  "debug": true,
-  "ResourceProperties": {
-    "FirehoseName": "kfh-ccm-qi-dev",
-    "Prefix": "reports/queue_interval/",
-    "TransformationDb": "gl_ccm_dev",
-    "TransformationTable": "glt_queue_intervals_dev",
-    "TransformationRole": "arn:aws:iam::907290942892:role/rl_mi_queue_interval_dev"
-  }
-}
-``` 
-
-<br>
-
-### 6.2 Update Customer Reporting Bucket Notifications
-
-#### 6.2.1 Deploy Customer Reporting Bucket Modder
-
-(note that this will merge with Agent intervals)
+### 4.2 Update the firehose config
 
 ```bash
 # in customer account
-scripts/customer-bucket-modder.sh CLIENT ENV
+scripts/update-customer-queue-intervals-fh.sh CLIENT ENV
 ```
 
-for example, to update for tradeuk dev:
+for example, to update the firehose for tradeuk dev: 
 ```bash
-scripts/customer-bucket-modder.sh tradeuk dev
+# in customer account
+scripts/update-customer-queue-intervals-fh.sh tradeuk dev
 ```
 
-#### 6.2.2 Update Notification policy
+### 4.3 Update the Customer Bucket trigger
 
-(currently a manual job)
-Go to the console for the lambda function and test with the following event:
-
-```json
-{
-  "bucket": "s3-capita-ccm-connect-CLIENT-ENV-reporting",
-  "prefix": "reports/queue_interval/",
-  "lambda": "arn:aws:lambda:eu-central-1:907290942892:function:lmbQueueInterval-ccm-ENV"
-}
+```bash
+# in customer account
+scripts/update-customer-bucket-trigger.sh CLIENT ENV queue
 ```
 
-for example to update for tradeuk, dev:
-```json
-{
-  "bucket": "s3-capita-ccm-connect-tradeuk-dev-reporting",
-  "prefix": "reports/queue_interval/",
-  "lambda": "arn:aws:lambda:eu-central-1:907290942892:function:lmbQueueInterval-ccm-DEV"
-}
+for example, to update the firehose for tradeuk dev: 
+```bash
+# in customer account
+scripts/update-customer-bucket-trigger.sh tradeuk dev queue
 ```
 
 <br>
 
-### 6.3 Update Common Reporting Bucket Policy
 
-(note that this will merge with Agent intervals)
+## 5. Deploy Agent Interval Solution
+
+Deploy the Agent Interval solution using the SAM deloyment script.
+
+Once deployed, run the script to update the firehose delivery stream
+to transform the data to Parquet along with setting the prefixes. 
+Then run the script to update the notification policy on the reporting
+bucket to trigger the Agent Interval lambda.
+
+
+
+### 5.1 Deploy Agent Interval Lambda to Customer Account
 
 ```bash
-# in common account
-cf sync -y --context transforms/config-ccm-common-ENV.yml \
+# in customer account
+scripts/customer-agent-intervals.sh CLIENT ENV
+```
+
+for example, to deploy to tradeuk dev:
+```bash
+scripts/customer-queue-intervals.sh tradeuk dev
+```
+
+### 5.2 Update the firehose config
+
+```bash
+# in customer account
+scripts/update-customer-agent-intervals-fh.sh CLIENT ENV
+```
+
+for example, to update the firehose for tradeuk dev:
+```bash
+# in customer account
+scripts/update-customer-agent-intervals-fh.sh tradeuk dev
+```
+
+### 5.3 Update the Customer Bucket trigger
+
+```bash
+# in customer account
+scripts/update-customer-bucket-trigger.sh CLIENT ENV agent
+```
+
+for example, to update the firehose for tradeuk dev: 
+```bash
+# in customer account
+scripts/update-customer-bucket-trigger.sh tradeuk dev agent
+```
+
+<br>
+
+## 6. Update Common Reporting Bucket Permissions 
+
+
+```bash
+# in common account: 
+cf sync -y --context transforms/config-ccm-common-<env>.yml \
    modules/base-common/reporting-bucket-policies.stacks
 ```
 
-for example, to update for dev:
+for example, to deploy to common dev:
 ```bash
-# in common account
 cf sync -y --context transforms/config-ccm-common-dev.yml \
    modules/base-common/reporting-bucket-policies.stacks
 ```

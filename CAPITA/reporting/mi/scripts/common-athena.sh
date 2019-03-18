@@ -1,8 +1,8 @@
 #!/bin/bash
 
-ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
-ENV_UPPER=$(echo $2 | awk '{print toupper($0)}')
-ENV_LOWER=$(echo $2 | awk '{print tolower($0)}')
+ENV=$(echo $1 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+ENV_UPPER=$(echo $1 | awk '{print toupper($0)}')
+ENV_LOWER=$(echo $1 | awk '{print tolower($0)}')
 
 aws cloudformation package --region eu-central-1 --template-file modules/base-common/resources/athena.yml \
                            --s3-bucket s3-capita-ccm-common-$ENV_LOWER-lambdas-eu-central-1 \
@@ -15,4 +15,8 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-athena.ym
                           --parameter-overrides \
                                 pEnvironment=$ENV_UPPER \
                                 pEnvironmentLowerCase=$ENV_LOWER \
-                                pDepartment=ccm
+                                pDepartment=ccm \
+                                pCtrLocation=s3://s3-capita-ccm-connect-common-$ENV_LOWER-reporting/contact_record/ \
+                                pQILocation=s3://s3-capita-ccm-connect-common-$ENV_LOWER-reporting/queue_interval/ \
+                                pAILocation=s3://s3-capita-ccm-connect-common-$ENV_LOWER-reporting/agent_interval/
+
