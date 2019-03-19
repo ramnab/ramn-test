@@ -32,11 +32,11 @@ using a tool such as awsume before running this script **
     exit
 fi
 
-if [ $ENV_LOWER = "prod" ]; then
-    LAMBDA_S3=s3-capita-ccm-$CLIENT-prod-lambdas-eu-central-1
-else
-    LAMBDA_S3=s3-capita-ccm-$CLIENT-nonprod-lambdas-eu-central-1
-fi
+#if [ $ENV_LOWER = "prod" ]; then
+#    LAMBDA_S3=s3-capita-ccm-$CLIENT-prod-lambdas-eu-central-1
+#else
+#    LAMBDA_S3=s3-capita-ccm-$CLIENT-nonprod-lambdas-eu-central-1
+#fi
 
 echo "Running into account: $AWSUME_PROFILE"
 echo "Client ID: $CLIENT"

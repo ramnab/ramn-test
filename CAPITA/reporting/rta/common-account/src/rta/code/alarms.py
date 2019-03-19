@@ -1,10 +1,17 @@
 from datetime import datetime
 from datetime import timedelta
-import boto3
 import logging
-import json
-from botocore.exceptions import ClientError
 import os
+import collections
+
+
+def dict_merge(dct: dict, merge_dct: dict):
+    for k, v in merge_dct.items():
+        if (k in dct and isinstance(dct[k], dict)
+                and isinstance(merge_dct[k], collections.Mapping)):
+            dict_merge(dct[k], merge_dct[k])
+        else:
+            dct[k] = merge_dct[k]
 
 
 logger = logging.getLogger()
@@ -79,28 +86,6 @@ class Alarm:
             "key": {"username": username, "alarmcode": self.alarmcode}
         }
 
-    def create_update_display_ts(self, username, display_ts):
-        logger.info(f"Creating update alarm {self.alarmcode} display ts "
-                    f"for user {username} to {display_ts}")
-        logger.info(f"@ALARM|UPDATE_ALARM|{username}|{self.alarmcode}|"
-                    f"{display_ts}")
-
-        return {
-            "type": "update",
-            "key": {"username": username, "alarmcode": self.alarmcode},
-            "field": "display_ts",
-            "val": display_ts
-        }
-
-    def incr_display_ts(self, username, ts, events):
-        event = Alarm.typed_event("SP_HEART_BEAT", events)
-        if event:
-            event_ts = event.get("EventTimestamp")
-            time_diff = Alarm.time_diff_mins(event_ts, ts)
-            display_ts = Alarm.mins_pp(time_diff)
-            return self.create_update_display_ts(username, display_ts)
-        return None
-
     @staticmethod
     def agent_state(event):
         return event.get("CurrentAgentSnapshot", {}) \
@@ -146,7 +131,7 @@ class Alarm:
             return "-"
         try:
             ts1 = datetime.strptime(ts, '%Y-%m-%dT%H:%M:%S.%fZ')
-        except Exception:
+        except ValueError:
             ts1 = datetime.strptime(ts, '%Y-%m-%dT%H:%M')
         return ts1
 
@@ -209,9 +194,16 @@ class Alarm:
         d = Alarm.get_ts(date)
         return datetime.strftime(d, '%H:%M:%S %d/%m/%Y')
 
+    @staticmethod
+    def calc_display_ts(ts, event):
+        if event:
+            event_ts = event.get("EventTimestamp")
+            time_diff = Alarm.time_diff_mins(event_ts, ts)
+            return Alarm.mins_pp(time_diff)
+
 
 class BSE(Alarm):
-    '''
+    """
     Begin Shift Early
     Alarm is set when agent signs in between
         shift start time - window and shift start time - grace
@@ -219,12 +211,12 @@ class BSE(Alarm):
     Alarm is cleared when agent heart beat / login event after
         shift start time - grace
 
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("BSE", ["LOGIN", "SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -250,7 +242,6 @@ class BSE(Alarm):
                         ts_pp = datetime.strftime(self.get_ts(ts),
                                                   '%H:%M:%S %d/%m/%Y')
                         shift_start = window.get("start")
-                        shift_end = window.get("end")
                         time_diff = Alarm.time_diff_mins(shift_start, ts)
                         display_ts = Alarm.mins_pp(time_diff)
                         ttl = shift_start
@@ -270,14 +261,14 @@ class BSE(Alarm):
 
 
 class BSL(Alarm):
-    '''
+    """
     Begin Shift Late
 
     Alarm is set when agent has state 'Offline' between
         shift start time + grace and shift end time
 
     Alarm cleared on agent login or end of shift
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("BSL",
@@ -285,31 +276,30 @@ class BSL(Alarm):
                          schedules)
 
     def process_alarm_active(self, events, username, state, history):
-        '''Incremental display ts'''
+        """Incremental display ts"""
+
         event = Alarm.typed_event("LOGIN", events)
         db_updates = []
         if event:
             logger.info(f"@BSL {username} LOGIN detected")
             extra = state.get("extra", {})
-            extra['BSL_LOGIN'] = "1"
             shift_start = extra.get("start")
-            logger.info(f"@BSL Updating extra for alarm: {extra}")
             ts = event.get("EventTimestamp")
+
             reason = (f"{username} was late logging in: "
                       f"shift expected to start at "
                       f"{Alarm.pp_date(shift_start)} "
                       f"but agent signed in at {Alarm.pp_date(ts)}")
+
+            new_state = state.copy()
+            dict_merge(new_state, {'extra': {'BSL_LOGIN': '1'}})
+            dict_merge(new_state, {'reason': reason})
+
+            logger.info(f"@BSL state update from: \n{state}\nto\n{new_state}")
+
             db_updates.append({
-                "type": "update",
-                "key": {"username": username, "alarmcode": self.alarmcode},
-                "field": "extra",
-                "val": extra
-            })
-            db_updates.append({
-                "type": "update",
-                "key": {"username": username, "alarmcode": self.alarmcode},
-                "field": "reason",
-                "val": reason
+                "type": "put",
+                "item": new_state
             })
 
         else:
@@ -331,14 +321,21 @@ class BSL(Alarm):
                     shift_start = state.get("extra", {}).get("start")
                     time_diff = Alarm.time_diff_mins(shift_start, event_ts)
                     display_ts = Alarm.mins_pp(time_diff)
-                    update = self.create_update_display_ts(username,
-                                                           display_ts)
-                    if update:
-                        db_updates.append(update)
+
+                    new_state = state.copy()
+                    dict_merge(new_state, {'display_ts': display_ts})
+
+                    logger.info(f"@BSL state update from: \n{state}\nto\n{new_state}")
+
+                    db_updates.append({
+                        "type": "put",
+                        "item": new_state
+                    })
+
         return db_updates
 
     def process_alarm_inactive(self, events, username, state, history):
-        '''Set alarm conditions'''
+        """Set alarm conditions"""
 
         event = Alarm.typed_event("SP_HEART_BEAT", events)
 
@@ -384,7 +381,7 @@ class BSL(Alarm):
 
 
 class ESE(Alarm):
-    '''
+    """
     End Shift Early
     Alarm is set when agent signs out before
         shift end time - grace (T1)
@@ -393,12 +390,12 @@ class ESE(Alarm):
 
     Alarm is cleared by TTL after
         shift end time - grace (T1)
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("ESE", ["LOGOUT"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -433,7 +430,7 @@ class ESE(Alarm):
 
 
 class ESL(Alarm):
-    '''
+    """
     End Shift Late
     Alarm is set when agent is still logged in between
         shift end time + grace (T1) and shift end time + window (T2)
@@ -443,12 +440,12 @@ class ESL(Alarm):
     Alarm is cleared by TTL after
         shift end time + window
     or if agent goes Offline
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("ESL", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -460,15 +457,15 @@ class ESL(Alarm):
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
             '''Incremental display ts'''
             if event and Alarm.agent_state(event) != "Offline":
-                ts = event.get("EventTimestamp")
                 shift_end = state.get("extra", {}).get("end")
-                time_diff = Alarm.time_diff_mins(shift_end, ts)
-                display_ts = Alarm.mins_pp(time_diff)
+                display_ts = Alarm.calc_display_ts(shift_end, event)
 
-                update = self.create_update_display_ts(username,
-                                                       display_ts)
-                if update:
-                    db_updates.append(update)
+                new_state = state.copy()
+                dict_merge(new_state, {"display_ts": display_ts})
+                db_updates.append({
+                    "type": "put",
+                    "item": new_state
+                })
 
             '''Clear alarm conditions'''
             if event and Alarm.agent_state(event) == "Offline":
@@ -507,19 +504,19 @@ class ESL(Alarm):
 
 
 class BBE(Alarm):
-    '''
+    """
     Begin Break Early
     Alarm is set when an agent enters state of
     'Break' or 'Lunch'
     between
         break start time - window (T1) and break start time - grace (T2)
 
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("BBE", ["STATE_CHANGE"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -564,18 +561,18 @@ class BBE(Alarm):
 
 
 class EBL(Alarm):
-    '''
+    """
     End Break Late
     Alarm is set when an agent is a status of break between
         break end time + grace (T1) and break end time + window (T2)
 
     Alarm cleared at break end + window (T2)
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("EBL", ["STATE_CHANGE", "SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -598,12 +595,14 @@ class EBL(Alarm):
                 break_end = state.get("extra", {}).get("end")
                 agent_state = Alarm.agent_state(event)
                 if event and break_end and agent_state in self.BREAK_CODES:
-                    event_ts = event.get("EventTimestamp")
 
-                    update = self.incr_display_ts(username, break_end,
-                                                  filtered)
-                    if update:
-                        db_updates.append(update)
+                    display_ts = Alarm.calc_display_ts(break_end, event)
+                    new_state = state.copy()
+                    dict_merge(new_state, {"display_ts": display_ts})
+                    db_updates.append({
+                        "type": "put",
+                        "item": new_state
+                    })
 
         if not state:
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
@@ -641,19 +640,19 @@ class EBL(Alarm):
 
 
 class SIU(Alarm):
-    '''
+    """
     Sign In Unexpectedly
     Alarm is set when an agent logs in after
         shift end + esl.window + grace
     or agent logs in before
         shift start - bse.window - grace
     of agent logs in and there is no schedule for them
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("SIU", ["LOGIN", "SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -665,24 +664,22 @@ class SIU(Alarm):
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
             if event:
                 '''Incremental ts update'''
-                ts = event.get("EventTimestamp")
                 login_ts = state.get("extra", {}).get("login")
                 if login_ts:
                     logger.info("SIU ts updating")
-                    time_diff = Alarm.time_diff_mins(login_ts, ts)
-                    display_ts = Alarm.mins_pp(time_diff)
+                    display_ts = Alarm.calc_display_ts(login_ts, event)
 
-                    update = self.create_update_display_ts(username,
-                                                           display_ts)
-
-                    if update:
-                        db_updates.append(update)
+                    new_state = state.copy()
+                    dict_merge(new_state, {"display_ts": display_ts})
+                    db_updates.append({
+                        "type": "put",
+                        "item": new_state
+                    })
 
         if not state:
             event = Alarm.typed_event("LOGIN", filtered)
             if event:
                 '''Set alarm conditions'''
-                agent_state = Alarm.agent_state(event)
                 windows = self.get_alarm_times(username)
 
                 ts = event.get("EventTimestamp")
@@ -735,17 +732,17 @@ class SIU(Alarm):
 
 
 class SOU(Alarm):
-    '''
+    """
     Sign Out Unexpectedly
     Alarm is set when an agent logs out before
         shift end - ese.window - grace
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("SOU", ["SP_HEART_BEAT", "LOGOUT", "LOGIN"],
                          schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -766,16 +763,17 @@ class SOU(Alarm):
 
             '''Update incremental ts'''
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
-            ts = event.get("EventTimestamp")
             logout_ts = state.get("extra", {}).get("logout")
-            if event and logout_ts:
-                time_diff = Alarm.time_diff_mins(logout_ts, ts)
-                display_ts = Alarm.mins_pp(time_diff)
 
-                update = self.create_update_display_ts(username,
-                                                       display_ts)
-                if update:
-                    db_updates.append(update)
+            if event and logout_ts:
+                display_ts = Alarm.calc_display_ts(logout_ts, event)
+
+                new_state = state.copy()
+                dict_merge(new_state, {"display_ts": display_ts})
+                db_updates.append({
+                    "type": "put",
+                    "item": new_state
+                })
 
         if not state:
             event = Alarm.typed_event("LOGOUT", filtered)
@@ -804,7 +802,7 @@ class SOU(Alarm):
 
 
 class WOB(Alarm):
-    '''
+    """
     Working On Break
     From Exception version
     Alarm is set when an agent has a work state between
@@ -812,7 +810,7 @@ class WOB(Alarm):
 
     Alarm clears at T2 or when the state changes to any other
     than a work status
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("WOB", ["SP_HEART_BEAT", "STATE_CHANGE"], schedules)
@@ -836,6 +834,9 @@ class WOB(Alarm):
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
             if event:
                 '''Change pending alarm to active'''
+
+                new_state = state.copy()
+
                 is_pending = state.get("extra", {}) \
                                   .get("status", "") == "pending"
 
@@ -846,27 +847,17 @@ class WOB(Alarm):
                     time_diff = Alarm.time_diff_mins(ts, start)
 
                     if time_diff >= 5:
-                        extra = state.get("extra", {})
-                        extra['status'] = "active"
-                        update = {
-                            "type": "update",
-                            "key": {
-                                    "username": username,
-                                    "alarmcode": self.alarmcode
-                            },
-                            "field": "extra",
-                            "val": extra
-                        }
-                        db_updates.append(update)
+                        dict_merge(new_state, {"extra": {"status": "active"}})
 
                 '''Incremental display ts'''
                 start = state.get("extra", {}).get("start")
-                if start:
-                    update = self.incr_display_ts(username,
-                                                  start,
-                                                  filtered)
-                    if update:
-                        db_updates.append(update)
+
+                display_ts = Alarm.calc_display_ts(start, event)
+                dict_merge(new_state, {"display_ts": display_ts})
+                db_updates.append({
+                    "type": "put",
+                    "item": new_state
+                })
 
         if not state:
             event = Alarm.typed_event("STATE_CHANGE", filtered)
@@ -931,73 +922,8 @@ class WOB(Alarm):
         return db_updates
 
 
-class WOB_p1(Alarm):
-    '''
-    Working On Break
-    Alarm is set when an agent is available between
-        break start time + grace (T1) and break end time - grace (T2)
-
-    Alarm clears at T2
-    '''
-
-    def __init__(self, schedules):
-        super().__init__("WOB", ["SP_HEART_BEAT"], schedules)
-
-    def process(self, events, username, state, _history=[]):
-        filtered_events = self.filter(events)
-        db_updates = []
-        if filtered_events:
-
-            if state:
-                '''Incremental display ts'''
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    logger.info(f"@WOB|Incremental ts|Current state={state}")
-                    event_ts = event.get("EventTimestamp")
-                    break_start = state.get("extra", {}).get("start")
-                    time_diff = Alarm.time_diff_mins(event_ts, break_start)
-                    display_ts = Alarm.mins_pp(time_diff)
-
-                    update = self.create_update_display_ts(username,
-                                                           display_ts)
-                    if update:
-                        db_updates.append(update)
-
-            if not state:
-                event = Alarm.typed_event("SP_HEART_BEAT", filtered_events)
-                if event:
-                    '''Set alarm conditions'''
-                    wobs = self.get_alarm_times(username)
-                    agent_state = Alarm.agent_state(event)
-                    for wob in wobs:
-                        if Alarm.is_between(wob, event) \
-                           and agent_state not in self.BREAK_CODES \
-                           and agent_state != "Offline":
-                            ts = event.get("EventTimestamp")
-                            ts_pp = Alarm.pp_date(ts)
-                            time_diff = Alarm.time_diff_mins(ts,
-                                                             wob.get("start"))
-                            display_ts = Alarm.mins_pp(time_diff)
-                            ttl = wob.get("T2")
-                            reason = (f"{username} has not set a break status "
-                                      f" at {ts_pp}, break start expected at "
-                                      f"{Alarm.pp_date(wob.get('start'))}")
-                            logger.info(f"@WOB|Set alarm|reason={reason}")
-
-                            extra = {"start": wob.get("start")}
-                            update = self.create_set_alarm(username, ts,
-                                                           display_ts,
-                                                           extra, event,
-                                                           reason, ttl)
-                            if update:
-                                db_updates.append(update)
-                            break
-
-        return db_updates
-
-
 class BXE(Alarm):
-    '''
+    """
     Begin Exception Early
     Alarm is set when an agent enters state of
     'Training' or '121'
@@ -1005,12 +931,12 @@ class BXE(Alarm):
         exception start time - window (T1) and
         exception start time - grace (T2)
 
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("BXE", ["STATE_CHANGE"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -1050,18 +976,18 @@ class BXE(Alarm):
 
 
 class EXL(Alarm):
-    '''
+    """
     End Exception Late
     Alarm is set when an agent is in Exception code between
         exception end time + grace (T1) and exception end time + window (T2)
 
     Alarm cleared at break end + window (T2)
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("EXL", ["SP_HEART_BEAT"], schedules)
 
-    def process(self, events, username, state, _history=[]):
+    def process(self, events, username, state, _history=None):
         filtered = self.filter(events)
 
         if not filtered:
@@ -1071,12 +997,17 @@ class EXL(Alarm):
 
         if state:
             '''Incremental display ts'''
+            event = Alarm.typed_event("SP_HEART_BEAT", filtered)
             exc_end = state.get("extra", {}).get("end")
-            if exc_end:
-                update = self.incr_display_ts(username, exc_end, filtered)
 
-                if update:
-                    db_updates.append(update)
+            if event and exc_end:
+                new_state = state.copy()
+                display_ts = Alarm.calc_display_ts(exc_end, event)
+                dict_merge(new_state, {"display_ts": display_ts})
+                db_updates.append({
+                    "type": "put",
+                    "item": new_state
+                })
 
         if not state:
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
@@ -1112,14 +1043,14 @@ class EXL(Alarm):
 
 
 class WOE(Alarm):
-    '''
+    """
     Working On Exception
     Alarm is set when an agent has a work state between
         exception start time + grace (T1) and exception end time - grace (T2)
 
     Alarm clears at T2 or when the state changes to any other
     than a work status
-    '''
+    """
 
     def __init__(self, schedules):
         super().__init__("WOE", ["SP_HEART_BEAT", "STATE_CHANGE"], schedules)
@@ -1140,7 +1071,11 @@ class WOE(Alarm):
 
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
             if event:
+
+                new_state = state.copy()
+
                 '''Change pending alarm to active'''
+
                 is_pending = state.get("extra", {}) \
                                   .get("status", "") == "pending"
 
@@ -1151,26 +1086,16 @@ class WOE(Alarm):
                     time_diff = Alarm.time_diff_mins(ts, start)
 
                     if time_diff >= 5:
-                        extra = state.get("extra", {})
-                        extra['status'] = "active"
-                        update = {
-                            "type": "update",
-                            "key": {
-                                    "username": username,
-                                    "alarmcode": self.alarmcode
-                            },
-                            "field": "extra",
-                            "val": extra
-                        }
-                        db_updates.append(update)
+                        dict_merge(new_state, {"extra": {"status": "active"}})
 
                 '''Incremental display ts'''
                 start = state.get("extra", {}).get("start")
-                if start:
-                    update = self.incr_display_ts(username, start,
-                                                  filtered)
-                    if update:
-                        db_updates.append(update)
+                display_ts = Alarm.calc_display_ts(start, event)
+                dict_merge(new_state, {"display_ts": display_ts})
+                db_updates.append({
+                    "type": "put",
+                    "item": new_state
+                })
 
         if not state:
             event = Alarm.typed_event("STATE_CHANGE", filtered)

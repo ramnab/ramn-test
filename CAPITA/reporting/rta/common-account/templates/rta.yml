@@ -87,7 +87,8 @@ Resources:
   RtaKinesisEventsToLambda:
     Type: AWS::Lambda::EventSourceMapping
     DependsOn: [RtaAgentStatusKinesisStream, RtaLambda]
-    Properties: 
+    Properties:
+      BatchSize: 200
       EventSourceArn: !GetAtt RtaAgentStatusKinesisStream.Arn    
       FunctionName: !Ref RtaLambda
       StartingPosition: TRIM_HORIZON

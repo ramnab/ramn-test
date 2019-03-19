@@ -474,6 +474,8 @@
                     for (let alarm of result.data) {
                         if (alarm.extra && alarm.extra.status == "pending")
                             console.log("Muting alarm: ", alarm)
+                        else if (alarm.httl == null)
+                            console.log("Malformed alarm: ", alarm)
                         else
                             vapp.alarms.push(alarm)
                     }

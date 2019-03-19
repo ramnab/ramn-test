@@ -47,7 +47,7 @@ def handler(event, context):
 
 
 def get_current_alarms(tablename):
-    '''Queries alarms db table for alarm states for specified usernames'''
+    """Queries alarms db table for alarm states for specified usernames"""
 
     table = dynamodb.Table(tablename)
     try:

@@ -148,12 +148,12 @@ class AlarmTests(unittest.TestCase):
     # WOE tests
     # 14:05 < ts < 14:55
     def test_WOE_Activate_WorkStatus_During_Exc(self):
-        '''
+        """
         Trigger alarm when agent has a work status
         during an scheduled exception
         Display time is from the start of the exception
         to the heart beat
-        '''
+        """
         woe = WOE(self.SCHEDULE)
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T14:16:00.012Z",
@@ -167,11 +167,11 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("item").get("display_ts"), "00:16:00")
 
     def test_WOE_Activate_StatusChange_To_Working_Pending(self):
-        '''
+        """
         Trigger alarm when agent sets a work status
         during an scheduled exception
         Display time is reset to 0
-        '''
+        """
         woe = WOE(self.SCHEDULE)
         events1 = self.create_event("STATE_CHANGE", "P0001",
                                     "2019-01-21T14:01:00.012Z",
@@ -188,10 +188,10 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("item").get("display_ts"), "00:00:00")
 
     def test_WOE_Clear_StatusChange(self):
-        '''
+        """
         Clear alarm when agent has a non work status
         during an scheduled exception
-        '''
+        """
         woe = WOE(self.SCHEDULE)
         events1 = self.create_event("STATE_CHANGE", "P0001",
                                     "2019-01-21T14:16:00.012Z",
@@ -207,31 +207,34 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("key").get("alarmcode"), "WOE")
 
     def test_WOE_Activate_Pending(self):
-        '''
+        """
         Clear alarm when agent has a non work status
         during an scheduled exception
-        '''
+        """
         woe = WOE(self.SCHEDULE)
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T14:16:00.012Z",
                                     "Available")
 
-        extra = {
-            "start": "2019-01-21T13:10",
-            "status": "pending"
+        state = {
+            "extra": {
+                "start": "2019-01-21T13:10",
+                "status": "pending"
+            },
+            "alarmcode": "WOE"
         }
-        alarms = woe.process(events1, "P0001", {"extra": extra})
-        self.assertEqual(len(alarms), 2)
-        self.assertEqual(alarms[0].get("type"), "update")
-        self.assertTrue(alarms[0].get("key"))
-        self.assertEqual(alarms[0].get("key").get("alarmcode"), "WOE")
-        self.assertEqual(alarms[0].get("val").get("status"), "active")
+        alarms = woe.process(events1, "P0001", state)
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item"))
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "WOE")
+        self.assertEqual(alarms[0].get("item").get("extra").get("status"), "active")
 
     def test_WOE_NoActivate_Pending(self):
-        '''
+        """
         Clear alarm when agent has a non work status
         during an scheduled exception
-        '''
+        """
         woe = WOE(self.SCHEDULE)
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T14:16:00.012Z",
@@ -248,12 +251,12 @@ class AlarmTests(unittest.TestCase):
     # WOB tests
     # # 13:05 < ts < 13:55
     def test_WOB_Activate_WorkStatus_During_Break(self):
-        '''
+        """
         Trigger alarm when agent has a work status
         during an scheduled break
         Display time is from the start of the break
         to the heart beat
-        '''
+        """
         wob = WOB(self.SCHEDULE)
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T13:06:00.012Z",
@@ -267,11 +270,11 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("item").get("display_ts"), "00:06:00")
 
     def test_WOB_Activate_StatusChange_To_Working_Pending(self):
-        '''
+        """
         Trigger alarm when agent sets a work status
         during an scheduled exception
         Display time is reset to 0
-        '''
+        """
         wob = WOB(self.SCHEDULE)
         events1 = self.create_event("STATE_CHANGE", "P0001",
                                     "2019-01-21T13:01:00.012Z",
@@ -288,10 +291,10 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("item").get("display_ts"), "00:00:00")
 
     def test_WOB_Clear_StatusChange(self):
-        '''
+        """
         Clear alarm when agent has a non work status
         during an scheduled exception
-        '''
+        """
         wob = WOB(self.SCHEDULE)
         events1 = self.create_event("STATE_CHANGE", "P0001",
                                     "2019-01-21T13:16:00.012Z",
@@ -307,31 +310,33 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("key").get("alarmcode"), "WOB")
 
     def test_WOB_Activate_Pending(self):
-        '''
+        """
         Clear alarm when agent has a non work status
         during an scheduled exception
-        '''
+        """
         wob = WOB(self.SCHEDULE)
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T13:16:00.012Z",
                                     "Available")
 
-        extra = {
-            "start": "2019-01-21T13:10",
-            "status": "pending"
+        state = {
+            "extra": {
+                "start": "2019-01-21T13:10",
+                "status": "pending"
+            },
+            "alarmcode": "WOB"
         }
-        alarms = wob.process(events1, "P0001", {"extra": extra})
-        self.assertEqual(len(alarms), 2)
-        self.assertEqual(alarms[0].get("type"), "update")
-        self.assertTrue(alarms[0].get("key"))
-        self.assertEqual(alarms[0].get("key").get("alarmcode"), "WOB")
-        self.assertEqual(alarms[0].get("val").get("status"), "active")
+        alarms = wob.process(events1, "P0001", state)
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "WOB")
+        self.assertEqual(alarms[0].get("item").get("extra").get("status"), "active")
 
     def test_WOB_NoActivate_Pending(self):
-        '''
+        """
         Clear alarm when agent has a non work status
         during an scheduled exception
-        '''
+        """
         wob = WOB(self.SCHEDULE)
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T13:16:00.012Z",
@@ -403,14 +408,14 @@ class AlarmTests(unittest.TestCase):
         state = {
             "extra": {
                 "login": "2019-01-21T17:06:00.012Z"
-            }
+            },
+            "alarmcode": "SIU"
         }
         alarms = siu.process(events1, "P0001", state)
         self.assertEqual(len(alarms), 1)
-        self.assertEqual(alarms[0].get("type"), "update")
-        self.assertTrue(alarms[0].get("key"))
-        self.assertEqual(alarms[0].get("key").get("alarmcode"), "SIU")
-        self.assertEqual(alarms[0].get("val"), "00:01:00")
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "SIU")
+        self.assertEqual(alarms[0].get("item").get("display_ts"), "00:01:00")
 
     def test_SIU_Activated_NoSchedule(self):
         # username = P0002
@@ -466,14 +471,14 @@ class AlarmTests(unittest.TestCase):
                                     "121")
 
         state = {
-            "extra": {"end": "2019-01-21T14:00"}
+            "extra": {"end": "2019-01-21T14:00"},
+            "alarmcode": "EXL"
         }
         alarms = exl.process(events1, "P0001", state)
         self.assertEqual(len(alarms), 1)
-        self.assertEqual(alarms[0].get("type"), "update")
-        self.assertTrue(alarms[0].get("val"), "00:12:00")
-        self.assertTrue(alarms[0].get("key"))
-        self.assertEqual(alarms[0].get("key").get("alarmcode"), "EXL")
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item").get("display_ts"), "00:12:00")
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "EXL")
 
     def test_EXL_UpdateTS2(self):
         exl = EXL(self.SCHEDULE)
@@ -483,14 +488,14 @@ class AlarmTests(unittest.TestCase):
                                     "121")
 
         state = {
-            "extra": {"end": "2019-01-21T14:00"}
+            "extra": {"end": "2019-01-21T14:00"},
+            "alarmcode": "EXL"
         }
         alarms = exl.process(events1, "P0001", state)
         self.assertEqual(len(alarms), 1)
-        self.assertEqual(alarms[0].get("type"), "update")
-        self.assertTrue(alarms[0].get("val"), "00:13:00")
-        self.assertTrue(alarms[0].get("key"))
-        self.assertEqual(alarms[0].get("key").get("alarmcode"), "EXL")
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item").get("display_ts"), "00:13:00")
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "EXL")
 
     def test_BSE_Activated(self):
         bse = BSE(self.SCHEDULE)
@@ -510,6 +515,43 @@ class AlarmTests(unittest.TestCase):
                                     "Offline")
 
         alarms = bsl.process(events1, "P0001", {}, {})
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item"))
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "BSL")
+
+    def test_BSL_LateLogin(self):
+        bsl = BSL(self.SCHEDULE)
+        events1 = self.create_event("LOGIN", "P0001",
+                                    "2019-01-21T08:07:00.012Z",
+                                    "Offline")
+
+        state = {
+            "extra": {
+                "start": "2019-01-21T08:00"
+            },
+            "alarmcode": "BSL"
+        }
+        alarms = bsl.process(events1, "P0001", state, {})
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item"))
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "BSL")
+
+    def test_BSL_UpdateTS(self):
+        bsl = BSL(self.SCHEDULE)
+        events1 = self.create_event("SP_HEART_BEAT", "P0001",
+                                    "2019-01-21T08:07:00.012Z",
+                                    "Offline")
+
+        state = {
+            "extra": {
+                "start": "2019-01-21T08:00"
+            },
+            "alarmcode": "BSL"
+        }
+        alarms = bsl.process(events1, "P0001", state, {})
+
         self.assertEqual(len(alarms), 1)
         self.assertEqual(alarms[0].get("type"), "put")
         self.assertTrue(alarms[0].get("item"))
@@ -542,14 +584,15 @@ class AlarmTests(unittest.TestCase):
             "extra": {
                 "start": "2019-01-21T13:00",
                 "end": "2019-01-21T14:00"
-            }
+            },
+            "alarmcode": "EBL"
         }
         alarms = ebl.process(events1, "P0001", state, {})
+
         self.assertEqual(len(alarms), 1)
-        self.assertEqual(alarms[0].get("type"), "update")
-        self.assertEqual(alarms[0].get("val"), "00:07:00")
-        self.assertTrue(alarms[0].get("key"))
-        self.assertEqual(alarms[0].get("key").get("alarmcode"), "EBL")
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertEqual(alarms[0].get("item").get("display_ts"), "00:07:00")
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "EBL")
 
     def test_EBL_Clear(self):
         ebl = EBL(self.SCHEDULE)

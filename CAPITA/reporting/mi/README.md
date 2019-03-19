@@ -41,6 +41,20 @@ scripts/common-athena-dev.sh dev
 ```
 
 <br>
+<hr>
+
+#### Steps 2 - 5 can now be completed by using the deployment script:
+
+```bash
+# in *appropriate* customer account:
+scripts/deploy-to-customer.sh ENV CLIENT
+```
+
+<hr>
+
+<br>
+
+### Individual Steps:
 
 ## 2. Set up Shared Resources in Customer Account
 
