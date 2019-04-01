@@ -17,11 +17,17 @@ aws lambda invoke --function-name lmbMiFirehoseModder-ccm-$ENV_UPPER \
                   --payload "{
   \"debug\": true,
   \"ResourceProperties\": {
-    \"FirehoseName\": \"kfh-ccm-ctr-dev\",
+    \"FirehoseName\": \"kfh-ccm-ctr-${ENV_LOWER}\",
     \"Prefix\": \"contact_record/clientname=${CLIENT}/rowdate=!{timestamp:yyyy-MM-dd}/\",
     \"ErrorPrefix\": \"errors/contact_record/!{firehose:error-output-type}/clientname=${CLIENT}/rowdate=!{timestamp:yyyy-MM-dd}/\",
     \"TransformationDb\": \"gl_ccm_${ENV_LOWER}\",
     \"TransformationTable\": \"glt_ctr_${ENV_LOWER}\",
-    \"TransformationRole\": \"rl_mi_agent_interval_${ENV_LOWER}\"
+    \"TransformationRole\": \"rl_mi_ctr_${ENV_LOWER}\"
   }
 }" result.txt
+
+
+python scripts/tag-firehose.py -f kfh-ccm-ctr-${ENV_LOWER} \
+                    -t sec:Compliance:PII bus:BusinessUnit:ccm bus:ClientName:${CLIENT} \
+                       tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-ccm-connect \
+                       tech:ApplicationRole:reporting

@@ -5,10 +5,9 @@ stacks:
     timeout: 1200
     parameters:
       pTransformationDb: gl_[department]_[env_lower]
-      # pFirehoseModder: "|ref|stCapita-MI-[env]-Reporting.oFirehoseModderArn"
       pCtrCommonDestination: 's3-capita-[department]-connect-common-[env_lower]-reporting'
       pCustomUpdateToken: 1
       pDepartment: '[department]'
       pEnvironment: '[env_upper]'
       pEnvironmentLowerCase: '[env_lower]'
-    
+      pCustomerReportBucket: 's3-capita-ccm-connect-[client]-[env_lower]-reporting'

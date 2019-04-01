@@ -1,0 +1,10 @@
+region: eu-central-1
+stacks:
+  stCapita-Connect-Prod-LambdaBucket:
+    template-url: templates/non-pii-bucket.yml
+    timeout: 1200
+    parameters:
+      pDepartment: ccm
+      pEnvironment: PROD
+      pEnvironmentLowerCase: prod
+      pBucketSuffix: "-lambdas-eu-central-1"

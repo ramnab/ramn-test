@@ -27,6 +27,9 @@ Parameters:
   pClient:
     Type: String
     Description: Customer/Client identifier
+  pKMSArn:
+    Type: String
+    Description: Arn to Connect KMS key
 
 Resources:
   QueueIntervalLambda:
@@ -57,6 +60,20 @@ Resources:
                 - iam:GetRole
                 - iam:PassRole
               Resource: "*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:*
+              Resource:
+                - !Sub "arn:aws:s3:::${pCustomerReportBucket}/"
+                - !Sub "arn:aws:s3:::${pCustomerReportBucket}/*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:*
+              Resource: !Ref pKMSArn
       Tags:
         "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
         "tech:Environment": !Ref pEnvironmentLowerCase
@@ -90,7 +107,7 @@ Resources:
       ExtendedS3DestinationConfiguration:
         BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
         BufferingHints:
-          IntervalInSeconds: 60
+          IntervalInSeconds: 300
           SizeInMBs: 128
         CompressionFormat: UNCOMPRESSED
         CloudWatchLoggingOptions:

@@ -61,8 +61,9 @@ def handler(event, context):
                 'SchemaConfiguration': {
                     'RoleARN': transformation_role,
                     'DatabaseName': transformation_db,
-                    'TableName': transformation_table
-                    },
+                    'TableName': transformation_table,
+                    'Region': 'eu-central-1'
+                },
                 'InputFormatConfiguration': {
                     'Deserializer': {
                         'OpenXJsonSerDe': {}

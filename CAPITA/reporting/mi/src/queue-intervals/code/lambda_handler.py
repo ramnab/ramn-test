@@ -22,7 +22,7 @@ def handler(event, _context):
 
     bucket = s3.get("bucket", {}).get("name")
     key = unquote(s3.get("object", {}).get("key"))
-    firehose = os.environ.get("FIREHOSE")
+    firehose = event.get("Firehose", os.environ.get("FIREHOSE"))
 
     if not firehose:
         logger.error(f"@lambda_handler|handler|"

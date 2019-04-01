@@ -6,4 +6,3 @@ stacks:
     parameters:
       pDepartment: '[department]'
       pEnvironmentLowerCase: '[env_lower]'
-    

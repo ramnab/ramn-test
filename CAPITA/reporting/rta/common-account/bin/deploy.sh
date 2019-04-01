@@ -99,6 +99,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
                                 pEnvironment=$ENV_UPPER \
                                 pEnvironmentLowerCase=$ENV_LOWER
 
+
 echo "----------------------------"
 echo "Deploying Special HeartBeats"
 

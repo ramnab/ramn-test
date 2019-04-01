@@ -25,6 +25,11 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
       BucketEncryption:
           ServerSideEncryptionConfiguration:
             - ServerSideEncryptionByDefault:

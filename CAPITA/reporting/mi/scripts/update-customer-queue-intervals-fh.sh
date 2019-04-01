@@ -25,3 +25,10 @@ aws lambda invoke --function-name lmbMiFirehoseModder-ccm-$ENV_UPPER \
     \"TransformationRole\": \"rl_mi_queue_interval_${ENV_LOWER}\"
   }
 }" result.txt
+
+echo "Adding tags to firehose kfh-ccm-qi-${ENV_LOWER}"
+
+python scripts/tag-firehose.py -f kfh-ccm-qi-${ENV_LOWER} \
+                    -t sec:Compliance:Normal bus:BusinessUnit:ccm bus:ClientName:${CLIENT} \
+                       tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-ccm-connect \
+                       tech:ApplicationRole:reporting

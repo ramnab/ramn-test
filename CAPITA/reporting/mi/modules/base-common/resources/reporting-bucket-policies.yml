@@ -29,45 +29,30 @@ Resources:
         -
           Effect: Allow
           Principal:
-            AWS: !Sub "arn:aws:iam::907290942892:role/rl_mi_ctr_${pEnvironmentLowerCase}"
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_ctr_${pEnvironmentLowerCase}"
           Action:
-          - s3:AbortMultipartUpload
-          - s3:GetBucketLocation
-          - s3:GetObject
-          - s3:ListBucket
-          - s3:ListBucketMultipartUploads
-          - s3:PutObject
-          - s3:PutObjectAcl
+          - s3:*
           Resource:
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
         -
           Effect: Allow
           Principal:
-            AWS: !Sub "arn:aws:iam::907290942892:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
           Action:
-          - s3:AbortMultipartUpload
-          - s3:GetBucketLocation
-          - s3:GetObject
-          - s3:ListBucket
-          - s3:ListBucketMultipartUploads
-          - s3:PutObject
-          - s3:PutObjectAcl
+          - s3:*
           Resource:
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
         -
           Effect: Allow
           Principal:
-            AWS: !Sub "arn:aws:iam::907290942892:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
           Action:
-          - s3:AbortMultipartUpload
-          - s3:GetBucketLocation
-          - s3:GetObject
-          - s3:ListBucket
-          - s3:ListBucketMultipartUploads
-          - s3:PutObject
-          - s3:PutObjectAcl
+          - s3:*
           Resource:
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"

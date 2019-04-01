@@ -27,6 +27,13 @@ Parameters:
   pClient:
     Type: String
     Description: Customer/Client identifier
+  pKMSArn:
+    Type: String
+    Description: Arn to Connect KMS key
+  pBufferIntervalInSeconds:
+    Type: Number
+    Default: 300
+    Description: Buffer Timeout in seconds for firehose
 
 Resources:
   AgentIntervalLambda:
@@ -42,7 +49,7 @@ Resources:
       Environment:
         Variables:
           FIREHOSE: !Ref AgentIntervalParquetFirehose
-          CONFIG: "startinterval,endinterval,agentname,agentfirstname,agentlastname,servicelevel15seconds,servicelevel20seconds,servicelevel25seconds,servicelevel30seconds,servicelevel45seconds,servicelevel60seconds,servicelevel90seconds,servicelevel120seconds,servicelevel180seconds,servicelevel240seconds,servicelevel300seconds,servicelevel600seconds"
+          CONFIG: "agent,startinterval,endinterval,agentname,agentfirstname,agentlastname,servicelevel15seconds,servicelevel20seconds,servicelevel25seconds,servicelevel30seconds,servicelevel45seconds,servicelevel60seconds,servicelevel90seconds,servicelevel120seconds,servicelevel180seconds,servicelevel240seconds,servicelevel300seconds,servicelevel600seconds"
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
@@ -58,6 +65,20 @@ Resources:
                 - iam:GetRole
                 - iam:PassRole
               Resource: "*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:*
+              Resource:
+                - !Sub "arn:aws:s3:::${pCustomerReportBucket}/"
+                - !Sub "arn:aws:s3:::${pCustomerReportBucket}/*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:*
+              Resource: !Ref pKMSArn
       Tags:
         "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
         "tech:Environment": !Ref pEnvironmentLowerCase
@@ -89,7 +110,7 @@ Resources:
       ExtendedS3DestinationConfiguration:
         BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
         BufferingHints:
-          IntervalInSeconds: 60
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
           SizeInMBs: 128
         CompressionFormat: UNCOMPRESSED
         CloudWatchLoggingOptions:
@@ -167,6 +188,8 @@ Resources:
             Name: "serde-info"
             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
           Columns:
+          - Name: agent
+            Type: string
           - Name: startinterval
             Type: timestamp
           - Name: endinterval

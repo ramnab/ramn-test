@@ -16,7 +16,7 @@ def handler(event, _context):
     db = os.environ.get("DB")
     tables = os.environ.get("TABLES")
     bucket = os.environ.get("BUCKET")
-    client = os.environ.get("CLIENT")
+    clients = os.environ.get("CLIENTS")
 
     if not db:
         logger.error("@lambda_handler|handler|No database specified in env variable DB")
@@ -27,31 +27,33 @@ def handler(event, _context):
     if not bucket:
         logger.error("@lambda_handler|handler|No bucket specified in env variable BUCKET")
 
-    if not client:
+    if not clients:
         logger.error("@lambda_handler|handler|No client specified in env variable CLIENT")
 
-    if db and tables and bucket and client:
-        update(db, bucket, tables, client)
+    if db and tables and bucket and clients:
+        update(db, bucket, tables, clients)
 
 
-def update(db, bucket, tables, client):
+def update(db, bucket, tables, clients):
     table_list = tables.split(",")
     for tablename in table_list:
-        create_folder_partition(bucket, tablename, client)
-        update_partitions(db, tablename)
+        create_folder_partition(bucket, tablename, clients)
+        update_partitions(db, tablename, bucket)
 
 
-def create_folder_partition(bucket, tablename, client):
+def create_folder_partition(bucket, tablename, clients):
     s3 = boto3.resource('s3')
     rowdate = datetime.now().strftime('%Y-%m-%d')
-    key = f"{tablename}/clientname={client}/rowdate={rowdate}/"
-    dummy_obj = s3.Object(bucket, key)
-    response = dummy_obj.put(Body='')
-    logger.info(f"@lambda_handler|create_folder_partition|Created new folder: {key}")
-    logger.info(f"@lambda_handler|create_folder_partition|New folder response: {response}")
+
+    for client in clients.split(","):
+        key = f"{tablename}/clientname={client}/rowdate={rowdate}/"
+        dummy_obj = s3.Object(bucket, key)
+        response = dummy_obj.put(Body='')
+        logger.info(f"@lambda_handler|create_folder_partition|Created new folder: {key}")
+        logger.info(f"@lambda_handler|create_folder_partition|New folder response: {response}")
 
 
-def update_partitions(db, tablename):
+def update_partitions(db, tablename, query_results_bucket):
     client = boto3.client('athena')
     query_string = f'MSCK REPAIR TABLE {tablename};'
 
@@ -59,7 +61,10 @@ def update_partitions(db, tablename):
         QueryExecutionContext={
             'Database': db
         },
-        QueryString=query_string
+        QueryString=query_string,
+        ResultConfiguration={
+            'OutputLocation': f"s3://{query_results_bucket}/query-results/mi-analyst"
+        }
     )
 
     logger.info(f"@lambda_handler|update_partitions|Run query: {query_string}")

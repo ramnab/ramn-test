@@ -339,6 +339,8 @@ Resources:
               serialization.format: 1
             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
           Columns:
+          - Name: agent
+            Type: string
           - Name: startinterval
             Type: timestamp
           - Name: endinterval

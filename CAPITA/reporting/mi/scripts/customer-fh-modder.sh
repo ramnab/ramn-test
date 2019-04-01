@@ -24,5 +24,5 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-fh-modder
                           --parameter-overrides \
                                 pClient=$CLIENT \
                                 pEnvironment=$ENV_UPPER \
-                                pEnvironmentLowerCase=$ENV_UPPER \
+                                pEnvironmentLowerCase=$ENV_LOWER \
                                 pDepartment=ccm

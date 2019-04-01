@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CAPITA MI Reporting Agent Interval
+
+Parameters:
+  pTransformationDb:
+    Type: String
+    Description: Name of Glue database in this account, used for transformation
+  pTempDestination:
+    Type: String
+    Description: Name of S3 Bucket for the transformed historic reports
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pBufferIntervalInSeconds:
+    Type: Number
+    Default: 60
+    Description: Buffer Timeout in seconds for firehose
+
+Resources:
+
+
+  IntervalFirehoseIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "rl_mi_historic_${pEnvironmentLowerCase}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              "Service": "firehose.amazonaws.com"
+      Policies:
+        - PolicyName: !Sub "historic_interval_${pEnvironmentLowerCase}"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "glue:*"
+                Effect: Allow
+                Resource: "*"
+              - Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub "arn:aws:s3:::${pTempDestination}"
+                  - !Sub "arn:aws:s3:::${pTempDestination}/*"
+                Effect: Allow
+                Sid: agentintervalreportfirehoses
+
+
+  HistoricAgentIntervalParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-historic-ai-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pTempDestination}"
+        BufferingHints:
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        Prefix: "historic/agent_interval/transformed/"
+        RoleARN: !GetAtt IntervalFirehoseIAMRole.Arn
+
+
+  HistoricQueueIntervalParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-historic-qi-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pTempDestination}"
+        BufferingHints:
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        Prefix: "historic/queue_interval/transformed/"
+        RoleARN: !GetAtt IntervalFirehoseIAMRole.Arn
+
+
+  HistoricCTRParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-historic-ctr-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pTempDestination}"
+        BufferingHints:
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        Prefix: "historic/ctrs/transformed/"
+        RoleARN: !GetAtt IntervalFirehoseIAMRole.Arn
+
+
+
+Outputs:
+  oHistoricAgentIntervalFirehose:
+    Value: !Ref HistoricAgentIntervalParquetFirehose
+  oHistoricQueueIntervalFirehose:
+    Value: !Ref HistoricQueueIntervalParquetFirehose

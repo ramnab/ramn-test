@@ -34,5 +34,6 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-agent-int
                                 pDepartment=ccm \
                                 pTransformationDb=gl_ccm_$ENV_LOWER \
                                 pCommonDestination=s3-capita-ccm-connect-common-$ENV_LOWER-reporting \
-                                pCustomerReportBucket=s3-capita-ccm-connect-$CLIENT-$ENV_LOWER-reporting
+                                pCustomerReportBucket=s3-capita-ccm-connect-$CLIENT-$ENV_LOWER-reporting \
+                                pKMSArn=arn:aws:kms:eu-central-1:443350248290:key/6bddd8e7-90c3-4b52-916c-4dfbb5882be2
 

@@ -10,6 +10,28 @@ There are a number of inter-dependencies which means deployment needs to occur i
 
 <br>
 
+## 0. Setting up your environment
+
+### awsume
+
+### aws cli
+
+### pipenv
+
+This solution can leverage pipenv for a consistent deployment environment.
+
+To change to the correct environment use:
+
+```bash
+# in directory reporting/mi
+pipenv shell
+
+# first time use, install dependencies with
+pipenv install
+```
+
+<br>
+
 ## 1. Set up Resources in Common Account
 
 
@@ -37,8 +59,22 @@ scripts/common-athena.sh ENV
 
 for example, to create the athena user in common account dev:
 ```bash
-scripts/common-athena-dev.sh dev
+scripts/common-athena.sh dev
 ```
+
+
+### 1.3 Deploy Glue Partition Refresher Lambda
+
+```bash
+# in common account:
+scripts/common-partitioner.sh ENV
+```
+
+for example, to deploy to common account dev:
+```bash
+scripts/common-paritioner.sh dev
+```
+
 
 <br>
 <hr>
@@ -110,6 +146,19 @@ for example, to update for tradeuk dev:
 ```bash
 scripts/customer-bucket-modder.sh tradeuk dev
 ```
+
+### 2.5 Create Agent Event Kinesis Stream and Firehose
+
+```bash
+# in customer account, e.g. tradeuk
+scripts/customer-agent-events.sh CLIENT ENV
+```
+
+for example, to create the agent event kinesis resources in tradeuk dev:
+```bash
+scripts/customer-agent-events.sh tradeuk dev
+```
+
 
 <br>
 

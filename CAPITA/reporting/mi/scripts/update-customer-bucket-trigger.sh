@@ -16,7 +16,7 @@ SOL_LOWER=$(echo $3 | awk '{print tolower($0)}')
 SOL_INIT_CAP=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 
 LAMBDA="lmbMI${SOL_INIT_CAP}Interval-ccm-${ENV_UPPER}"
-PREFIX="reports/${SOL_LOWER}_interval/"
+PREFIX="connect/ccm-prd-${CLIENT}-connect/reports/${SOL_LOWER}_interval/"
 BUCKET="s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-reporting"
 
 echo "Adding trigger: reports to s3://${BUCKET}/${PREFIX} will trigger ${LAMBDA}"

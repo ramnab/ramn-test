@@ -41,7 +41,7 @@ Resources:
       Handler: lambda_handler.handler
       Runtime: python3.6
       Timeout: 180
-      CodeUri: ../../common/src/bridge/code/
+      CodeUri: ../src/bridge/code/
       Policies: 
         - AWSLambdaExecute
         - Version: '2012-10-17'
