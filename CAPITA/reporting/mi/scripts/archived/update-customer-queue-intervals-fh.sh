@@ -2,7 +2,7 @@
 
 
 if [ -z "$1" ] || [ -z "$2" ]; then
-    echo "Usage: update-customer-agent-intervals-fh.sh <CLIENT> <ENV>"
+    echo "Usage: update-customer-queue-intervals-fh.sh <CLIENT> <ENV>"
     exit
 fi
 

@@ -43,7 +43,8 @@ Resources:
       CodeUri: ../../../src/queue-intervals/code/
       Environment:
         Variables:
-          FIREHOSE: !Ref QueueIntervalParquetFirehose
+          FIREHOSE_INTERVAL: !Ref QueueIntervalParquetFirehose
+          FIREHOSE_DAILY: !Ref QueueDailyParquetFirehose
           CONFIG: "queue,startinterval,endinterval,servicelevel15seconds,servicelevel20seconds,servicelevel25seconds,servicelevel30seconds,servicelevel45seconds,servicelevel60seconds,servicelevel90seconds,servicelevel120seconds,servicelevel180seconds,servicelevel240seconds,servicelevel300seconds,servicelevel600seconds"
       Policies:
         - AWSLambdaExecute
@@ -117,6 +118,25 @@ Resources:
         Prefix: "queue_interval/"
         RoleARN: !GetAtt QueueIntervalFirehoseIAMRole.Arn
 
+
+  QueueDailyParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-qi-daily-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
+        BufferingHints:
+          IntervalInSeconds: 300
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref QueueDailyFirehoseLogGroup
+          LogStreamName: !Ref QueueDailyFirehoseLogStream
+        Prefix: "queue_daily/"
+        RoleARN: !GetAtt QueueIntervalFirehoseIAMRole.Arn
+
   QueueIntervalFirehoseIAMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -156,6 +176,11 @@ Resources:
                 Resource: !GetAtt QueueIntervalFirehoseLogGroup.Arn
                 Effect: Allow
                 Sid: queueintervalreportfirehoselogs
+              - Action:
+                  - logs:PutLogEvents
+                Resource: !GetAtt QueueDailyFirehoseLogGroup.Arn
+                Effect: Allow
+                Sid: queuedailyreportfirehoselogs
 
   QueueIntervalFirehoseLogGroup:
     Type: AWS::Logs::LogGroup
@@ -167,6 +192,17 @@ Resources:
     Type: AWS::Logs::LogStream
     Properties:
       LogGroupName: !Ref QueueIntervalFirehoseLogGroup
+
+  QueueDailyFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub "/firehose/mi-${pEnvironmentLowerCase}-queue-interval-daily"
+
+  QueueDailyFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref QueueDailyFirehoseLogGroup
 
   GlueQueueIntervalTable:
     Type: AWS::Glue::Table

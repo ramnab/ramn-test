@@ -1,0 +1,8 @@
+{
+  "region": "eu-west-1",
+  "env": "Dev",
+  "env_lower": "dev",
+  "client": "tradeuk",
+  "department": "ccm",
+  "env_upper": "DEV"
+}

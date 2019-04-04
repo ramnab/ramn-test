@@ -78,6 +78,10 @@ echo "Deploy Customer Agent Events Kinesis Resources"
 
 scripts/customer-agent-events.sh ${CLIENT} ${ENV}
 
+
+echo ""
+echo "------------ CTR Solution -----------"
+
 echo ""
 echo "------------------------------------------"
 echo "Deploy CTR resources"
@@ -92,6 +96,8 @@ echo "Update the CTR Firehose"
 
 scripts/update-customer-ctr-fh.sh ${CLIENT} ${ENV}
 
+echo ""
+echo "-------- Queue Interval Solution --------"
 
 echo ""
 echo "------------------------------------------"
@@ -106,13 +112,27 @@ echo "Update the QI Firehose"
 
 scripts/update-customer-queue-intervals-fh.sh ${CLIENT} ${ENV}
 
+echo ""
+echo "------------------------------------------"
+echo "Update the QI DAILY Firehose"
+
+scripts/update-customer-queue-daily-fh.sh ${CLIENT} ${ENV}
+
 
 echo ""
 echo "------------------------------------------"
 echo "Update the Customer Bucket trigger for QI"
 
-scripts/update-customer-bucket-trigger.sh ${CLIENT} ${ENV} queue
+scripts/update-customer-bucket-trigger.sh ${CLIENT} ${ENV} queue interval
 
+echo ""
+echo "------------------------------------------"
+echo "Update the Customer Bucket trigger for QI DAILY"
+
+scripts/update-customer-bucket-trigger.sh ${CLIENT} ${ENV} queue daily
+
+echo ""
+echo "-------- Agent Interval Solution --------"
 
 echo ""
 echo "------------------------------------------"
@@ -130,9 +150,23 @@ scripts/update-customer-agent-intervals-fh.sh ${CLIENT} ${ENV}
 
 echo ""
 echo "------------------------------------------"
+echo "Update the AI DAILY Firehose"
+
+scripts/update-customer-agent-daily-fh.sh ${CLIENT} ${ENV}
+
+
+echo ""
+echo "------------------------------------------"
 echo "Update the Customer Bucket trigger for AI"
 
-scripts/update-customer-bucket-trigger.sh ${CLIENT} ${ENV} agent
+scripts/update-customer-bucket-trigger.sh ${CLIENT} ${ENV} agent interval
+
+
+echo ""
+echo "------------------------------------------"
+echo "Update the Customer Bucket trigger for AI DAILY"
+
+scripts/update-customer-bucket-trigger.sh ${CLIENT} ${ENV} agent daily
 
 
 echo ""

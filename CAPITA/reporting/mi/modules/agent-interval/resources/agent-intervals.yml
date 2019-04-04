@@ -48,7 +48,8 @@ Resources:
       CodeUri: ../../../src/agent-intervals/code/
       Environment:
         Variables:
-          FIREHOSE: !Ref AgentIntervalParquetFirehose
+          FIREHOSE_INTERVAL: !Ref AgentIntervalParquetFirehose
+          FIREHOSE_DAILY: !Ref AgentDailyParquetFirehose
           CONFIG: "agent,startinterval,endinterval,agentname,agentfirstname,agentlastname,servicelevel15seconds,servicelevel20seconds,servicelevel25seconds,servicelevel30seconds,servicelevel45seconds,servicelevel60seconds,servicelevel90seconds,servicelevel120seconds,servicelevel180seconds,servicelevel240seconds,servicelevel300seconds,servicelevel600seconds"
       Policies:
         - AWSLambdaExecute
@@ -120,6 +121,24 @@ Resources:
         Prefix: "agent_interval/"
         RoleARN: !GetAtt AgentIntervalFirehoseIAMRole.Arn
 
+  AgentDailyParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-ai-daily-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
+        BufferingHints:
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref AgentDailyFirehoseLogGroup
+          LogStreamName: !Ref AgentDailyFirehoseLogStream
+        Prefix: "agent_daily/"
+        RoleARN: !GetAtt AgentIntervalFirehoseIAMRole.Arn
+
   AgentIntervalFirehoseIAMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -158,6 +177,11 @@ Resources:
                 Resource: !GetAtt AgentIntervalFirehoseLogGroup.Arn
                 Effect: Allow
                 Sid: agentintervalreportfirehoselogs
+              - Action:
+                  - logs:PutLogEvents
+                Resource: !GetAtt AgentDailyFirehoseLogGroup.Arn
+                Effect: Allow
+                Sid: agentdailyreportfirehoselogs
 
   AgentIntervalFirehoseLogGroup:
     Type: AWS::Logs::LogGroup
@@ -170,6 +194,19 @@ Resources:
     DependsOn: AgentIntervalFirehoseLogGroup
     Properties:
       LogGroupName: !Ref AgentIntervalFirehoseLogGroup
+
+  AgentDailyFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub "/firehose/mi-${pEnvironmentLowerCase}-agent-interval-daily"
+
+  AgentDailyFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    DependsOn: AgentDailyFirehoseLogGroup
+    Properties:
+      LogGroupName: !Ref AgentDailyFirehoseLogGroup
+
 
   GlueAgentIntervalTable:
     Type: AWS::Glue::Table
@@ -328,3 +365,5 @@ Outputs:
     Value: !GetAtt AgentIntervalLambda.Arn
   oAgentIntervalFirehose:
     Value: !Ref AgentIntervalParquetFirehose
+  oAgentDailyFirehose:
+    Value: !Ref AgentDailyParquetFirehose

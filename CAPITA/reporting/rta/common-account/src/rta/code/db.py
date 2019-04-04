@@ -72,6 +72,7 @@ class DbTable():
         with table.batch_writer() as batch:
             for update in updates:
                 sleep(0.1)
+                logger.info(f"Update: {update}")
                 if update.get("type") == "put":
                     item = update.get("item")
                     response = batch.put_item(Item=item)

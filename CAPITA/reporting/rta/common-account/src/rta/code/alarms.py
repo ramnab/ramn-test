@@ -227,8 +227,8 @@ class BSE(Alarm):
         if state:
             '''Clear alarm conditions'''
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
-            if state.get("extra", {}).get("end"):
-                if Alarm.after(state.get("extra", {}).get("end"), event):
+            if state.get("extra", {}).get("start"):
+                if Alarm.after(state.get("extra", {}).get("start"), event):
                     db_updates.append(self.create_clear_alarm(username))
 
         if not state:
@@ -239,21 +239,15 @@ class BSE(Alarm):
                 for window in windows:
                     if Alarm.is_between(window, event):
                         ts = event.get("EventTimestamp")
-                        ts_pp = datetime.strftime(self.get_ts(ts),
-                                                  '%H:%M:%S %d/%m/%Y')
+                        ts_pp = datetime.strftime(self.get_ts(ts), '%H:%M:%S %d/%m/%Y')
                         shift_start = window.get("start")
                         time_diff = Alarm.time_diff_mins(shift_start, ts)
                         display_ts = Alarm.mins_pp(time_diff)
                         ttl = shift_start
-                        reason = (f"{username} login at {ts_pp} "
-                                  f"before shift start at "
-                                  f"{Alarm.pp_date(shift_start)}")
+                        reason = f"{username} login at {ts_pp} before shift start at {Alarm.pp_date(shift_start)}"
 
-                        extra = {"end": window.get("T2")}
-                        update = self.create_set_alarm(username, ts,
-                                                       display_ts,
-                                                       extra,
-                                                       event, reason, ttl)
+                        extra = {"start": window.get("start")}
+                        update = self.create_set_alarm(username, ts, display_ts, extra, event, reason, ttl)
                         if update:
                             db_updates.append(update)
                         break
@@ -664,12 +658,25 @@ class SIU(Alarm):
             event = Alarm.typed_event("SP_HEART_BEAT", filtered)
             if event:
                 '''Incremental ts update'''
+
+                new_state = state.copy()
+
+                is_pending = state.get("extra", {}) \
+                                  .get("status", "") == "pending"
+
                 login_ts = state.get("extra", {}).get("login")
+
+                if is_pending:
+                    ts = event.get("EventTimestamp")
+                    time_diff = Alarm.time_diff_mins(ts, login_ts)
+
+                    if time_diff >= 5:
+                        dict_merge(new_state, {"extra": {"status": "active"}})
+
                 if login_ts:
                     logger.info("SIU ts updating")
                     display_ts = Alarm.calc_display_ts(login_ts, event)
 
-                    new_state = state.copy()
                     dict_merge(new_state, {"display_ts": display_ts})
                     db_updates.append({
                         "type": "put",
@@ -683,15 +690,17 @@ class SIU(Alarm):
                 windows = self.get_alarm_times(username)
 
                 ts = event.get("EventTimestamp")
-                display_ts = Alarm.pp_date(ts)
+
+                extra = {
+                    "login": ts,
+                    "status": "pending"
+                }
+
                 if not self.schedules.get(username):
-                    reason = (f"{username} logged in at {display_ts} "
+                    reason = (f"{username} logged in at {Alarm.pp_date(ts)} "
                               f" but no schedule exists for them")
 
-                    update = self.create_set_alarm(username, ts,
-                                                   display_ts,
-                                                   {"login": ts},
-                                                   event, reason)
+                    update = self.create_set_alarm(username, ts, "00:00:00", extra, event, reason)
 
                     if update:
                         db_updates.append(update)
@@ -700,29 +709,23 @@ class SIU(Alarm):
                 for window in windows:
 
                     if Alarm.before(window.get("T1"), event):
-                        reason = (f"{username} logged in at {display_ts} "
+                        reason = (f"{username} logged in at {Alarm.pp_date(ts)} "
                                   f"before their expected shift start "
                                   f"time of {window.get('start')}")
 
-                        update = self.create_set_alarm(username, ts,
-                                                       display_ts,
-                                                       {"login": ts},
-                                                       event, reason)
+                        update = self.create_set_alarm(username, ts, "00:00:00", extra, event, reason)
 
                         if update:
                             db_updates.append(update)
                         break
 
                     if Alarm.after(window.get("T2"), event):
-                        reason = (f"{username} logged in at {display_ts} "
+                        reason = (f"{username} logged in at {Alarm.pp_date(ts)} "
                                   f"after their expected shift ended "
                                   f"time of "
                                   f"{Alarm.pp_date(window.get('end'))}")
 
-                        update = self.create_set_alarm(username, ts,
-                                                       display_ts,
-                                                       {"login": ts},
-                                                       event, reason)
+                        update = self.create_set_alarm(username, ts, "00:00:00", extra, event, reason)
 
                         if update:
                             db_updates.append(update)
@@ -882,8 +885,7 @@ class WOB(Alarm):
                         # default display time is from start of break
                         ts = event.get("EventTimestamp")
                         start = wob.get("start")
-                        time_diff = Alarm.time_diff_mins(ts,
-                                                         wob.get("start"))
+                        time_diff = Alarm.time_diff_mins(ts, wob.get("start"))
 
                         # on state change to working type, reset the
                         # display time
@@ -1030,7 +1032,8 @@ class EXL(Alarm):
                                   f"have ended at "
                                   f"{Alarm.pp_date(exl.get('end'))}")
 
-                        extra = {"end": exl.get("T2")}
+                        exception_end_time = exl.get("end")
+                        extra = {"end": exception_end_time}
                         update = self.create_set_alarm(username,
                                                        ts, display_ts,
                                                        extra, event,

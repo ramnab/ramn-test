@@ -53,6 +53,7 @@ def clear_alarms_table():
                 "username": item.get("username"),
                 "alarmcode": item.get("alarmcode")
             })
+    sleep(2)
 
 
 def clear_status_table():
@@ -65,6 +66,7 @@ def clear_status_table():
                 "username": item.get("username"),
                 "prop": item.get("prop")
             })
+    sleep(2)
 
 
 def read_alarms():
@@ -184,24 +186,40 @@ Environment to target in capita-common: dev or test
         "SIU": [
             # SHIFT START=2019-02-20T08:15 END=2019-02-20T17:15
             {
-                "title": "SIU Activated Before SHIFT",
+                "title": "SIU Pending Before SHIFT",
                 "event": create(typ="LOGIN",
                                 username="P21207381",
                                 ts="2019-02-20T07:30:00.012Z")
             },
             {
-                "title": "SIU Activated After SHIFT",
+                "title": "SIU Incr TS Pending Before SHIFT",
+                "hb": {"ts": "2019-02-20T07:31:00.012Z"}
+            },
+            {
+                "title": "SIU Incr TS Active Before SHIFT",
+                "hb": {"ts": "2019-02-20T07:36:00.012Z"}
+            },
+            {
+                "title": "SIU Pending After SHIFT",
                 "event": create(typ="LOGIN",
                                 username="P21207381",
                                 ts="2019-02-20T17:55:00.012Z"),
                 "clear": "alarms"
             },
             {
-                "title": "SIU Activated WITH NO SCHEDULE",
+                "title": "SIU Pending WITH NO SCHEDULE",
                 "event": create(typ="LOGIN",
                                 username="P123",
                                 ts="2019-02-20T17:55:00.012Z"),
                 "clear": "alarms"
+            },
+            {
+                "title": "SIU Pending WITH NO SCHEDULE, Increment time",
+                "hb": {"ts": "2019-02-20T17:56:00.012Z"}
+            },
+            {
+                "title": "SIU Activated WITH NO SCHEDULE, Increment time",
+                "hb": {"ts": "2019-02-20T18:02:00.012Z"}
             }
         ],
         "BSL": [
@@ -376,6 +394,7 @@ Running test set for {test_set}
                 slp(10)
 
     print("Completed")
+
 
 if __name__ == '__main__':
     main()

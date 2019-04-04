@@ -63,7 +63,7 @@ sudo apt-get install python3.6-dev
 sudo pip install awsume
 ```
 
-<br>
+<br
 
 # Automated Deployment Script
 
@@ -74,7 +74,7 @@ The deployment script deploys the entire stack into Capita Common dev/test/prod 
 awsume capita-common-nonprod
 
 # Replace ENV with Dev / Test / Prod
-./bin/deploy.sh <ENV>
+./bin/deploy.sh ENV
 
 ```
 
@@ -134,19 +134,19 @@ ______
 ```bash
 
 aws cloudformation package --region eu-central-1 --template-file templates/verify.yml \
-                           --s3-bucket <DEPLOY-BUCKET> \
+                           --s3-bucket DEPLOY-BUCKET \
                            --output-template-file deploy-verify.yml
 
 aws cloudformation deploy  --region eu-central-1 --template-file deploy-verify.yml \
-                           --stack-name stCapita-RTA-<ENV>-Verify \
+                           --stack-name stCapita-RTA-ENV-Verify \
                            --capabilities CAPABILITY_IAM \
                            --parameter-overrides \
-                                pInputBucketArn=<INPUT-ARN> \
-                                pOutputBucketArn=<OUTPUT-ARN> \
-                                pOutputFilePath=<OUTPUT-PATH> \
-                                pAlarmConfigFilePath=<ALARM-CFG> \
-                                pEnvironment=<ENV> \
-                                pEnvironmentLowerCase=<ENV-LOWERCASE> \
+                                pInputBucketArn=INPUT-ARN \
+                                pOutputBucketArn=OUTPUT-ARN \
+                                pOutputFilePath=OUTPUT-PATH \
+                                pAlarmConfigFilePath=ALARM-CFG \
+                                pEnvironment=ENV \
+                                pEnvironmentLowerCase=ENV-LOWERCASE \
                                 pDepartment=ccm
 
 ```
@@ -162,16 +162,16 @@ aws cloudformation deploy  --region eu-central-1 --template-file deploy-verify.y
 ```bash
 
 aws cloudformation package --region eu-central-1 --template-file templates/rta.yml \
-                           --s3-bucket <DEPLOY-BUCKET> \
+                           --s3-bucket DEPLOY-BUCKET \
                            --output-template-file deploy-rta.yml
 
 aws cloudformation deploy  --region eu-central-1 --template-file deploy-rta.yml \
-                           --stack-name stCapita-RTA-<ENV>-App \
+                           --stack-name stCapita-RTA-ENV-App \
                            --capabilities CAPABILITY_IAM \
                            --parameter-overrides \
-                                pAgentSchedule=s3://<SCHEDULE-BUCKET>/processed/schedule.json \
-                                pEnvironment=<ENV> \
-                                pEnvironmentLowerCase=<ENV-LOWERCASE> \
+                                pAgentSchedule=s3://SCHEDULE-BUCKET/processed/schedule.json \
+                                pEnvironment=ENV \
+                                pEnvironmentLowerCase=ENV-LOWERCASE \
                                 pDepartment=ccm
 
 ```
@@ -189,20 +189,20 @@ aws cloudformation deploy  --region eu-central-1 --template-file deploy-rta.yml 
 ```bash
 
 aws cloudformation package --region eu-central-1 --template-file templates/api.yml \
-                           --s3-bucket <DEPLOY-BUCKET> \
+                           --s3-bucket DEPLOY-BUCKET \
                            --output-template-file deploy-api.yml
 
 aws cloudformation deploy --region eu-central-1 \
                           --template-file deploy-api.yml \
-                          --stack-name stCapita-RTA-<ENV>-Api \
+                          --stack-name stCapita-RTA-ENV-Api \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
-                                pUserPoolArn=<COGNITO-ARN> \
-                                pEnvironmentLowerCase=<ENV-LOWERCASE> \
-                                pEnvironment=<ENV> \
-                                pDepartment=<DEPT> \
-                                pRtaAlarmsDb=<ALARMDB> \
-                                pRtaAlarmsDbArn=<ALARMDB-ARN>
+                                pUserPoolArn=COGNITO-ARN \
+                                pEnvironmentLowerCase=ENV-LOWERCASE \
+                                pEnvironment=ENV \
+                                pDepartment=DEPT \
+                                pRtaAlarmsDb=ALARMDB \
+                                pRtaAlarmsDbArn=ALARMDB-ARN
 
 ```
 
@@ -230,7 +230,7 @@ aws cloudformation describe-stacks --stack-name stCapita-RTA-Dev-API --query "St
 
 This will return the API-ID parameter to use as the API Invoke Url:
 
-`https://<API-ID>.execute-api.eu-central-1.amazonaws.com/prod/rta`
+`https://API-ID.execute-api.eu-central-1.amazonaws.com/prod/rta`
 
 For example, `https://baoc3xefbc.execute-api.eu-central-1.amazonaws.com/prod/rta`
 
@@ -243,7 +243,7 @@ For example, `https://baoc3xefbc.execute-api.eu-central-1.amazonaws.com/prod/rta
 awsume dev
 
 # Replace BUCKET with the bucket name for the web app
-aws s3 sync html/. s3://<BUCKET>
+aws s3 sync html/. s3://BUCKET
 ```
 
 ______

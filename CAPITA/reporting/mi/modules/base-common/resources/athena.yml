@@ -15,18 +15,31 @@ Parameters:
     Type: String
     Default: ccm
     Description: Department identifier for unique bucket naming, lowercase
+
+  pReportBucket:
+    Type: String
+    Default: "s3-capita-ccm-connect-common-dev-reporting"
+    Description: Name of bucket containing reports in Parquet format
   pCtrLocation:
     Type: String
-    Default: "s3://s3-capita-ccm-connect-common-dev-reporting/contact_record/"
-    Description: Name of bucket containing CTR data in Parquet format
+    Default: contact_record/
+    Description: Name of prefix containing CTR data in Parquet format
   pQILocation:
     Type: String
-    Default: "s3://s3-capita-ccm-connect-common-dev-reporting/queue_interval/"
-    Description: Name of bucket containing Queue Interval data in Parquet format
+    Default: queue_interval/
+    Description: Name of prefix containing Queue Interval data in Parquet format
   pAILocation:
     Type: String
-    Default: "s3://s3-capita-ccm-connect-common-dev-reporting/agent_interval/"
-    Description: Name of bucket containing Agent Interval data in Parquet format
+    Default: agent_interval/
+    Description: Name of prefix containing Agent Interval data in Parquet format
+  pQDailyLocation:
+    Type: String
+    Default: queue_daily/
+    Description: Name of prefix containing Queue Daily data in Parquet format
+  pADailyLocation:
+    Type: String
+    Default: agent_daily/
+    Description: Name of prefix containing Agent Daily data in Parquet format
 
 Resources:
   AthenaMachineUser:
@@ -72,7 +85,7 @@ Resources:
         StorageDescriptor:
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
-          Location: !Ref pCtrLocation
+          Location: !Sub "s3://${pReportBucket}/${pCtrLocation}"
           SerdeInfo:
              Name: "serde-info"
              Parameters:
@@ -146,7 +159,7 @@ Resources:
         StorageDescriptor:
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
-          Location: !Ref pQILocation
+          Location: !Sub "s3://${pReportBucket}/${pQILocation}"
           SerdeInfo:
             Name: "serde-info"
             Parameters:
@@ -332,7 +345,353 @@ Resources:
         StorageDescriptor:
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
-          Location: !Ref pAILocation
+          Location: !Sub "s3://${pReportBucket}/${pAILocation}"
+          SerdeInfo:
+            Name: "serde-info"
+            Parameters:
+              serialization.format: 1
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Name: agent
+            Type: string
+          - Name: startinterval
+            Type: timestamp
+          - Name: endinterval
+            Type: timestamp
+          - Name: agentname
+            Type: string
+          - Name: agentfirstname
+            Type: string
+          - Name: agentlastname
+            Type: string
+          - Name: aftercontactworktime
+            Type: int
+          - Name: agentoncontacttime
+            Type: int
+          - Name: agentidletime
+            Type: int
+          - Name: nonproductivetime
+            Type: int
+          - Name: averageaftercontactworktime
+            Type: int
+          - Name: contactsagenthungupfirst
+            Type: int
+          - Name: contactsconsulted
+            Type: int
+          - Name: contactshandled
+            Type: int
+          - Name: contactshandledincoming
+            Type: int
+          - Name: contactshandledoutbound
+            Type: int
+          - Name: callbackcontactshandled
+            Type: int
+          - Name: contactsputonhold
+            Type: int
+          - Name: contactsholddisconnect
+            Type: int
+          - Name: contactsholdagentdisconnect
+            Type: int
+          - Name: contactsholdcustomerdisconnect
+            Type: int
+          - Name: contactsincoming
+            Type: int
+          - Name: callbackcontacts
+            Type: int
+          - Name: contactsqueued
+            Type: int
+          - Name: contactstransferredin
+            Type: int
+          - Name: contactstransferredout
+            Type: int
+          - Name: contactstransferredoutinternal
+            Type: int
+          - Name: contactstransferredoutexternal
+            Type: int
+          - Name: contactstransferredinfromqueue
+            Type: int
+          - Name: contactstransferredoutfromqueue
+            Type: int
+          - Name: errorstatustime
+            Type: int
+          - Name: customerholdtime
+            Type: int
+          - Name: agentanswerrate
+            Type: int
+          - Name: maximumqueuedtime
+            Type: int
+          - Name: contactsmissed
+            Type: int
+          - Name: contacthandletime
+            Type: int
+          - Name: contactflowtime
+            Type: int
+          - Name: occupancy
+            Type: int
+          - Name: servicelevel15seconds
+            Type: string
+          - Name: servicelevel20seconds
+            Type: string
+          - Name: servicelevel25seconds
+            Type: string
+          - Name: servicelevel30seconds
+            Type: string
+          - Name: servicelevel45seconds
+            Type: string
+          - Name: servicelevel60seconds
+            Type: string
+          - Name: servicelevel90seconds
+            Type: string
+          - Name: servicelevel120seconds
+            Type: string
+          - Name: servicelevel180seconds
+            Type: string
+          - Name: servicelevel240seconds
+            Type: string
+          - Name: servicelevel300seconds
+            Type: string
+          - Name: servicelevel600seconds
+            Type: string
+          - Name: onlinetime
+            Type: int
+          - Name: agentinteractionandholdtime
+            Type: int
+          - Name: agentinteractiontime
+            Type: int
+          - Name: averageoutboundagentinteractiontime
+            Type: int
+          - Name: averageoutboundaftercontactworktime
+            Type: int
+          - Name: breaktime
+            Type: int
+          - Name: lunchtime
+            Type: int
+          - Name: mentortime
+            Type: int
+          - Name: admintime
+            Type: int
+          - Name: trainingtime
+            Type: int
+          - Name: meetingtime
+            Type: int
+          - Name: onetoonetime
+            Type: int
+          - Name: outboundtime
+            Type: int
+          - Name: special1time
+            Type: int
+          - Name: outboundagentinteractiontime
+            Type: int
+          - Name: outboundagentaftercontactworktime
+            Type: int
+
+
+
+  GlueQueueDailyTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: queue_daily
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pQDailyLocation}"
+          SerdeInfo:
+            Name: "serde-info"
+            Parameters:
+              serialization.format: 1
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+            - Name: queue
+              Type: string
+            - Name: startinterval
+              Type: timestamp
+            - Name: endinterval
+              Type: timestamp
+            - Name: aftercontactworktime
+              Type: int
+            - Name: agentoncontacttime
+              Type: int
+            - Name: agentidletime
+              Type: int
+            - Name: averagequeueabandontime
+              Type: int
+            - Name: averageaftercontactworktime
+              Type: int
+            - Name: averagequeueanswertime
+              Type: int
+            - Name: averagehandletime
+              Type: int
+            - Name: averagecustomerholdtime
+              Type: int
+            - Name: averageagentinteractionandcustomerholdtime
+              Type: int
+            - Name: averageagentinteractiontime
+              Type: int
+            - Name: contactsabandoned
+              Type: int
+            - Name: contactsabandonedin15seconds
+              Type: int
+            - Name: contactsabandonedin20seconds
+              Type: int
+            - Name: contactsabandonedin25seconds
+              Type: int
+            - Name: contactsabandonedin30seconds
+              Type: int
+            - Name: contactsabandonedin45seconds
+              Type: int
+            - Name: contactsabandonedin60seconds
+              Type: int
+            - Name: contactsabandonedin90seconds
+              Type: int
+            - Name: contactsabandonedin120seconds
+              Type: int
+            - Name: contactsabandonedin180seconds
+              Type: int
+            - Name: contactsabandonedin240seconds
+              Type: int
+            - Name: contactsabandonedin300seconds
+              Type: int
+            - Name: contactsabandonedin600seconds
+              Type: int
+            - Name: contactsagenthungupfirst
+              Type: int
+            - Name: contactsconsulted
+              Type: int
+            - Name: contactshandled
+              Type: int
+            - Name: contactshandledincoming
+              Type: int
+            - Name: contactshandledoutbound
+              Type: int
+            - Name: callbackcontactshandled
+              Type: int
+            - Name: contactsputonhold
+              Type: int
+            - Name: contactsholddisconnect
+              Type: int
+            - Name: contactsholdagentdisconnect
+              Type: int
+            - Name: contactsholdcustomerdisconnect
+              Type: int
+            - Name: contactsincoming
+              Type: int
+            - Name: callbackcontacts
+              Type: int
+            - Name: contactsansweredin15seconds
+              Type: int
+            - Name: contactsansweredin20seconds
+              Type: int
+            - Name: contactsansweredin25seconds
+              Type: int
+            - Name: contactsansweredin30seconds
+              Type: int
+            - Name: contactsansweredin45seconds
+              Type: int
+            - Name: contactsansweredin60seconds
+              Type: int
+            - Name: contactsansweredin90seconds
+              Type: int
+            - Name: contactsansweredin120seconds
+              Type: int
+            - Name: contactsansweredin180seconds
+              Type: int
+            - Name: contactsansweredin240seconds
+              Type: int
+            - Name: contactsansweredin300seconds
+              Type: int
+            - Name: contactsansweredin600seconds
+              Type: int
+            - Name: contactsqueued
+              Type: int
+            - Name: contactstransferredin
+              Type: int
+            - Name: contactstransferredout
+              Type: int
+            - Name: contactstransferredoutinternal
+              Type: int
+            - Name: contactstransferredoutexternal
+              Type: int
+            - Name: contactstransferredinfromqueue
+              Type: int
+            - Name: contactstransferredoutfromqueue
+              Type: int
+            - Name: customerholdtime
+              Type: int
+            - Name: agentanswerrate
+              Type: int
+            - Name: maximumqueuedtime
+              Type: int
+            - Name: contactsmissed
+              Type: int
+            - Name: contacthandletime
+              Type: int
+            - Name: contactflowtime
+              Type: int
+            - Name: occupancy
+              Type: int
+            - Name: servicelevel15seconds
+              Type: string
+            - Name: servicelevel20seconds
+              Type: string
+            - Name: servicelevel25seconds
+              Type: string
+            - Name: servicelevel30seconds
+              Type: string
+            - Name: servicelevel45seconds
+              Type: string
+            - Name: servicelevel60seconds
+              Type: string
+            - Name: servicelevel90seconds
+              Type: string
+            - Name: servicelevel120seconds
+              Type: string
+            - Name: servicelevel180seconds
+              Type: string
+            - Name: servicelevel240seconds
+              Type: string
+            - Name: servicelevel300seconds
+              Type: string
+            - Name: servicelevel600seconds
+              Type: string
+            - Name: agentinteractionandholdtime
+              Type: int
+            - Name: agentinteractiontime
+              Type: int
+            - Name: averageoutboundagentinteractiontime
+              Type: int
+            - Name: averageoutboundaftercontactworktime
+              Type: int
+
+  GlueAgentDailyTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: agent_daily
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pADailyLocation}"
           SerdeInfo:
             Name: "serde-info"
             Parameters:

@@ -33,7 +33,8 @@ def handler(event, _context):
                 existing_prefix = next(rule.get('Value') for rule in existing_filter_rules
                                        if rule.get('Name') == 'Prefix')
 
-                if existing_lamdab_arn == lambda_arn or existing_prefix == prefix:
+                # if existing_lamdab_arn == lambda_arn or existing_prefix == prefix:
+                if existing_prefix == prefix:
                     print(f"Removing existing config for {existing_lamdab_arn}: {str(notification)}")
                     notifications.lambda_function_configurations.remove(notification)
 

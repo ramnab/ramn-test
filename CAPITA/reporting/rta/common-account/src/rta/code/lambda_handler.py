@@ -19,7 +19,7 @@ s3 = boto3.resource('s3')
 dynamodb = boto3.resource('dynamodb')
 
 
-def handler(event, context):
+def handler(event, _context):
     """
     Handles Agent Events from Kinesis and calculates RTA alarm states
 
@@ -35,13 +35,17 @@ def handler(event, context):
         logger.info(f"SCHEDULE={str(schedule)}")
 
         # get agent history
-        historyTablename = os.environ.get("HISTORY_DB")
-        history = DbTable(historyTablename)
+        history_tablename = os.environ.get("HISTORY_DB")
+        history = DbTable(history_tablename)
         logger.debug(f"Agent history={history.items}")
+
+        # get existing alarms
+        alarm_tablename = os.environ.get("ALARM_DB")
+        active_alarms = DbTable(alarm_tablename)
 
         if event.get("EventType") == "SP_HEART_BEAT":
             logger.info(f"Special Heart Beat")
-            prepared_records = prepare_heart_beat_update(schedule, history, event)
+            prepared_records = prepare_heart_beat_update(schedule, history, event, active_alarms.items)
         elif event.get("Records"):
             prepared_records = prepare_records(event.get("Records"))
             capture_history(schedule, prepared_records, history)
@@ -49,9 +53,6 @@ def handler(event, context):
         if not prepared_records:
             logger.info("Nothing to process")
             return {}
-
-        alarmTablename = os.environ.get("ALARM_DB")
-        active_alarms = DbTable(alarmTablename)
 
         logger.info(f"Active alarms = {str(active_alarms.items)}")
         db_updates = recalculate_alarms(schedule,
@@ -68,12 +69,13 @@ def handler(event, context):
     return {}
 
 
-def prepare_heart_beat_update(schedule, history, event):
-    '''
+def prepare_heart_beat_update(schedule, history, event, active_alarms):
+    """
     Generate a new event for each agent in the schedule,
     using their last known status from the history db
     (or offline, if no status present)
-    '''
+    """
+
     now = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     if event.get("ts"):
         now = event.get("ts")
@@ -102,12 +104,35 @@ def prepare_heart_beat_update(schedule, history, event):
             }
         }]
 
+    for alarm in active_alarms:
+        if alarm.get("username") and alarm.get("username") not in prep.keys():
+            logger.info(f"Creating a new HB for user not in schedule, has active alarm: {alarm}")
+            username = alarm.get("username")
+            firstname = alarm.get("firstname")
+            lastname = alarm.get("lastname")
+            if not firstname or not lastname:
+                raise Exception(f"existing alarm: no first/last name found for {username}")
+            agent_state = history.get(username, "agent_status").get("val", "Offline")
+            prep[username] = [{
+                "EventType": "SP_HEART_BEAT",
+                "EventTimestamp": now,
+                "CurrentAgentSnapshot": {
+                    "Configuration": {
+                        "FirstName": firstname,
+                        "LastName": lastname
+                    },
+                    "AgentStatus": {
+                        "Name": agent_state
+                    }
+                }
+            }]
+
     logger.info(f"Special HB prepared events: {json.dumps(prep, indent=2)}")
     return prep
 
 
 def prepare_records(records):
-    '''Decodes each kinesis record grouped by username'''
+    """Decodes each kinesis record grouped by username"""
     prep = {}
     logger.info(f"Processing {len(records)} kinesis records")
     for record in records:
@@ -133,7 +158,7 @@ def prepare_records(records):
                     prep[username].append(event)
         except json.JSONDecodeError:
             logger.error("Unable to decode json record from string: "
-                         f"{event_as_string}")
+                         f"{event_as_str}")
 
     logger.info(f"Prepared records: {prep}")
     return prep
@@ -150,7 +175,7 @@ def log_event(event):
 
 
 def read_schedule(bucket, key):
-    '''Reads in JSON schedule from specified S3 bucket / key'''
+    """Reads in JSON schedule from specified S3 bucket / key"""
     try:
         logger.debug(f"Reading schedule from s3://{bucket}/{key}")
         schedule = s3.Object(bucket, key).get()['Body'].read().decode('utf-8')
@@ -210,7 +235,7 @@ def get_all_alarms(schedules, table):
 
 
 def get_username(event):
-    '''Returns the username from a Connect Agent Log event'''
+    """Returns the username from a Connect Agent Log event"""
     return event.get("CurrentAgentSnapshot", {}) \
                 .get("Configuration", {}) \
                 .get("Username", "UNKNOWN_USER")
@@ -223,10 +248,10 @@ def split_s3(uri):
 
 
 def get_end_of_current_shift(username, schedule, ts):
-    '''
+    """
     Find the current or next shift
     and return the end time of it
-    '''
+    """
     bses = schedule.get(username, {}) \
                    .get("ALARMS", {}) \
                    .get("BSE", [])
@@ -259,7 +284,7 @@ def get_end_of_current_shift(username, schedule, ts):
 
 
 def capture_history(schedule, records, history):
-    '''
+    """
     Gets the  agent status from the last event received
     and writes to the history db
 
@@ -268,7 +293,7 @@ def capture_history(schedule, records, history):
     an entry present. These events are automatically
     deleted by TTL based on the end of the current
     shift
-    '''
+    """
     history_updates = []
     for username, recordset in records.items():
         logger.info(f"Processing event for capture: "

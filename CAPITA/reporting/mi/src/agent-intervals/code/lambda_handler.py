@@ -22,7 +22,15 @@ def handler(event, _context):
 
     bucket = s3.get("bucket", {}).get("name")
     key = unquote(s3.get("object", {}).get("key"))
-    firehose = event.get("Firehose", os.environ.get("FIREHOSE"))
+
+    # determine the firehose to send to
+    firehose = event.get("Firehose")
+    if not firehose and "AgentHistoricDaily" in key:
+        firehose = os.environ.get("FIREHOSE_DAILY")
+    elif not firehose and "AgentHistoricInterval" in key:
+        firehose = os.environ.get("FIREHOSE_INTERVAL")
+    else:
+        firehose = os.environ.get("FIREHOSE")
 
     if not firehose:
         logger.error(f"@lambda_handler|handler|"

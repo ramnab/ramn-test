@@ -424,10 +424,62 @@ class AlarmTests(unittest.TestCase):
                                     "2019-01-21T17:06:00.012Z")
 
         alarms = siu.process(events1, "P0002", {})
+        print(alarms)
         self.assertEqual(len(alarms), 1)
         self.assertEqual(alarms[0].get("type"), "put")
         self.assertTrue(alarms[0].get("item"))
         self.assertEqual(alarms[0].get("item").get("alarmcode"), "SIU")
+
+    def test_SIU_Activated_Incr_Pending(self):
+        # username = P0002
+        siu = SIU(self.SCHEDULE)
+        events1 = self.create_event("SP_HEART_BEAT", "P0002",
+                                    "2019-01-21T17:07:00.012Z")
+
+        state = {'username': 'P0002', 'alarmcode': 'SIU', 'ts': '2019-01-21T17:06:00.012Z',
+                 'firstname': '-', 'lastname': '-', 'display_ts': '00:00:00',
+                 'extra': {'login': '2019-01-21T17:06:00.012Z', 'status': 'pending'},
+                 'event': {'EventType': 'LOGIN'}}
+        alarms = siu.process(events1, "P0002", state)
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item"))
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "SIU")
+        self.assertEqual(alarms[0].get("item").get("extra").get("status"), "pending")
+
+    def test_SIU_Activated_Incr_Activate(self):
+        # username = P0002
+        siu = SIU(self.SCHEDULE)
+        events1 = self.create_event("SP_HEART_BEAT", "P0002",
+                                    "2019-01-21T17:17:00.012Z")
+
+        state = {'username': 'P0002', 'alarmcode': 'SIU', 'ts': '2019-01-21T17:06:00.012Z',
+                 'firstname': '-', 'lastname': '-', 'display_ts': '00:00:00',
+                 'extra': {'login': '2019-01-21T17:06:00.012Z', 'status': 'pending'},
+                 'event': {'EventType': 'LOGIN'}}
+        alarms = siu.process(events1, "P0002", state)
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item"))
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "SIU")
+        self.assertEqual(alarms[0].get("item").get("extra").get("status"), "active")
+
+    def test_SIU_Activated_Incr_Activate2(self):
+        # username = P0002
+        siu = SIU(self.SCHEDULE)
+        events1 = self.create_event("SP_HEART_BEAT", "P0002",
+                                    "2019-01-21T17:18:00.012Z")
+
+        state = {'username': 'P0002', 'alarmcode': 'SIU', 'ts': '2019-01-21T17:06:00.012Z',
+                 'firstname': '-', 'lastname': '-', 'display_ts': '00:11:00',
+                 'extra': {'login': '2019-01-21T17:06:00.012Z', 'status': 'active'},
+                 'event': {'EventType': 'LOGIN'}}
+        alarms = siu.process(events1, "P0002", state)
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "put")
+        self.assertTrue(alarms[0].get("item"))
+        self.assertEqual(alarms[0].get("item").get("alarmcode"), "SIU")
+        self.assertEqual(alarms[0].get("item").get("extra").get("status"), "active")
 
     # ------------------------------------------------
     # BXE tests
@@ -452,12 +504,14 @@ class AlarmTests(unittest.TestCase):
 
     def test_EXL_Activated(self):
         exl = EXL(self.SCHEDULE)
+        # exception ends at 14:00
         # 14:05 < ts < 14:15
         events1 = self.create_event("SP_HEART_BEAT", "P0001",
                                     "2019-01-21T14:10:00.012Z",
                                     "121")
 
         alarms = exl.process(events1, "P0001", {})
+        print(alarms)
         self.assertEqual(len(alarms), 1)
         self.assertEqual(alarms[0].get("type"), "put")
         self.assertTrue(alarms[0].get("item"))
@@ -507,6 +561,23 @@ class AlarmTests(unittest.TestCase):
         self.assertEqual(alarms[0].get("type"), "put")
         self.assertTrue(alarms[0].get("item"))
         self.assertEqual(alarms[0].get("item").get("alarmcode"), "BSE")
+
+    def test_BSE_Clear(self):
+        bse = BSE(self.SCHEDULE)
+        events1 = self.create_event("SP_HEART_BEAT", "P0001",
+                                    "2019-01-21T08:01:00.012Z",
+                                    "Available")
+
+        state = {
+            "extra": {
+                "start": "2019-01-21T08:00"
+            }
+        }
+        alarms = bse.process(events1, "P0001", state, {})
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0].get("type"), "delete")
+        self.assertTrue(alarms[0].get("key"))
+        self.assertEqual(alarms[0].get("key").get("alarmcode"), "BSE")
 
     def test_BSL_Activated(self):
         bsl = BSL(self.SCHEDULE)
