@@ -95,7 +95,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
                           --stack-name stCapita-RTA-$ENV-App  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
-                                pAgentSchedule=s3://$AGENT_S3/processed/agent-schedule.json \
+                                pAgentSchedule=s3://$AGENT_S3/processed/agent_schedule.json \
                                 pEnvironment=$ENV_UPPER \
                                 pEnvironmentLowerCase=$ENV_LOWER
 

@@ -98,7 +98,7 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalTitle">Set Auto-refresh</h5>
+                <h5 class="modal-title">Set Auto-refresh</h5>
             
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -140,11 +140,11 @@
 
     <div class=container v-show="doSignin">
         <div class="card card-container">
-            <img id="profile-img" class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
-            <p id="profile-name" class="profile-name-card" style="color:#005177">Log in to CAPITA Connect RTA</p>
-            <p v-if="message" id="profile-name" class="profile-name-card" style="color:#808080; font-size:8pt">{{message}}</p>
+            <img class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
+            <p class="profile-name-card" style="color:#005177">Log in to CAPITA Connect RTA</p>
+            <p v-if="message" class="profile-name-card" style="color:#808080; font-size:8pt">{{message}}</p>
             <form class="form-signin" @submit.prevent="signin">
-                <span id="reauth-email" class="reauth-email"></span>
+                <span id="signin" class="reauth-email"></span>
                 <input v-model="username" autocomplete="username" type="text" id="inputUsername" class="form-control" placeholder="Username" required autofocus>
                 <input v-model="passwd" autocomplete="password" type="password" id="inputPassword" class="form-control" placeholder="Password" required>
              
@@ -195,8 +195,8 @@
     <div class=container v-show="changePwFlowState > -1">
 
         <div class="card card-container">
-            <img id="profile-img" class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
-            <p id="profile-name" class="profile-name-card"></p>
+            <img class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
+            <p class="profile-name-card"></p>
             <form class="form-signin" @submit.prevent="changePasswordFlow">
                 <input style="display:none" type=text name=username v-model="username">
 
@@ -219,8 +219,8 @@
     <!-- FORGOT PW COMPONENT -->
     <div class=container v-if="forgotPwFlowState > -1">
         <div class="card card-container">
-            <img id="profile-img" class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
-            <p id="profile-name" class="profile-name-card"></p>
+            <img class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
+            <p class="profile-name-card"></p>
             <form class="form-signin" @submit.prevent="forgotPasswordFlow">
                 <span id="reauth-email" class="reauth-email"></span>
                 <input v-model="email" type="text" id="inputEmail" class="form-control" placeholder="Enter your email address" required autofocus>
@@ -401,7 +401,8 @@
         },
         computed: {
             verbose: function() {
-                return location.search == "?verbose" || location.search == "?v"
+                // return location.search == "?verbose" || location.search == "?v"
+                return true
             },
             env: function() {
                 if (_config.env)

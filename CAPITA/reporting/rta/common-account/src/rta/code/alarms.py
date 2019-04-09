@@ -192,7 +192,7 @@ class Alarm:
     @staticmethod
     def pp_date(date):
         d = Alarm.get_ts(date)
-        return datetime.strftime(d, '%H:%M:%S %d/%m/%Y')
+        return datetime.strftime(d, '%H:%M:%S GMT %d/%m/%Y')
 
     @staticmethod
     def calc_display_ts(ts, event):
@@ -239,7 +239,7 @@ class BSE(Alarm):
                 for window in windows:
                     if Alarm.is_between(window, event):
                         ts = event.get("EventTimestamp")
-                        ts_pp = datetime.strftime(self.get_ts(ts), '%H:%M:%S %d/%m/%Y')
+                        ts_pp = datetime.strftime(self.get_ts(ts), '%H:%M:%S GMT %d/%m/%Y')
                         shift_start = window.get("start")
                         time_diff = Alarm.time_diff_mins(shift_start, ts)
                         display_ts = Alarm.mins_pp(time_diff)
@@ -697,7 +697,7 @@ class SIU(Alarm):
                 }
 
                 if not self.schedules.get(username):
-                    reason = (f"{username} logged in at {Alarm.pp_date(ts)} "
+                    reason = (f"{username} logged in at {Alarm.pp_date(ts)}"
                               f" but no schedule exists for them")
 
                     update = self.create_set_alarm(username, ts, "00:00:00", extra, event, reason)

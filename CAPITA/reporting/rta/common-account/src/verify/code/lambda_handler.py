@@ -18,16 +18,22 @@ logger.setLevel(LOGGING_LEVEL)
 def handler(event, _context):
     """Main Handler function"""
     logger.info(f"Received event: {str(event)}")
-    reader = get_schedule_from_s3(event)
-    schedule = convert_schedule_to_json(reader, event)
-    validate_work_presence(event, schedule)
 
-    alarm_config = json.loads(get_alarm_config_from_s3())
-    for agent in schedule:
-        schedule[agent]["ALARMS"] = create_alarms(schedule, agent, alarm_config)
+    try:
+        reader = get_schedule_from_s3(event)
+        (schedule, errors) = convert_schedule_to_json(event, reader)
+        validate_work_presence(schedule, errors)
 
-    logger.info(f"Returning schedule: {json.dumps(schedule, indent=2)}")
-    upload_schedule_to_s3(schedule)
+        alarm_config = json.loads(get_alarm_config_from_s3())
+        for agent in schedule:
+            schedule[agent]["ALARMS"] = create_alarms(schedule, agent, alarm_config)
+
+        logger.info(f"Returning schedule: {json.dumps(schedule, indent=2)}")
+        upload_schedule_to_s3(schedule)
+        if errors:
+            sns_error(event, errors)
+    except Exception as e:
+        logger.error(f"Exception: {str(e)}")
 
 
 def get_schedule_from_s3(event):
@@ -53,19 +59,24 @@ def upload_schedule_to_s3(schedule):
     s3client.put_object(Bucket=bucketname, Key=objectkey, Body=schedulebytes)
 
 
-def verify_schedule_contents(row, event):
+def verify_schedule_contents(row):
     """Confirm row contains all required information in correct format"""
     redate = re.compile("\\d{2}-\\d{2}-\\d{4}\\s+\\d{2}:\\d{2}:\\d{2}")
-    if not redate.match(row['start_moment']):
-        sns_error(event, f'The start moment for user {row["payroll_no"]} was incorrect/missing')
-    if not redate.match(row['stop_moment']):
-        sns_error(event, f'The stop moment for user {row["payroll_no"]} was incorrect/missing')
-    if not (row['code'] and row['cat']):
-        sns_error(event, f'Schedule missing information for {row["payroll_no"]}')
+    errors = []
+    if not redate.match(row.get('start_moment', "")):
+        errors.append(f'The start moment for user {row.get("payroll_no", "UNK")} was incorrect/missing')
+    if not redate.match(row.get('stop_moment', "")):
+        errors.append(f'The stop moment for user {row.get("payroll_no", "UNK")} was incorrect/missing')
+    if not (row.get('code') and row.get('cat')):
+        errors.append(f'Schedule missing code/cat information for {row.get("payroll_no", "UNK")}')
+    return errors
 
 
-def sns_error(event, emessage):
+def sns_error(event, errors):
     """Generate error message and send to SNS, then raise exception"""
+    if not errors:
+        return
+
     snsclient = boto3.client('sns')
 
     s3key = event["Records"][0]["s3"]["object"]["key"]
@@ -79,16 +90,28 @@ def sns_error(event, emessage):
     for folder in filepath:
         bucketpath = bucketpath + "/" + folder
 
-    message = (f'The following file {filename} uploaded '
-               f'at {eventtime} to {bucketpath} had the '
-               f'following error:\n {emessage}')
+    message = (f"""
+The following file
+    {filename} 
+
+uploaded at {eventtime} to 
+
+    {bucketpath}
+
+had the following validation error(s):
+
+""")
+
+    for error in errors:
+        message += f"\t * {error}\n"
+
+    logger.warning(message)
 
     snsclient.publish(
         TopicArn=os.environ.get('sns_failure_topic'),
         Message=message,
-        Subject=f'exception processing schedule {filename}'
+        Subject=f'RTA Schedule Error for: {filename}'
     )
-    raise Exception(message)
 
 
 def get_alarm_config_from_s3():
@@ -103,12 +126,19 @@ def get_alarm_config_from_s3():
     return alarm_config
 
 
-def convert_schedule_to_json(reader, event):
+def convert_schedule_to_json(event, reader):
     """Convert reader-format schedule to json"""
     schedule_as_json = {}
+    errors = []
+    number_of_rows = 0
+
     for row in reader:
+        number_of_rows += 1
         if row['first_name'] != "Record_count":
-            verify_schedule_contents(row, event)
+            row_errors = verify_schedule_contents(row)
+            if row_errors:
+                errors.extend(row_errors)
+                continue
             time1 = convert_datetime(row['start_moment'])
             time2 = convert_datetime(row['stop_moment'])
             times = {
@@ -131,16 +161,35 @@ def convert_schedule_to_json(reader, event):
             if not schedule_as_json[agentid]['SCHEDULE'].get(row['cat']):
                 schedule_as_json[agentid]['SCHEDULE'][row['cat']] = []
             schedule_as_json[agentid]['SCHEDULE'][row['cat']].append(times)
+    logger.info(f"Number of rows processed: {number_of_rows}")
+
+    if number_of_rows == 0:
+        errors.append(f"Schedule provided had no rows")
+        sns_error(event, errors)
+        raise Exception("Schedule empty")
+
     logger.info(f"Schedule: {str(schedule_as_json)}")
+    logger.info(f"Errors: {str(errors)}")
 
-    return schedule_as_json
+    return schedule_as_json, errors
 
 
-def validate_work_presence(event, schedule):
+def validate_work_presence(schedule, errors):
     """Validate all agents on schedule contain WORK"""
+    invalid_agents = []
+    logger.info(f"Validating schedule for agents")
     for agent in schedule:
         if "WORK" not in schedule[agent]['SCHEDULE']:
-            sns_error(event, f'There is no work shift defined for user {schedule[agent]}')
+            agent_info = schedule.get(agent, {}).get("AGENT_INFO", {})
+            first_name = agent_info.get("first_name", "")
+            last_name = agent_info.get("last_name", "")
+            if first_name and last_name:
+                errors.append(f"There is no work shift defined for user {first_name} {last_name} (P{agent})")
+            else:
+                errors.append(f"There is no work shift defined for user P{agent}")
+            invalid_agents.append(agent)
+    for agent in invalid_agents:
+        del schedule[agent]
 
 
 def create_alarms(schedule, agent, config):
@@ -153,7 +202,7 @@ def create_alarms(schedule, agent, config):
                     alarmsdict[alarm] = []
 
                 schedule_entries = schedule[agent]["SCHEDULE"][code]
-                logger.info(f"Creating alarms for {code}: {str(schedule_entries)}")
+
                 for schedule_entry in schedule_entries:
                     codedict = dict()
                     codedict['code'] = code
@@ -162,7 +211,7 @@ def create_alarms(schedule, agent, config):
                     codedict['T1'] = create_alarm_time(config, alarm, code, schedule_entry, agent, 'T1')
                     if "T2" in config[alarm]:
                         codedict['T2'] = create_alarm_time(config, alarm, code, schedule_entry, agent, 'T2')
-                    logger.info(f"Added new alarm: {str(codedict)}")
+
                     alarmsdict[alarm].append(codedict)
     return alarmsdict
 
@@ -179,10 +228,10 @@ def create_alarm_time(alarm_config, alarm, code, schedule, agent, time_code):
         starting_time[1] = code
 
     schedtime = schedule[starting_time[2]]
-    logger.info(f"schedtime = {schedtime}")
+
     schedtime = datetime.strptime(schedtime, '%Y-%m-%dT%H:%M')
     alarm_time = calulate_alarm_time(schedtime, time_config, alarm_config)
-    logger.info(f"Created alarm {agent} for {agent}: {schedtime} -{time_code}-> {str(alarm_time)}")
+    # logger.info(f"Created alarm {agent} for {agent}: {schedtime} -{time_code}-> {str(alarm_time)}")
     return str(alarm_time)
 
 

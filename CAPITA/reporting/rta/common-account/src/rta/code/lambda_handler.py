@@ -6,6 +6,7 @@ import boto3
 from botocore.exceptions import ClientError
 import os
 from datetime import datetime
+from datetime import timedelta
 from db import *
 from alarms import *
 
@@ -182,14 +183,14 @@ def read_schedule(bucket, key):
         schedule_as_json = json.loads(schedule)
         logger.debug(f"Schedule: {json.dumps(schedule_as_json)}")
         return schedule_as_json
-    except ClientError as e:
+    except ClientError:
         raise Exception(f"Cannot read schedule file from s3://{bucket}/{key}")
 
 
 def recalculate_alarms(schedule, prepared_records,
                        alarm_states_db, history_db):
 
-    alarms = get_all_alarms(schedule, alarm_states_db)
+    alarms = get_all_alarms(schedule)
 
     all_db_updates = []
     for username, events in prepared_records.items():
@@ -215,12 +216,11 @@ def recalculate_alarms(schedule, prepared_records,
     return all_db_updates
 
 
-def get_all_alarms(schedules, table):
+def get_all_alarms(schedules):
     alarms = [
         BSE(schedules),
         BSL(schedules),
-        # ESE alarm disabled
-        # ESE(schedules),
+        # ESE(schedules),  # ESE alarm disabled
         ESL(schedules),
         BBE(schedules),
         EBL(schedules),
@@ -244,7 +244,7 @@ def get_username(event):
 def split_s3(uri):
     match = re.match(r's3://(.+?)/(.*)', uri)
     if match:
-        return (match.group(1), match.group(2))
+        return match.group(1), match.group(2)
 
 
 def get_end_of_current_shift(username, schedule, ts):
@@ -327,13 +327,19 @@ def capture_history(schedule, records, history):
                 ts = record.get("EventTimestamp")
                 end_of_shift = get_end_of_current_shift(username, schedule, ts)
                 logger.info(f"end of shift={end_of_shift}")
-                if end_of_shift:
-                    history_updates.append({
+                if end_of_shift or True:
+                    update = {
                         "username": username,
                         "prop": "LOGIN",
-                        "ts": ts,
-                        "ttl": int(end_of_shift.timestamp())
-                    })
+                        "ts": ts
+                    }
+                    if end_of_shift:
+                        update['ttl'] = int(end_of_shift.timestamp())
+                    else:
+                        now12 = datetime.now() + timedelta(hours=12)
+                        update['ttl'] = int(now12.timestamp())
+                    history_updates.append(update)
+
             if record.get("EventType") == "LOGOUT" and \
                not history.get(username, "LOGOUT"):
                 history_updates.append({

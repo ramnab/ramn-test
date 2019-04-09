@@ -26,6 +26,7 @@ Resources:
 
   RtaVerifyLambda:
     Type: AWS::Serverless::Function
+    DependsOn: RtaVerifySnsTopic
     Properties:
       FunctionName: !Join ["", ["lmbRtaVerify", "-", !Ref pDepartment, "-", !Ref pEnvironment]]
       Handler: lambda_handler.handler
@@ -58,6 +59,7 @@ Resources:
           output_file_path: !Ref pOutputFilePath
           output_s3_bucket: !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']]
           alarm_config_file_path: !Ref pAlarmConfigFilePath
+          sns_failure_topic: !Ref RtaVerifySnsTopic
       Tags:
           "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
           "tech:Environment": !Ref pEnvironmentLowerCase

@@ -21,7 +21,7 @@ class DbTable():
 
     def __init__(self, tablename):
         self.tablename = tablename
-        logger.info(f"Creating new DbTable '{tablename}''")
+        logger.info(f"Creating new DbTable '{tablename}'")
         self.load()
 
     def load(self):
