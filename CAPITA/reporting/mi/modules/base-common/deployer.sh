@@ -33,9 +33,21 @@ echo """
                 -----------------
 
 """
+
+
+python ${DIRECTORY}/../../scripts/create-athena-workgroups.py ccm ${ENV}
+
+
+if [[ ! $? -eq 0 ]]; then
+    echo "Unable to create/update athena workgroups... aborting"
+    exit
+fi
+
+LAMBDA_S3="s3-capita-ccm-connect-common-${ENV_LOWER}-lambdas-eu-central-1"
+
 aws cloudformation package --region eu-central-1 \
                            --template-file ${DIRECTORY}/resources/athena.yml \
-                           --s3-bucket s3-capita-ccm-${ENV_LOWER}-lambdas-eu-central-1 \
+                           --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-athena.yml
 
 aws cloudformation deploy --region eu-central-1 --template-file deploy-athena.yml \
@@ -52,6 +64,8 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-athena.ym
                                 pQILocation=queue_daily/ \
                                 pADailyLocation=agent_daily/
 
+echo "cloudformation deploy returned $?"
+
 rm deploy-athena.yml
 
 
@@ -66,7 +80,7 @@ echo """
 
 aws cloudformation package --region eu-central-1 \
                           --template-file ${DIRECTORY}/resources/partitioner.yml \
-                           --s3-bucket s3-capita-ccm-${ENV_LOWER}-lambdas-eu-central-1 \
+                           --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-partitioner.yml
 
 aws cloudformation deploy --region eu-central-1 --template-file deploy-partitioner.yml \

@@ -60,6 +60,74 @@ Resources:
       ManagedPolicyArns: 
       - "arn:aws:iam::aws:policy/service-role/AWSQuicksightAthenaAccess"
 
+  MIAnalystPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "mi-analyst-${pEnvironment}"
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Sid: !Sub "AthenaWorkgroupQueryAccess${pEnvironment}"
+          Effect: Allow
+          Action:
+            - athena:StartQueryExecution
+            - athena:GetQueryResults
+            - athena:DeleteNamedQuery
+            - athena:GetNamedQuery
+            - athena:ListQueryExecutions
+            - athena:StopQueryExecution
+            - athena:GetQueryResultsStream
+            - athena:GetQueryExecutions
+            - athena:ListNamedQueries
+            - athena:CreateNamedQuery
+            - athena:GetQueryExecution
+            - athena:BatchGetNamedQuery
+            - athena:BatchGetQueryExecution
+            - athena:GetWorkGroup
+          Resource:
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/primary"
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/mi-analyst"
+
+        - Sid: !Sub "AthenaWorkgroupManagement${pEnvironment}"
+          Effect: Allow
+          Action:
+            - athena:DeleteWorkGroup
+            - athena:UpdateWorkGroup
+            - athena:GetWorkGroup
+            - athena:CreateWorkGroup
+          Resource:
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/mi-analyst"
+
+  BusinessObjectsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "business-objects-${pEnvironmentLowerCase}"
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Sid: !Sub "AthenaWorkgroupBO${pEnvironment}"
+          Effect: Allow
+          Action:
+            - athena:StartQueryExecution
+            - athena:GetQueryResults
+            - athena:DeleteNamedQuery
+            - athena:GetNamedQuery
+            - athena:ListQueryExecutions
+            - athena:StopQueryExecution
+            - athena:GetQueryResultsStream
+            - athena:GetQueryExecutions
+            - athena:ListNamedQueries
+            - athena:CreateNamedQuery
+            - athena:GetQueryExecution
+            - athena:BatchGetNamedQuery
+            - athena:BatchGetQueryExecution
+            - athena:GetWorkGroup
+          Resource:
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/primary"
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/business-objects"
+
+
+
   GlueDb:
     Type: AWS::Glue::Database
     Properties:
