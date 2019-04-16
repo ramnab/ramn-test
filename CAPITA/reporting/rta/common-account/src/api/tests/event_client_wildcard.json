@@ -1,0 +1,62 @@
+{
+    "resource": "/rta",
+    "path": "/rta",
+    "httpMethod": "POST",
+    "headers": {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+        "Authorization": "eyJraWQiOiJcL0lGQmVyZVdWXC9XSzZyTFkwbTMxMm5GdDhQRHk4ZzYrTW9YQ29teHRaMlk9IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI5MWQ0NjJiZS1iNGYwLTQyZGYtYmM2Mi0wMGMxNmE0ZmIxNGEiLCJhdWQiOiI3bmE4b2M3Y2s1aWJjZHI4a29ramZmNTFiMCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJldmVudF9pZCI6IjYwM2U2MWU0LTVhYTctMTFlOS04NTMyLTg3ZjM5ZDU4YjZkMiIsInRva2VuX3VzZSI6ImlkIiwiYXV0aF90aW1lIjoxNTU0ODAxMDUzLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAuZXUtY2VudHJhbC0xLmFtYXpvbmF3cy5jb21cL2V1LWNlbnRyYWwtMV9Wdkh2cE8xZmUiLCJjb2duaXRvOnVzZXJuYW1lIjoiUDAwMDQiLCJleHAiOjE1NTQ4MDQ2NTMsImlhdCI6MTU1NDgwMTA1MywiZW1haWwiOiJnYXZpbi5jaHVyY2hlckBrY29tLmNvbSJ9.W0MFTiq10A3Y3jag9MZ6-yitkzZfYhTBk8mEKKERwnML1weRhl8IiQUGz1V4iogmy3aYVndql3DPoSjDMENJLYR6yFIq7Xr70POsR--9ZZ25uBCwGkRo5ukVHDTyNJUZm9v3Ggvr7z7_5w7hBufg6v1JYlgesFXKKKUCVsnNeudiJ1yZrd5Hm57ojAD9L4FWKVtN8MCFwm127qySzArLFJihdhC7cIF2nrOXGBsvxzWhyYBgWjfB0HZrzM8S6AX44Soug63LvBRBD6aSQO2dYW_mwDKtV5HcjE5egeTiYQAXhOCMfyY74w3nzdREFVA1zdrHRRXKaSAYnUVdkfl4zg",
+        "CloudFront-Forwarded-Proto": "https",
+        "CloudFront-Is-Desktop-Viewer": "true",
+        "CloudFront-Is-Mobile-Viewer": "false",
+        "CloudFront-Is-SmartTV-Viewer": "false",
+        "CloudFront-Is-Tablet-Viewer": "false",
+        "CloudFront-Viewer-Country": "GB",
+        "content-type": "application/json;charset=UTF-8",
+        "Host": "d03n5v09a9.execute-api.eu-central-1.amazonaws.com",
+        "origin": "https://dt9yccrbpge1q.cloudfront.net",
+        "Referer": "https://dt9yccrbpge1q.cloudfront.net/?v",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36",
+        "Via": "2.0 fda8e723e76885a5a82b1728275c99fb.cloudfront.net (CloudFront)",
+        "X-Amz-Cf-Id": "Xf2kKuauF_FRXrU-EqGBFrj8byYrhoKZCTzW4ASaCm_-PIj_hUWUiA==",
+        "X-Amzn-Trace-Id": "Root=1-5cac61da-626cae0003388c000193c800",
+        "X-Forwarded-For": "77.86.27.161, 216.137.62.77",
+        "X-Forwarded-Port": "443",
+        "X-Forwarded-Proto": "https"
+    },
+    "requestContext": {
+        "resourceId": "evyaoq",
+        "authorizer": {
+            "claims": {
+                "sub": "91d462be-b4f0-42df-bc62-00c16a4fb14a",
+                "aud": "7na8oc7ck5ibcdr8kokjff51b0",
+                "email_verified": "true",
+                "event_id": "603e61e4-5aa7-11e9-8532-87f39d58b6d2",
+                "token_use": "id",
+                "auth_time": "1554801053",
+                "iss": "https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_VvHvpO1fe",
+                "custom:client": "all",
+                "cognito:username": "P0004",
+                "exp": "Tue Apr 09 10:10:53 UTC 2019",
+                "iat": "Tue Apr 09 09:10:53 UTC 2019",
+                "email": "gavin.churcher@kcom.com"
+            }
+        },
+        "resourcePath": "/rta",
+        "httpMethod": "POST",
+        "extendedRequestId": "X3Q6EG5NliAFltA=",
+        "requestTime": "09/Apr/2019:09:11:54 +0000",
+        "path": "/prod/rta",
+        "accountId": "049293504011",
+        "protocol": "HTTP/1.1",
+        "stage": "prod",
+        "domainPrefix": "d03n5v09a9",
+        "requestTimeEpoch": 1554801114088,
+        "requestId": "848556cb-5aa7-11e9-9d4b-796386184102",
+        "domainName": "d03n5v09a9.execute-api.eu-central-1.amazonaws.com",
+        "apiId": "d03n5v09a9"
+    },
+    "body": "{\"client\":\"tradeuk\"}",
+    "isBase64Encoded": false
+}

@@ -100,11 +100,12 @@
             }]
         },
         "AGENT_INFO": {
-            "first_name": "Jane Ogbuja",
-            "last_name": "Ikoro",
+            "first_name": "Freddy",
+            "last_name": "Blogs",
             "depts_code": "TUKADM",
             "acd_login_id": "357310",
-            "depts_descr": "TradeUK Admin"
+            "depts_descr": "TradeUK Admin",
+            "client": "tradeuk"
         }
     }
 }

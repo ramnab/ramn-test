@@ -134,33 +134,40 @@ def convert_schedule_to_json(event, reader):
 
     for row in reader:
         number_of_rows += 1
-        if row['first_name'] != "Record_count":
-            row_errors = verify_schedule_contents(row)
-            if row_errors:
-                errors.extend(row_errors)
-                continue
-            time1 = convert_datetime(row['start_moment'])
-            time2 = convert_datetime(row['stop_moment'])
-            times = {
-                "T1": time1,
-                "T2": time2
+        if "Record_count" in row.values():
+            continue
+
+        row_errors = verify_schedule_contents(row)
+        if row_errors:
+            errors.extend(row_errors)
+            continue
+        time1 = convert_datetime(row['start_moment'])
+        time2 = convert_datetime(row['stop_moment'])
+        times = {
+            "T1": time1,
+            "T2": time2
+        }
+        agentid = "P" + row['payroll_no']
+        if agentid not in schedule_as_json:
+            agent_info = {
+                "first_name": row['first_name'],
+                "last_name": row['last_name'],
+                "depts_code": row['depts_code'],
+                "acd_login_id": row['acd_login_id'],
+                "depts_descr": row['depts_descr'],
+                "username": agentid
             }
-            agentid = "P" + row['payroll_no']
-            if agentid not in schedule_as_json:
-                schedule_as_json[agentid] = {
-                  "SCHEDULE": {},
-                  "ALARMS": {},
-                  "AGENT_INFO": {
-                      "first_name": row['first_name'],
-                      "last_name": row['last_name'],
-                      "depts_code": row['depts_code'],
-                      "acd_login_id": row['acd_login_id'],
-                      "depts_descr": row['depts_descr']
-                  }
-                }
-            if not schedule_as_json[agentid]['SCHEDULE'].get(row['cat']):
-                schedule_as_json[agentid]['SCHEDULE'][row['cat']] = []
-            schedule_as_json[agentid]['SCHEDULE'][row['cat']].append(times)
+            if row.get('client'):
+                agent_info['client'] = row['client']
+
+            schedule_as_json[agentid] = {
+              "SCHEDULE": {},
+              "ALARMS": {},
+              "AGENT_INFO": agent_info
+            }
+        if not schedule_as_json[agentid]['SCHEDULE'].get(row['cat']):
+            schedule_as_json[agentid]['SCHEDULE'][row['cat']] = []
+        schedule_as_json[agentid]['SCHEDULE'][row['cat']].append(times)
     logger.info(f"Number of rows processed: {number_of_rows}")
 
     if number_of_rows == 0:
@@ -231,7 +238,7 @@ def create_alarm_time(alarm_config, alarm, code, schedule, agent, time_code):
 
     schedtime = datetime.strptime(schedtime, '%Y-%m-%dT%H:%M')
     alarm_time = calulate_alarm_time(schedtime, time_config, alarm_config)
-    # logger.info(f"Created alarm {agent} for {agent}: {schedtime} -{time_code}-> {str(alarm_time)}")
+    logger.info(f"Created alarm {agent} for {agent}: {schedtime} -{time_code}-> {str(alarm_time)}")
     return str(alarm_time)
 
 

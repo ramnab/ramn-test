@@ -1,0 +1,6 @@
+first_name,last_name,cat,payroll_no,depts_descr,start_moment,stop_moment,rank,code,descr,depts_code,acd_login_id,client
+Fred,Blogs,WORK,99999999,TradeUK Customer Service,08-04-2019 08:00:00,08-04-2019 16:30:00,1119,TUKCS,TradeUK Customer Service,TUKCS,357279,tradeuk
+Fred,Blogs,BREAK,99999999,TradeUK Customer Service,08-04-2019 09:30:00,08-04-2019 09:45:00,138,PBRK1,Paid Break 1,TUKCS,357279,tradeuk
+Fred,Blogs,BREAK,99999999,TradeUK Customer Service,08-04-2019 12:00:00,08-04-2019 12:30:00,153,LUNCH,Lunch,TUKCS,357279,tradeuk
+Fred,Blogs,BREAK,99999999,TradeUK Customer Service,08-04-2019 15:00:00,08-04-2019 15:15:00,139,PBRK2,Paid Break 2,TUKCS,357279,tradeuk
+Record_count,0000000291

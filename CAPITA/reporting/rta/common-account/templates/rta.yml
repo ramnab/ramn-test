@@ -18,7 +18,10 @@ Parameters:
   pAgentSchedule:
     Type: String
     Description: S3 location of the current agent schedule, e.g. s3://BUCKET/PREFIX
-    
+  pSchedule:
+    Type: String
+    Default: cron(0/1 5-21 * * ? *)
+    Description: Cron schedule for starting the heart beats
 
 Resources:
 
@@ -196,6 +199,29 @@ Resources:
         -
           Key: "bus:BusinessUnit"
           Value: !Ref pDepartment
+
+  HeartBeat:
+    Type: AWS::Events::Rule
+    DependsOn: RtaLambda
+    Properties:
+      ScheduleExpression: !Ref pSchedule
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt RtaLambda.Arn
+        Id: heartbeats
+        Input: '{"EventType":"SP_HEART_BEAT"}'
+
+
+  HeartBeatsToLambdaPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - HeartBeat
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt RtaLambda.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HeartBeat.Arn
+
 
 
 Outputs:

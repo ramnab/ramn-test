@@ -48,6 +48,7 @@ Resources:
       Environment:
         Variables:
           ALARM_DB: !Ref pRtaAlarmsDb
+          AUTH: true
       Tags:
           "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
           "tech:Environment": !Ref pEnvironmentLowerCase
@@ -85,10 +86,28 @@ Resources:
                   headers:
                     Access-Control-Allow-Origin:
                       type: "string"
+                "401":
+                  description: "401 response: unauthorised client"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                "500":
+                  description: "500 response: internal server error"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
               x-amazon-apigateway-integration:
                 responses:
                   default:
                     statusCode: 200
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                  "401":
+                    statusCode: 401
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                  "500":
+                    statusCode: 500
                     responseParameters:
                       method.response.header.Access-Control-Allow-Origin: "'*'"
                 uri: 
@@ -111,6 +130,28 @@ Resources:
               responses:
                 "200":
                   description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+                "401":
+                  description: "401 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+                "500":
+                  description: "500 response"
                   schema:
                     $ref: "#/definitions/Empty"
                   headers:

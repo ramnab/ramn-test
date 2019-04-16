@@ -23,11 +23,10 @@ logger.setLevel(LOGGING_LEVEL)
 
 class Alarm:
 
-    WORK_CODES = ["Available", "After Call", "System Down",
-                  "Admin", "Outbound"]
-    BREAK_CODES = ["Break", "Lunch"]
-    EXCEPTION_CODES = ['Training', '121']
-    EVENT_TYPES = ['SP_HEART_BEAT', 'STATE_CHANGE', 'LOGIN', 'LOGOUT']
+    WORK_CODES = os.environ.get("WORK_CODES", "Available,After Call,System Down,Admin,Outbound").split(",")
+    BREAK_CODES = os.environ.get("BREAK_CODES", "Break,Lunch").split(",")
+    EXCEPTION_CODES = os.environ.get("EXCEPTION_CODES", "Training,121").split(",")
+    EVENT_TYPES = os.environ.get("EVENT_TYPES", "SP_HEART_BEAT,STATE_CHANGE,LOGIN,LOGOUT").split(",")
 
     def __init__(self, alarmcode, event_types, schedules):
         self.alarmcode = alarmcode
@@ -47,6 +46,9 @@ class Alarm:
 
         logger.info(f"@ALARM|SET_ALARM|{username}|{self.alarmcode}|"
                     f"{ts}|{reason}")
+
+        client = self.schedules.get(username, {}).get("AGENT_INFO", {}).get("client", "NA")
+
         if not ttl:
             ttl = self.get_ts(ts) + timedelta(hours=12)
         else:
@@ -63,6 +65,7 @@ class Alarm:
         item = {
             "username": username,
             "alarmcode": self.alarmcode,
+            "client": client,
             "ts": ts,
             "firstname": firstname,
             "lastname": lastname,

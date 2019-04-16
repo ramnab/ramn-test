@@ -34,8 +34,8 @@ def upload_schedule(env):
 
     s3 = boto3.resource('s3')
     bucket = f's3-capita-ccm-common-{env}-rta-agentschedules'
-    key = 'processed/agent-schedule-testing.json'
-    print(f"Uploading local schedule to s3://{bucket}/key")
+    key = 'processed/agent_schedule.json'
+    print(f"Uploading local schedule to s3://{bucket}/{key}")
     cwd = Path(__file__).parents[0]
     agent_file_path = cwd / 'agent-schedule-testing.json'
 

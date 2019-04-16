@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 cfn-square = "*"
 awsume = "*"
+python-json-logger = "*"
 
 [requires]
 python_version = "3.6"

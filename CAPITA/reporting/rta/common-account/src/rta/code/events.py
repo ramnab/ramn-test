@@ -1,38 +1,47 @@
 from datetime import datetime
 import json
+import re
 
 
 class Event(object):
 
     def __init__(self, data):
         self._data = data
-        if data.get("EventTimestamp"):
-            self.timestamp = data.get("EventTimestamp")
-            self.ts = datetime.strptime(data.get("EventTimestamp"), '%Y-%m-%dT%H:%M:%S')
-            self.username = data.get("Configuration", {}).get("Username")
+        event_timestamp = data.get("EventTimestamp")
 
+        if not event_timestamp:
+            raise EventException("No EventTimestamp found in data")
+
+        timestamp_match = re.match(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)', event_timestamp)
+        if timestamp_match:
+            self.timestamp = timestamp_match.group()
+            self.ts = datetime.strptime(timestamp_match.group(), '%Y-%m-%dT%H:%M:%S')
+        else:
+            raise EventException(f"Event timestamp doesn't match pattern: {event_timestamp}")
+
+        self.username = data.get("Configuration", {}).get("Username")
         self.type = data.get("EventType")
 
     def __lt__(self, other):
         if isinstance(other, datetime):
-            print(f"{self.ts} < {other}")
             return self.ts < other
         elif isinstance(other, Event):
-            print(f"{self.ts} < {other.ts}")
             return self.ts < other.ts
 
     def __gt__(self, other):
         if isinstance(other, datetime):
-            print(f"{self.ts} > {other}")
             return self.ts > other
         elif isinstance(other, Event):
-            print(f"{self.ts} > {other.ts}")
             return self.ts > other.ts
 
     def __str__(self):
         if self._data:
             return json.dumps(self._data)
         return "{}"
+
+
+class EventException(Exception):
+    pass
 
 
 class Events(object):

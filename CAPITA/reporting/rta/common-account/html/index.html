@@ -27,7 +27,6 @@
     
 <style>
 
-
     .vspace {
         margin-top: 50px
     }
@@ -41,13 +40,12 @@
         color: grey;
         font-style: italic
     }
+    .vgt-table .result-header {
+        font-size: 10pt
+    }
 
 
 </style>
-
-
-
-
 </head>
 <body>
 
@@ -60,8 +58,15 @@
             <img src="img/capita.png" style="height:30px">
             <div style="position:absolute; bottom:19px; left:163px" class="update" v-if="env != 'PROD'">{{env}}</div>
         </div>
+
+        <div class="col text-center" style="color: #1e74a9; font-size:10pt"
+             v-if="response_from_api && authorised && !auth_disabled">
+            <span>RTA ALARMS FOR</span>
+            <br>
+            <span style="font-weight:bold; font-size:14pt">{{pp_clients}}</span>
+        </div>
+
         <div class="col text-right" v-if="isAuthenticated">
-           
             <div class="dropdown">
                  Signed in as  
                  <span style="cursor: pointer" class="dropdown-toggle" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -72,26 +77,22 @@
                     <span class="dropdown-item" style="; cursor:pointer" @click="signout()">Sign out</span>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class=row v-if="lastUpdate">
-        <div class="col text-right" >
             <div class=dropdown>
                 <span class="update dropdown-toggle" style="cursor: pointer"  data-toggle="dropdown" >Last updated: {{lastUpdate}}</span>
                   <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                     <span v-if="autoRefresh>0 && !autoRefreshPaused" style="font-size:9pt; font-weight:bold">&nbsp;&nbsp;Refreshing every {{autoRefresh}} minute(s)&nbsp;&nbsp;</span>
                     <span v-if="autoRefresh==0 || autoRefreshPaused" style="font-size:9pt; font-weight:bold">&nbsp;&nbsp;Paused autorefresh&nbsp;&nbsp;</span>
                     <span class="dropdown-item" style="font-size:9pt; cursor:pointer" @click="hello()">Refresh now</span>
-                    
+
                     <span class="dropdown-item" style="font-size:9pt; cursor:pointer" @click="autoRefreshPaused=false" v-if="autoRefreshPaused">Resume auto refesh</span>
                     <span class="dropdown-item" style="font-size:9pt; cursor:pointer" @click="autoRefreshPaused=true" v-if="!autoRefreshPaused">Pause auto refesh</span>
                     <span class="dropdown-item" style="font-size:9pt; cursor:pointer" data-toggle="modal" data-target="#autoRefreshModal">Change auto refresh</span>
                 </div>
             </div>
+
         </div>
     </div>
-
 
     <!-- Modal for autorefresh -->
     <div class="modal fade" id="autoRefreshModal" tabindex="-1" role="dialog">
@@ -175,11 +176,11 @@
             <img id="profile-img" class="profile-img-card" src="//ssl.gstatic.com/accounts/ui/avatar_2x.png" />
             <p id="profile-name" class="profile-name-card"></p>
             <form class="form-signin" @submit.prevent="signin">
-                <span id="reauth-email" class="reauth-email"></span>
-                <input v-model="username" type="text" id="inputUsername" class="form-control" placeholder="Username" required autofocus>
+                <span id="reauth-email2" class="reauth-email"></span>
+                <input v-model="username" type="text" id="inputUsername1" class="form-control" placeholder="Username" required autofocus>
                 <br><span>&nbsp;</span><br>
                 <span>Please enter a new password:</span>
-                <input v-model="newpw" type="password" id="newPassword" class="form-control" placeholder="New Password" required>
+                <input v-model="newpw" type="password" id="newPassword1" class="form-control" placeholder="New Password" required>
                 <span>{{newPwMessage}}</span>
                 <br><span>&nbsp;</span><br>
                 <button class="btn btn-lg btn-primary btn-block btn-signin" type="submit">Change Password</button>
@@ -245,39 +246,58 @@
 
 
     <!-- RTA alarms -->
-    <div class="row vspace" v-if="isAuthenticated && alarms">
-        <div class="col-1"></div>
-        <div class=col v-show="alarms.length > 0">
-            <vue-good-table :columns="columns" :rows="alarms">
-                <template slot="table-row" slot-scope="props">
-                    <span v-if="props.column.field == 'firstname'">
-                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode,props.row.extra) }">
-                            <span style="font-weight:bold">
 
-                                {{props.row.lastname}}, 
-                                {{props.row.firstname}}
-                            </span>
-                        </span>
-                    </span>
-                    <span v-if="props.column.field != 'firstname' && props.column.field != 'lastname'">
-                        <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode, props.row.extra) }">
-                            <span style="font-weight:bold">{{props.formattedRow[props.column.field]}}</span>
-                            <span v-if="props.column.field == 'alarmcode' && verbose && props.row.reason"
-                                     style="cursor: pointer" 
-                                    data-trigger="hover" v-bind:data-content="props.row.reason" data-toggle="popover">
-                                &#x1F6C8;
-                            </span>
-                        </span>
-                    </span>
 
-                </template>
-            </vue-good-table>
+    <div class="row"  v-if="response_from_api">
+        <div class="col">
+            <div class="row vspace" v-if="isAuthenticated && alarms">
+                <div class="col-1"></div>
+                <div class=col v-show="alarms.length > 0">
+                    <vue-good-table :columns="columns" :rows="alarms">
+                        <template slot="table-row" slot-scope="props">
+
+                            <span v-if="props.column.field == 'client'">
+                                <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode,props.row.extra) }">
+                                    <span style="font-weight:bold">
+
+                                        {{props.row.client}}
+                                    </span>
+                                </span>
+                            </span>
+                            <span v-if="props.column.field == 'firstname'">
+                                <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode,props.row.extra) }">
+                                    <span style="font-weight:bold">
+                                        {{props.row.lastname}},
+                                        {{props.row.firstname}}
+                                    </span>
+                                </span>
+                            </span>
+
+                            <span v-if="props.column.field != 'firstname' && props.column.field != 'lastname' && props.column.field != 'client'">
+                                <span v-bind:style="{ color: get_alarm_color(props.row.alarmcode, props.row.extra) }">
+                                    <span style="font-weight:bold">{{props.formattedRow[props.column.field]}}</span>
+                                    <span v-if="props.column.field == 'alarmcode' && verbose && props.row.reason"
+                                             style="cursor: pointer"
+                                            data-trigger="hover" v-bind:data-content="props.row.reason" data-toggle="popover">
+                                        &#x1F6C8;
+                                    </span>
+                                </span>
+                            </span>
+
+                        </template>
+                    </vue-good-table>
+                </div>
+                <div class=col v-show="authorised && alarms.length == 0">
+                    <h2 style="color: #636363">There are no active alarms</h2>
+                </div>
+                <div class="col-1"></div>
+            </div>
+            <div class=col v-show="isAuthenticated && !authorised">
+                <h3 style="color: #aa281e">You are not permitted to view client: {{requested_client}}</h3>
+            </div>
         </div>
-        <div class=col v-show="alarms.length == 0">
-            <h2 style="color: #636363">There are no active alarms</h2>
-        </div>
-        <div class="col-1"></div>
     </div>
+
     <!-- / RTA alarms -->
 
 </div>
@@ -327,6 +347,7 @@
             cognitoUser: null,
             userAttributes: null,
             isAuthenticated: false,
+            response_from_api: false,
             newPasswordRequired: false,
             newPwMessage: '',
             username: '',
@@ -343,11 +364,16 @@
             email: '',
             verificationCode: '',
             message: '',
-            alarms: [],
+
+
+            // AUTO-REFRESH
             lastUpdate: '',
             autoRefresh: 1,
             autoRefreshInterval: null,      
             autoRefreshPaused: false,
+
+            // ALARMS
+            alarms: [],
             alarm_color: {
                 BBE: "PURPLE",
                 BXE: "PURPLE",
@@ -362,9 +388,13 @@
                 WOB: "GREEN",
                 WOE: "GREEN"
             },
+            url_options: {},
+            requested_client: null,
+            authorised: true,
+            auth_disabled: false,
             columns: [
                 {
-                    label: "Name",
+                    label: "NAME",
                     field: 'firstname',
                     
                     sortable: true,
@@ -375,7 +405,7 @@
                     thClass: 'result-header'
                 },
                 {
-                    label: "Alarm",
+                    label: "ALARM",
                     field: 'alarmcode',
                     sortable: true,
                     filterable: true,
@@ -407,6 +437,14 @@
             env: function() {
                 if (_config.env)
                     return _config.env.toUpperCase()
+                return ""
+            },
+            pp_clients: function() {
+                if (this.clients) {
+                    if (this.clients.includes("all"))
+                        return "all"
+                    return this.clients.join(", ")
+                }
                 return ""
             }
         },
@@ -449,6 +487,7 @@
                 this.forgotPwFlowState = -1;
                 this.changePwFlowState = -1;
                 this.changePwMessage = '';
+                this.response_from_api = false;
                 clearInterval(this.autoRefreshInterval);
                 
             },
@@ -467,12 +506,13 @@
 
             hello: function() {
                 
-                axios.post(_config.api.invokeUrl, {'message':'hello'})
+                axios.post(_config.api.invokeUrl, vapp.url_options)
                 .then(result => {
                     console.log("Success!", result);
                     // prune pending
                     vapp.alarms = [];
-                    for (let alarm of result.data) {
+                    let alarms = result.data.items
+                    for (let alarm of alarms) {
                         if (alarm.extra && alarm.extra.status == "pending")
                             console.log("Muting alarm: ", alarm)
                         else if (alarm.httl == null)
@@ -480,13 +520,45 @@
                         else
                             vapp.alarms.push(alarm)
                     }
-                    vapp.lastUpdate = Date().toLocaleString().split("+")[0]
+                    vapp.lastUpdate = Date().toLocaleString().match(/(.*:\d\d)/)[0]; //.split("+")[0]
+                    let info = result.data.info
+                    let clients = info.filter
+                    if (clients.includes("*"))
+                        clients = info.permitted
+
+                    if ((clients.length > 1 || clients.includes("all")) && vapp.columns.length < 4)
+                        vapp.columns.push(
+                            {
+                                label: "CLIENT",
+                                field: 'client',
+                                sortable: true,
+                                thClass: 'result-header text-center',
+                                tdClass: 'text-center'
+                            })
+
+                    vapp.clients = clients;
+                    if (info.authorisation_disabled)
+                        vapp.auth_disabled = true
+
+                    vapp.authorised = true;
+                    vapp.response_from_api = true;
                     setTimeout(function() {$('[data-toggle="popover"]').popover()}, 1000)
                 })
                 .catch(e => { 
                     console.log("Error:", e);
-                    vapp.clean();
-                    vapp.message = "Session expired, please sign in again"
+                    if (e.response && e.response.status == 401) {
+                        console.log("You are not authorised to view client " + vapp.requested_client)
+                        clearInterval(vapp.autoRefreshInterval)
+                        // setTimeout(function() {vapp.authorised = false}, 1000);
+                        vapp.response_from_api = true;
+                        vapp.authorised = false;
+                        vapp.clients = ''
+
+                    } else {
+                        vapp.clean();
+                        vapp.message = "Session expired, please sign in again"
+                        vapp.authorised = false;
+                    }
                 })
             },
 
@@ -533,6 +605,24 @@
                         vapp.newPasswordRequired = false;
                         vapp.cognitoUser = cognitoUser;
                         vapp.doSignin = false;
+                        vapp.url_options = {}
+                        if (location.search.length > 0) {
+                            let location_copy = location.search
+                            if (location_copy[0] == "?")
+                                location_copy = location_copy.substr(1)
+                            let opt_entries = location_copy.split("&")
+                            for (let opt_entry of opt_entries) {
+                                let [opt_key, opt_val] = opt_entry.split("=")
+                                if (opt_val) {
+                                    if (opt_key == "client")
+                                        vapp.requested_client = opt_val
+                                    vapp.url_options[opt_key] = opt_val
+                                }
+                                else
+                                    vapp.url_options[opt_key] = 1
+                            }
+                            console.log("URL Options", vapp.url_options)
+                        }
                         
                         if (vapp.autoRefresh > 0 && !vapp.autoRefreshPaused) {
                             console.log("Setting auto refresh to "+ vapp.autoRefresh + " minute(s)");

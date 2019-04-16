@@ -1,13 +1,10 @@
 import unittest
-from unittest.mock import MagicMock, patch
-from datetime import datetime
-from datetime import timedelta
 import os
 import sys
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_path + '/../code')
-from alarms import *
+from alarms import *    # noqa
 
 
 class AlarmTests(unittest.TestCase):

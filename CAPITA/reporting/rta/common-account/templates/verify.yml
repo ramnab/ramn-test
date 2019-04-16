@@ -118,3 +118,5 @@ Resources:
 Outputs:
   oRtaScheduleBucketName:
     Value: !Ref AgentScheduleBucketS3
+  oSnsTopicArn:
+    Value: !Ref RtaVerifySnsTopic
