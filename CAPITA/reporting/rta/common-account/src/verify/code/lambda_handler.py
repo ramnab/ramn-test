@@ -63,6 +63,7 @@ def verify_schedule_contents(row):
     """Confirm row contains all required information in correct format"""
     redate = re.compile("\\d{2}-\\d{2}-\\d{4}\\s+\\d{2}:\\d{2}:\\d{2}")
     errors = []
+
     if not redate.match(row.get('start_moment', "")):
         errors.append(f'The start moment for user {row.get("payroll_no", "UNK")} was incorrect/missing')
     if not redate.match(row.get('stop_moment', "")):
@@ -120,7 +121,6 @@ def get_alarm_config_from_s3():
 
     bucketname = os.environ.get("input_s3_bucket")
     objectkey = os.environ.get("alarm_config_file_path")
-
     alarm_config = s3client.Object(bucketname, objectkey).get()['Body'].read().decode('utf-8')
 
     return alarm_config
@@ -202,8 +202,16 @@ def validate_work_presence(schedule, errors):
 def create_alarms(schedule, agent, config):
     """Create all alarm time windows for agent, return alarms as json"""
     alarmsdict = {}
-    for alarm in config:  # e.g. BBE
-        for code in config[alarm]["codes"]:  # code in ['BREAK']
+
+    client = schedule.get(agent).get("AGENT_INFO").get("client", "default")
+    logger.info(f"create_alarm: agent {agent} is using {client} alarm configuration")
+    client_alarm_config = config.get(client)
+    if not client_alarm_config:
+        logging.warning(f"create_alarms: client {client} not found in alarm config, using default")
+        client_alarm_config = config.get('default')
+
+    for alarm in client_alarm_config:  # e.g. BBE
+        for code in client_alarm_config[alarm]["codes"]:  # code in ['BREAK']
             if code in schedule[agent]["SCHEDULE"]:
                 if alarm not in alarmsdict:
                     alarmsdict[alarm] = []
@@ -215,9 +223,10 @@ def create_alarms(schedule, agent, config):
                     codedict['code'] = code
                     codedict['start'] = schedule_entry.get("T1")
                     codedict['end'] = schedule_entry.get("T2")
-                    codedict['T1'] = create_alarm_time(config, alarm, code, schedule_entry, agent, 'T1')
-                    if "T2" in config[alarm]:
-                        codedict['T2'] = create_alarm_time(config, alarm, code, schedule_entry, agent, 'T2')
+                    codedict['T1'] = create_alarm_time(client_alarm_config, alarm, code, schedule_entry, agent, 'T1')
+                    if "T2" in client_alarm_config[alarm]:
+                        codedict['T2'] = create_alarm_time(client_alarm_config, alarm, code,
+                                                           schedule_entry, agent, 'T2')
 
                     alarmsdict[alarm].append(codedict)
     return alarmsdict

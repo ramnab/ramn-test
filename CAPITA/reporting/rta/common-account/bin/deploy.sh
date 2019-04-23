@@ -3,7 +3,8 @@
 # Ensure you are in the target account before running this script
 # by using a tool such as 'awsume'
 
-ENV=$(echo $1 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+DEPARTMENT=$1
+ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 
 if [[ -z "${ENV}" ]]; then
     echo "
@@ -11,8 +12,7 @@ Usage:
 
     ./bin/deploy.sh  ENV
     
-where ENV is the environment, e.g. 'Dev', 'Test', 'Prod'
-(note the capitalisation)
+where ENV is the environment, e.g. 'dev', 'test', 'prod'
 
 ** IMPORTANT: You need to switch to the target account
 using a tool such as awsume before running this script **
@@ -20,6 +20,7 @@ using a tool such as awsume before running this script **
 "
     exit
 fi
+DIRECTORY=`dirname $0`
 
 getStackOutput () {
     STACKNAME=$1
@@ -28,15 +29,16 @@ getStackOutput () {
     aws cloudformation describe-stacks --query "Stacks[?StackName == '${STACKNAME}'].Outputs[]| [?OutputKey=='${KEY}'].[OutputValue] | [0]" --output text
 }
 
-ENV_UPPER=$(echo $1 | awk '{print toupper($0)}')
-ENV_LOWER=$(echo $1 | awk '{print tolower($0)}')
-STACK="deploy-${ENV_LOWER}.stacks"
+ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
+ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
+STACK="${DIRECTORY}/../deploy-${ENV_LOWER}.stacks"
+ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
 
 echo """
-    Deploy RTA into Common ${ENV}
-    -----------------------------
+        Deploy RTA into Common
+    ----------------------------
 
-    Account:    ${AWSUME_PROFILE}
+    Account:    ${ACCOUNT_ALIAS}
     Environ:    ${ENV}
 
 """
@@ -85,7 +87,8 @@ echo """
 
 """
 
-aws cloudformation package --region eu-central-1 --template-file templates/verify.yml \
+aws cloudformation package --region eu-central-1 \
+                           --template-file ${DIRECTORY}/../templates/verify.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-verify.yml
 
@@ -95,7 +98,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-verify.ym
                           --parameter-overrides \
                                 pAlarmConfigFilePath=config/alarm_config.json \
                                 pOutputFilePath=processed/agent_schedule.json \
-                                pDepartment=ccm \
+                                pDepartment=${DEPARTMENT} \
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_LOWER}
 
@@ -105,13 +108,18 @@ rm deploy-verify.yml
 AGENT_S3=$(getStackOutput stCapita-RTA-${ENV}-Verify oRtaScheduleBucketName)
 TOPIC=$(getStackOutput stCapita-RTA-${ENV}-Verify  oSnsTopicArn)
 
+echo "Uploading alarm_config.json to s3://${AGENT_S3}/config/"
+aws s3 cp ${DIRECTORY}/../config/alarm_config.json s3://${AGENT_S3}/config/
+
+
 echo """
 ----------------------------------
           Deploying RTA
 
 """
 
-aws cloudformation package --region eu-central-1 --template-file templates/rta.yml \
+aws cloudformation package --region eu-central-1 \
+                           --template-file ${DIRECTORY}/../templates/rta.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-rta.yml
 
@@ -124,6 +132,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
                                 pEnvironmentLowerCase=${ENV_LOWER} \
                                 pSchedule="cron(0/1 5-21 * * ? *)"
 
+rm deploy-rta.yml
 
 echo """
 ----------------------------------
@@ -139,7 +148,8 @@ if [[ ${ALARM_DB} = "None" ]] || [[ ${ALARM_DB_ARN} = "None" ]]; then
     exit
 fi
 
-aws cloudformation package --region eu-central-1 --template-file templates/api.yml \
+aws cloudformation package --region eu-central-1 \
+                           --template-file ${DIRECTORY}/../templates/api.yml \
                            --s3-bucket ${LAMBDA_S3} --output-template-file deploy-api.yml
 
 aws cloudformation deploy --region eu-central-1 --template-file deploy-api.yml \
@@ -149,6 +159,8 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-api.yml \
                                                 pEnvironmentLowerCase=${ENV_LOWER} \
                                                 pRtaAlarmsDb=${ALARM_DB} \
                                                 pRtaAlarmsDbArn=${ALARM_DB_ARN}
+
+rm deploy-api.yml
 
 API=$(getStackOutput stCapita-RTA-${ENV}-Api oRtaApi)
 
@@ -163,15 +175,16 @@ echo """
 
 """
 
-aws cloudformation package --region eu-central-1 --template-file templates/health.yml \
-                           --s3-bucket s3-capita-ccm-connect-common-${ENV_LOWER}-lambdas-eu-central-1 \
+aws cloudformation package --region eu-central-1 \
+                           --template-file templates/health.yml \
+                           --s3-bucket s3-capita-${DEPARTMENT}-connect-common-${ENV_LOWER}-lambdas-eu-central-1 \
                            --output-template-file deploy-health.yml
 
 aws cloudformation deploy --region eu-central-1 --template-file deploy-health.yml \
                           --stack-name stCapita-RTA-${ENV}-Health  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
-                                pDepartment=ccm \
+                                pDepartment=${DEPARTMENT} \
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_LOWER} \
                                 pCronExpression="cron(0/15 6-21 * * ? *)" \

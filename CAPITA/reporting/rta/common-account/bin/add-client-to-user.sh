@@ -3,8 +3,12 @@
 # Update the RTA alarms that the user can view for a specified client
 
 ENV=$1
-USERNAME=$2
+USERNAMES=$2
 CLIENT=$3
+OIFS=$IFS
+IFS="|"
+
+USERS=(${USERNAMES})
 
 TESTPOOLID="eu-central-1_5vpngTHt2"
 DEVPOOLID="eu-central-1_VvHvpO1fe"
@@ -16,10 +20,11 @@ fi
 
 USERATTR="Name=custom:client,Value=${CLIENT}"
 
-echo "[${POOLID}] Allowing user ${USERNAME} to access client(s) ${CLIENT}"
-echo ${USERATTR}
+for ((i=0; i<${#USERS[@]}; ++i)); do
+    echo "[${POOLID}] Allowing user ${USERS[$i]} to access client(s) ${CLIENT}"
 
-aws cognito-idp admin-update-user-attributes --user-pool-id ${POOLID} \
-                                             --username ${USERNAME} \
-                                             --user-attributes Name=custom:client,Value=\"${CLIENT}\"
-
+    aws cognito-idp admin-update-user-attributes --user-pool-id ${POOLID} \
+                                                 --username ${USERS[$i]} \
+                                                 --user-attributes Name=custom:client,Value=\"${CLIENT}\"
+done
+IFS=${OIFS}

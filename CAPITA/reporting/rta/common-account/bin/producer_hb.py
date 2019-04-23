@@ -26,6 +26,7 @@ def create(**kwargs):
         "EventTimestamp": kwargs.get("ts")
     }
 
+
 # shift starts at 2019-02-14T07:30
 # BSE should fire if log in between 07:00 and 07:25
 payload = create(typ="LOGIN", username="P12784397",
