@@ -20,6 +20,10 @@ Parameters:
     Type: String
     Default: dev
     Description: Environment label to apply to resources naming, lowercase
+  pEnvironmentUpperCase:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming, uppercase
   pDepartment:
     Type: String
     Default: ccm
@@ -119,7 +123,7 @@ Resources:
           LogGroupName: !Ref AgentIntervalFirehoseLogGroup
           LogStreamName: !Ref AgentIntervalFirehoseLogStream
         Prefix: "agent_interval/"
-        RoleARN: !GetAtt AgentIntervalFirehoseIAMRole.Arn
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
 
   AgentDailyParquetFirehose:
     Type: AWS::KinesisFirehose::DeliveryStream
@@ -137,7 +141,7 @@ Resources:
           LogGroupName: !Ref AgentDailyFirehoseLogGroup
           LogStreamName: !Ref AgentDailyFirehoseLogStream
         Prefix: "agent_daily/"
-        RoleARN: !GetAtt AgentIntervalFirehoseIAMRole.Arn
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
 
   AgentIntervalFirehoseIAMRole:
     Type: AWS::IAM::Role

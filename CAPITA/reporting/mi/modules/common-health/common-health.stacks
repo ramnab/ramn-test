@@ -1,0 +1,14 @@
+region: '[region]'
+stacks:
+  stCapita-MI-[env]-HealthTopic:
+    template-url: resources/sns-topic.yml
+    timeout: 1200
+
+  stCapita-MI-[env]-HealthAlarms:
+    template-url: resources/alarms.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
+      pTopicArn: '|ref|stCapita-MI-[env]-HealthTopic.oHealthcheckAlarmTopicArn'

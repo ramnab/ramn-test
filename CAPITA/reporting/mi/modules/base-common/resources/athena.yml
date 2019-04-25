@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Transform: AWS::Serverless-2016-10-31
 Description: MI athena related resources for Common Account
 
 Parameters:
@@ -63,9 +62,9 @@ Resources:
   MIAnalystPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub "mi-analyst-${pEnvironment}"
+      ManagedPolicyName: !Sub "mi-analyst-${pEnvironmentLowerCase}"
       PolicyDocument:
-        Version: 2012-10-17
+        Version: '2012-10-17'
         Statement:
         - Sid: !Sub "AthenaWorkgroupQueryAccess${pEnvironment}"
           Effect: Allow
@@ -103,7 +102,7 @@ Resources:
     Properties:
       ManagedPolicyName: !Sub "business-objects-${pEnvironmentLowerCase}"
       PolicyDocument:
-        Version: 2012-10-17
+        Version: '2012-10-17'
         Statement:
         - Sid: !Sub "AthenaWorkgroupBO${pEnvironment}"
           Effect: Allow

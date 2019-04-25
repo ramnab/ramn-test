@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 
-CLIENT=$1
-ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
-ENV_LOWER=$(echo $2 | awk '{print tolower($0)}')
-ENV_UPPER=$(echo $2 | awk '{print toupper($0)}')
+DEPT=$1
+CLIENT=$2
+ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
+ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
 
-DIRECTORY=`dirname $0`
+DIRECTORY=$(dirname $0)
+
+getStackOutput () {
+    STACKNAME=$1
+    KEY=$2
+    aws cloudformation describe-stacks --query "Stacks[?StackName == '${STACKNAME}'].Outputs[]| [?OutputKey=='${KEY}'].[OutputValue] | [0]" --output text
+}
 
 echo """
 ----------------------------------------------------
@@ -14,33 +21,14 @@ echo """
 
 """
 
-echo """
-
-        Deploying Customer Reporting Bucket
-        -----------------------------------
-
-"""
-
-cf sync -y --context ${DIRECTORY}/../../transforms/config-ccm-${CLIENT}-${ENV_LOWER}.yml \
-         ${DIRECTORY}/customer-reporting-bucket.stacks
-
-
-
-
 
 echo """
-
           Deploying Firehose Modder Lambda
           --------------------------------
 
 """
 
-if [[ ${ENV_LOWER} = "prod" ]]; then
-    LAMBDA_S3=s3-capita-ccm-${CLIENT}-prod-lambdas-eu-central-1
-else
-    LAMBDA_S3=s3-capita-ccm-${CLIENT}-nonprod-lambdas-eu-central-1
-fi
-
+LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-eu-central-1
 
 
 aws cloudformation package --region eu-central-1 \
@@ -56,7 +44,7 @@ aws cloudformation deploy --region eu-central-1 \
                                 pClient=${CLIENT} \
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_LOWER} \
-                                pDepartment=ccm
+                                pDepartment=${DEPT}
 
 rm deploy-fh-modder.yml
 
@@ -68,7 +56,7 @@ echo """
 
 """
 
-cf sync -y --context ${DIRECTORY}/../../transforms/config-ccm-${CLIENT}-${ENV_LOWER}.yml \
+cf sync -y --context ${DIRECTORY}/../../transforms/config-customer-deployer.yml \
         ${DIRECTORY}/common-db.stacks
 
 
@@ -95,40 +83,31 @@ aws cloudformation deploy --region eu-central-1 \
                                 pClient=${CLIENT} \
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_UPPER} \
-                                pDepartment=ccm \
-                                pCustomerReportingBucketArn=arn:aws:s3:::s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-reporting
+                                pDepartment=${DEPT} \
+                                pCustomerReportingBucketArn=arn:aws:s3:::s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting
 
 
 rm deploy-customer-reporting-modder.yml
 
+
 echo """
 
-              Deploy Customer Agent Events
-              ----------------------------
+        Creating Cross-Account Role for Firehose
+        ----------------------------------------
 
 """
 
-aws cloudformation package --region eu-central-1 \
-                           --template-file ${DIRECTORY}/resources/agent-events.yml \
-                           --s3-bucket ${LAMBDA_S3} \
-                           --output-template-file deploy-agent-events.yml
+cf sync -y --context ${DIRECTORY}/../../transforms/config-customer-deployer.yml \
+        ${DIRECTORY}/cross-account-firehose-role.stacks
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy-agent-events.yml \
-                          --stack-name stCapita-MI-${ENV}-AgentEvents  \
-                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-                          --parameter-overrides \
-                                pClient=${CLIENT} \
-                                pEnvironment=${ENV_UPPER} \
-                                pEnvironmentLowerCase=${ENV_LOWER} \
-                                pDepartment=ccm \
-                                pCustomerReportBucket=s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-reporting
+cross_account_role=$(getStackOutput stCapita-MI-${ENV}-CrossAccountRole oCrossAccountRoleArn)
+echo """
+    * Remember to add the following role to the bucket policy for
+        s3-capita-${DEPT}-connect-common-${ENV_LOWER}-reporting
 
-python ${DIRECTORY}/../../scripts/tag-firehose.py -f kfh-ccm-agent-events-${ENV_LOWER} \
-                    -t sec:Compliance:PII bus:BusinessUnit:ccm bus:ClientName:${CLIENT} \
-                       tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-ccm-connect \
-                       tech:ApplicationRole:reporting
+        ${cross_account_role}
 
-rm deploy-agent-events.yml
+"""
 
 echo """
 

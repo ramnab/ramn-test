@@ -4,11 +4,11 @@ Description: CAPITA MI Common Bucket Policy Update
 Parameters:
   pEnvironment:
     Type: String
-    Default: DEV
+    Default: Test
     Description: Environment label to apply to resources naming
   pEnvironmentLowerCase:
     Type: String
-    Default: dev
+    Default: test
     Description: Environment label to apply to resources naming, lower case
   pDepartment:
     Type: String
@@ -26,11 +26,12 @@ Resources:
       Bucket: !Ref pCommonReportingBucket
       PolicyDocument:
         Statement:
+        # Using new generic cross-account role: CA_MI_TEST
         -
           Effect: Allow
           Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_ctr_${pEnvironmentLowerCase}"
+            # First Group MI Role
+            AWS: !Sub "arn:aws:iam::555239192020:role/CA_MI_TEST"
           Action:
           - s3:*
           Resource:
@@ -39,18 +40,8 @@ Resources:
         -
           Effect: Allow
           Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
-          Action:
-          - s3:*
-          Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        -
-          Effect: Allow
-          Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
+            # TradeUK MI Role
+            AWS: "arn:aws:iam::907290942892:role/CA_MI_TEST"
           Action:
           - s3:*
           Resource:

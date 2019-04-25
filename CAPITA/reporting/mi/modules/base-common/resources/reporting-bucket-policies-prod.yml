@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA MI Common Bucket Policy Update
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lower case
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pCommonReportingBucket:
+    Type: String
+    Description: Name of common reporting Bucket
+
+Resources:
+
+  CommonConnectS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref pCommonReportingBucket
+      PolicyDocument:
+        Statement:
+        -
+          Effect: Allow
+          Principal:
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_ctr_${pEnvironmentLowerCase}"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        -
+          Effect: Allow
+          Principal:
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        -
+          Effect: Allow
+          Principal:
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        -
+          Effect: Allow
+          Principal:
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_ctr_${pEnvironmentLowerCase}"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        -
+          Effect: Allow
+          Principal:
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        -
+          Effect: Allow
+          Principal:
+            # Trade UK production account
+            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"

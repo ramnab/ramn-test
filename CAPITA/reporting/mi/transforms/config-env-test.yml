@@ -1,5 +1,0 @@
----
-
-env: Test
-env_lower: test
-env_upper: TEST

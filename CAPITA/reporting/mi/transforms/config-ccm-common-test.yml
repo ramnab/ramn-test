@@ -1,7 +1,0 @@
----
-
-include: 
-  - config-project.yml
-  - config-ccm.yml
-  - config-env-test.yml
-

@@ -1,8 +1,0 @@
----
-
-include: 
-  - config-project.yml
-  - config-ccm.yml
-  - config-env-dev.yml
-
-client: tradeuk

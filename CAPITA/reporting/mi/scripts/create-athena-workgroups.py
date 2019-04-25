@@ -6,7 +6,7 @@ import sys
 athena = boto3.client("athena")
 
 """
-Usage: 
+Usage:
 python create-athena-workgroups.py DEPT ENV
 
 """

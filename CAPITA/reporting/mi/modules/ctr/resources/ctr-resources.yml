@@ -20,6 +20,10 @@ Parameters:
     Type: String
     Default: dev
     Description: Environment label to apply to resources naming, lower case
+  pEnvironmentUpperCase:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming, upper case
   pDepartment:
     Type: String
     Default: ccm
@@ -59,7 +63,7 @@ Resources:
             SizeInMBs: 128
           CompressionFormat: UNCOMPRESSED
         Prefix: "contact_record/"
-        RoleARN: !GetAtt CtrFirehoseIAMRole.Arn
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
 
   CtrFirehoseIAMRole:
     Type: AWS::IAM::Role

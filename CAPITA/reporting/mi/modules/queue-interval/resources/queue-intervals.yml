@@ -20,6 +20,10 @@ Parameters:
     Type: String
     Default: dev
     Description: Environment label to apply to resources naming, lowercase
+  pEnvironmentUpperCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, uppercase
   pDepartment:
     Type: String
     Default: ccm
@@ -116,7 +120,7 @@ Resources:
           LogGroupName: !Ref QueueIntervalFirehoseLogGroup
           LogStreamName: !Ref QueueIntervalFirehoseLogStream
         Prefix: "queue_interval/"
-        RoleARN: !GetAtt QueueIntervalFirehoseIAMRole.Arn
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
 
 
   QueueDailyParquetFirehose:
@@ -135,7 +139,7 @@ Resources:
           LogGroupName: !Ref QueueDailyFirehoseLogGroup
           LogStreamName: !Ref QueueDailyFirehoseLogStream
         Prefix: "queue_daily/"
-        RoleARN: !GetAtt QueueIntervalFirehoseIAMRole.Arn
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
 
   QueueIntervalFirehoseIAMRole:
     Type: AWS::IAM::Role

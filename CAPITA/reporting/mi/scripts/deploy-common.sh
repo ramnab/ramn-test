@@ -2,17 +2,20 @@
 
 if [[ -z "$1" ]];
 then
-    echo """Usage: ./deploy-customer.sh ENV
-
-    """
+    echo """
+Usage: ./deploy-customer.sh DEPT ENV
+"""
     exit
 fi
 
 
-
-ENV=$(echo $1 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
-ENV_LOWER=$(echo $1 | awk '{print tolower($0)}')
-
+DEPT=$1
+DEPT_UPPER=$(echo "$1" | awk '{print toupper($0)}')
+ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
+ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
+REGION='eu-central-1'
+ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
 
 echo """
 
@@ -20,7 +23,8 @@ echo """
      Deploying MI Solution into Common Account
      -----------------------------------------
 
-            Account:     ${AWSUME_PROFILE}
+            Account:     ${ACCOUNT_ALIAS}
+            Department:  ${DEPT}
             Environment: ${ENV_LOWER}
 
 """
@@ -31,16 +35,29 @@ if [[ ${cont} != "y" ]]; then
     exit
 fi
 
+# Create transform file
+DIRECTORY=$(dirname $0)
+mkdir -p ${DIRECTORY}/../transforms
 
+cat > ${DIRECTORY}/../transforms/config-common-deployer.yml <<EOL
+env: ${ENV}
+env_lower: ${ENV_LOWER}
+env_upper: ${ENV_UPPER}
+department: ${DEPT}
+department_upper: ${DEPT_UPPER}
+region: ${REGION}
+EOL
 
 do_deploy() {
-   eval "${1} ${ENV_LOWER}"
+   eval "${1} ${DEPT} ${ENV_LOWER}"
 }
 
-modules=( base-common )
+modules=( base-common common-health )
 for m in "${modules[@]}"
 do
     r=".*/${m}/deployer\.sh"
     deployer=`find ./modules/ -type f -regex ${r}`
     do_deploy ${deployer}
 done
+
+rm  ${DIRECTORY}/../transforms/config-common-deployer.yml
