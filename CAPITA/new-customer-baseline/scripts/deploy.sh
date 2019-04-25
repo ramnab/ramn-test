@@ -24,7 +24,7 @@ CLIENT=$(echo "$2")
 ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_LOWER=$(echo $3 | awk '{print tolower($0)}')
 ENV_UPPER=$(echo $3 | awk '{print toupper($0)}')
-DIRECTORY=`dirname $0`
+DIRECTORY=$(dirname $0)
 REGION='eu-central-1'
 MASTER_KEY="alias/connect-master-${ENV_LOWER}"
 CALL_KEY="alias/connect-recordings-${ENV_LOWER}"
@@ -86,14 +86,13 @@ getStackOutput () {
 for m in "${modules[@]}"
 do
     r=".*/${m}/deployer\.sh"
-    deployer=`find ./modules/ -type f -regex ${r}`
+    deployer=$(find ./modules/ -type f -regex ${r})
     do_deploy ${deployer}
 done
 
 
-CALL_RECORDINGS=`getStackOutput stCapita-${DEPT_UPPER}-Customer-Connect-${ENV}-CallRecordingsBucket oCallRecordingBucket`
-REPORT_BUCKET=`getStackOutput stCapita-${DEPT_UPPER}-Customer-Connect-${ENV}-ReportingBucket oCustomerReportingBucketArn`
-AGENT_STREAM=`getStackOutput stCapita-${DEPT_UPPER}-Customer-Connect-${ENV}-AgentEvents oAgentEventsStream`
+CALL_RECORDINGS=$(getStackOutput stCapita-${DEPT_UPPER}-Customer-Connect-${ENV}-CallRecordingsBucket oCallRecordingBucket)
+REPORT_BUCKET=$(getStackOutput stCapita-${DEPT_UPPER}-Customer-Connect-${ENV}-ReportingBucket oCustomerReportingBucketArn)
 
 rm ${DIRECTORY}/../transforms/config-deployer.yml
 
