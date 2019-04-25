@@ -8,7 +8,7 @@ from iam_client_type_annotation import Client as IamClient
 
 
 def dict_merge(dct: dict, merge_dct: dict):
-    for k, v in merge_dct.items():
+    for k, _v in merge_dct.items():
         if (k in dct and isinstance(dct[k], dict)
            and isinstance(merge_dct[k], collections.Mapping)):
             dict_merge(dct[k], merge_dct[k])
@@ -253,7 +253,7 @@ def print_connect_config(cfg):
                 lines.append(f"  {key2.ljust(40)}: {val2}")
         else:
             lines.append(val)
-    max_line_length = len(max(lines, key=lambda x: len(x)))
+    max_line_length = len(max(lines, key=len))
     print("CONNECT Instance Configuration".center(max_line_length))
     print("------------------------------".center(max_line_length))
     print("\n".join(lines))

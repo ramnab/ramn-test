@@ -38,7 +38,7 @@ class VerifyTests(unittest.TestCase):
         self.assertFalse(mock_sns.called)
 
     def test_alarms_for_found_client_TUK(self):
-        (schedule, errors) = load_schedule('TUK-ASPECT-WELL-FORMED.csv')
+        (schedule, _errors) = load_schedule('TUK-ASPECT-WELL-FORMED.csv')
         alarm_config = json.loads(load_local_file('test_alarm_config.json'))
         for agent in schedule:
             schedule[agent]["ALARMS"] = la.create_alarms(schedule, agent, alarm_config)
@@ -46,7 +46,7 @@ class VerifyTests(unittest.TestCase):
         self.assertEqual(len(schedule['P99999999']['ALARMS']), 1)
 
     def test_alarms_for_unknown_client(self):
-        (schedule, errors) = load_schedule('TUK-ASPECT-WELL-FORMED-UNK_CLIENT.csv')
+        (schedule, _errors) = load_schedule('TUK-ASPECT-WELL-FORMED-UNK_CLIENT.csv')
         alarm_config = json.loads(load_local_file('test_alarm_config.json'))
         for agent in schedule:
             schedule[agent]["ALARMS"] = la.create_alarms(schedule, agent, alarm_config)

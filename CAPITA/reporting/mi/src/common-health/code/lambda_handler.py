@@ -81,7 +81,7 @@ def freshness_metric(metrics, **kwargs):
         return
     last_modified = files[0].get("LastModified")
     freshness = datetime.now(timezone.utc) - last_modified
-    (minutes, seconds) = divmod(freshness.total_seconds(), 60)
+    (minutes, _seconds) = divmod(freshness.total_seconds(), 60)
     logger.info(f"last file is {minutes} minutes old")
     print(f"last file is {minutes} minutes old")
     metrics.append({

@@ -72,7 +72,7 @@ class Events(object):
         filtered = Events()
         for event in self._events:
             if event.username == usr:
-                filtered + event
+                filtered += event
         return filtered
 
     def sort(self, **kwargs):
