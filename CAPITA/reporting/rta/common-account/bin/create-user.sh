@@ -7,10 +7,16 @@ CLIENT=$4
 
 TESTPOOLID="eu-central-1_5vpngTHt2"
 DEVPOOLID="eu-central-1_VvHvpO1fe"
+PRODPOOLID="eu-central-1_l3AJqGcNs"
+
 POOLID=${TESTPOOLID}
 
 if [[ ${ENV} == "dev" ]]; then
     POOLID=${DEVPOOLID}
+fi
+
+if [[ ${ENV} == "prod" ]]; then
+    POOLID=${PRODPOOLID}
 fi
 
 USERATTR="Name=email,Value=${EMAIL} Name=email_verified,Value=true"

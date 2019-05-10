@@ -283,6 +283,10 @@ class BSL(Alarm):
             shift_start = extra.get("start")
             ts = event.get("EventTimestamp")
 
+            # ignore if alarm already in special state
+            if state.get('extra', {}).get('BSL_LOGIN'):
+                return []
+
             reason = (f"{username} was late logging in: "
                       f"shift expected to start at "
                       f"{Alarm.pp_date(shift_start)} "

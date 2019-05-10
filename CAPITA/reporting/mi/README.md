@@ -53,7 +53,7 @@ pip install -r requirements.txt -t .
 
 This will add the dependencies such as boto3 to the code/ directory
 
-### 2.2 Deploy MI
+### 2.2 Deploy / Update MI
 
 ```bash
 # in *appropriate* customer account:
@@ -63,6 +63,19 @@ scripts/deploy-customer.sh DEPARTMENT CLIENT ENV
 where
 * DEPARTMENT and ENV are as above
 * CLIENT is the customer name, e.g. tradeuk
+
+You can choose to deploy an individual module rather than the entire solution, using the folder
+name of the module, for example:
+
+```bash
+scripts/deploy-customer.sh ccm firstgroup test agent-interval
+```
+
+**Please note that the mapping from S3 to lambda for Agent / Queue intervals
+currently needs changing manually since occassionally the name of the connect
+instance doesn't map onto our current naming convention, e.g. the dev instance
+used for test, or the use of 'non-prod' in the name. See the deployer.sh scripts
+for agent-interval and queue-interval respectively**
 
 
 ## 3. Update Common Reporting Bucket Permissions 

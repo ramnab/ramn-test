@@ -3,8 +3,7 @@
 if [[ -z "$1" ]];
 then
     echo """Usage: ./update-customer.sh DEPT ENV
-
-    """
+"""
     exit
 fi
 

@@ -194,10 +194,12 @@ echo """
 
 """
 
+# Note that the s3 prefix may need to be changed to point to the correct connect instance
+# This is because sometimes the dev Connect instance will be used for testing
 aws lambda invoke --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
                     \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
-                    \"prefix\": \"connect/${DEPT}-prd-${CLIENT}-connect/reports/agent_interval/\",
+                    \"prefix\": \"connect/${DEPT}-dev-${CLIENT}-connect/reports/agent_interval/\",
                     \"lambda\": \"lmbMIAgentInterval-${DEPT}-${ENV_UPPER}\"}" r.txt
 
 
@@ -207,11 +209,12 @@ echo """
       ---------------------------------------------
 
 """
-
+# Note that the s3 prefix may need to be changed to point to the correct connect instance
+# This is because sometimes the dev Connect instance will be used for testing
 aws lambda invoke --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
                     \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
-                    \"prefix\": \"connect/${DEPT}-prd-${CLIENT}-connect/reports/agent_daily/\",
+                    \"prefix\": \"connect/${DEPT}-dev-${CLIENT}-connect/reports/agent_daily/\",
                     \"lambda\": \"lmbMIAgentInterval-${DEPT}-${ENV_UPPER}\"}" r.txt
 
 

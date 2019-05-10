@@ -17,6 +17,10 @@ Resources:
       UserPoolName: !Join ["-", ["RTAUserPool", !Ref pEnvironment]]
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
+      Schema:
+        - Name: "client"
+          AttributeDataType: String
+          Mutable: True
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -52,4 +56,3 @@ Outputs:
     Value: !Ref UserPoolClient
 
   
-    

@@ -39,14 +39,17 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
+                - s3:PutObject
                 - s3:GetObject
-              Resource: !Join ["", ['arn:aws:s3:::', !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']], "/*"]]
+              Resource: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-common-${pEnvironmentLowerCase}-rta-agentschedules/*"
+
+        # Temporary bypass to allow processed schedule upload to prod account
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Action:
-                - s3:PutObject
-              Resource: !Join ["", ['arn:aws:s3:::', !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']], "/*"]]
+                - s3:*
+              Resource: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-common-prod-rta-agentschedules/*"
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -55,11 +58,12 @@ Resources:
               Resource: !Ref RtaVerifySnsTopic
       Environment:
         Variables:
-          input_s3_bucket: !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']]
+          input_s3_bucket: !Sub "s3-capita-${pDepartment}-common-${pEnvironmentLowerCase}-rta-agentschedules"
           output_file_path: !Ref pOutputFilePath
-          output_s3_bucket: !Join ["-", ['s3', 'capita', !Ref pDepartment, 'common', !Ref pEnvironmentLowerCase, 'rta-agentschedules']]
+          output_s3_bucket: !Sub "s3-capita-${pDepartment}-common-${pEnvironmentLowerCase}-rta-agentschedules"
           alarm_config_file_path: !Ref pAlarmConfigFilePath
           sns_failure_topic: !Ref RtaVerifySnsTopic
+          bypass_to_prod: !Sub "s3-capita-${pDepartment}-common-prod-rta-agentschedules"
       Tags:
           "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
           "tech:Environment": !Ref pEnvironmentLowerCase

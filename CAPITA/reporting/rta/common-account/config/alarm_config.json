@@ -207,7 +207,7 @@
   },
   "FG": {
     "BSE": {
-      "grace": 5,
+      "grace": 1,
       "window": 30,
       "codes": [
         "WORK"
@@ -216,19 +216,19 @@
       "T2": "SCHEDULE.CODE.T1,-BSE.grace"
     },
     "BSL": {
-      "grace": 5,
+      "grace": 0,
       "codes": [
         "WORK"
       ],
-      "T1": "SCHEDULE.CODE.T1,+BSE.grace",
+      "T1": "SCHEDULE.CODE.T1",
       "T2": "SCHEDULE.CODE.T2"
     },
     "ESE": {
-      "grace": 5,
+      "grace": 0,
       "codes": [
         "WORK"
       ],
-      "T1": "SCHEDULE.CODE.T2,-ESE.grace"
+      "T1": "SCHEDULE.CODE.T2"
     },
     "ESL": {
       "grace": 5,
@@ -240,7 +240,7 @@
       "T2": "SCHEDULE.CODE.T2,+ESL.window"
     },
     "SIU": {
-      "grace": 5,
+      "grace": 1,
       "codes": [
         "WORK"
       ],
@@ -248,7 +248,7 @@
       "T2": "SCHEDULE.CODE.T2,+ESL.window,+SIU.grace"
     },
     "SOU": {
-      "grace": 5,
+      "grace": 1,
       "codes": [
         "WORK"
       ],
@@ -256,8 +256,8 @@
       "T2": "SCHEDULE.CODE.T2,-SOU.grace"
     },
     "BBE": {
-      "grace": 5,
-      "window": 15,
+      "grace": 1,
+      "window": 30,
       "codes": [
         "BREAK"
       ],
@@ -282,8 +282,8 @@
       "T2": "SCHEDULE.CODE.T2,-WOB.grace"
     },
     "BXE": {
-      "grace": 5,
-      "window": 15,
+      "grace": 1,
+      "window": 30,
       "codes": [
         "EXCEPTION"
       ],

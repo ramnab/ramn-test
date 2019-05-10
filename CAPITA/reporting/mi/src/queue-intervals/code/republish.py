@@ -17,11 +17,11 @@ max_number_firehose_batch = 500
 '''
 Republish
 Loads a csv file from S3 and converts to JSON
-Each entry/line is then published to the 
+Each entry/line is then published to the
 specified firehose
 
 Config is a list of normalised fields that should be 
-kept as a string 
+kept as a string
 '''
 
 

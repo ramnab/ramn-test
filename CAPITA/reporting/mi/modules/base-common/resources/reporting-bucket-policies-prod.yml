@@ -26,63 +26,22 @@ Resources:
       Bucket: !Ref pCommonReportingBucket
       PolicyDocument:
         Statement:
-        -
-          Effect: Allow
+          # Using new generic cross-account role: CA_MI_PROD
+        - Effect: Allow
           Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_ctr_${pEnvironmentLowerCase}"
+            # First Group MI Role
+            AWS: !Sub "arn:aws:iam::512953984022:role/CA_MI_PROD"
           Action:
-          - s3:*
+            - s3:*
           Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        -
-          Effect: Allow
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        - Effect: Allow
           Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
+            # TradeUK MI Role
+            AWS: "arn:aws:iam::443350248290:role/CA_MI_PROD"
           Action:
-          - s3:*
+            - s3:*
           Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        -
-          Effect: Allow
-          Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
-          Action:
-          - s3:*
-          Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        -
-          Effect: Allow
-          Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_ctr_${pEnvironmentLowerCase}"
-          Action:
-          - s3:*
-          Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        -
-          Effect: Allow
-          Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_queue_interval_${pEnvironmentLowerCase}"
-          Action:
-          - s3:*
-          Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        -
-          Effect: Allow
-          Principal:
-            # Trade UK production account
-            AWS: !Sub "arn:aws:iam::443350248290:role/rl_mi_agent_interval_${pEnvironmentLowerCase}"
-          Action:
-          - s3:*
-          Resource:
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"

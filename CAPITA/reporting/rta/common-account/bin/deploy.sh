@@ -3,14 +3,14 @@
 # Ensure you are in the target account before running this script
 # by using a tool such as 'awsume'
 
-DEPARTMENT=$1
+DEPARTMENT=$(echo $1 | awk '{print tolower($0)}')
 ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 
-if [[ -z "${ENV}" ]]; then
+if [[ -z "${ENV}" ]] || [[ -z "${DEPARTMENT}" ]]; then
     echo "
 Usage:
 
-    ./bin/deploy.sh  ENV
+    ./bin/deploy.sh DEPARTMENT  ENV
     
 where ENV is the environment, e.g. 'dev', 'test', 'prod'
 
@@ -25,7 +25,6 @@ DIRECTORY=`dirname $0`
 getStackOutput () {
     STACKNAME=$1
     KEY=$2
-    # echo "getStackOutput security token=${AWS_SECURITY_TOKEN}"
     aws cloudformation describe-stacks --query "Stacks[?StackName == '${STACKNAME}'].Outputs[]| [?OutputKey=='${KEY}'].[OutputValue] | [0]" --output text
 }
 
@@ -209,19 +208,25 @@ EOF
 
 
 
-WEB_S3=$(aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-${ENV}-CDN'].Outputs[]| [?OutputKey=='oWebAppBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/s3:\/\/\1\//')
+WEB_S3=$(getStackOutput stCapita-RTA-${ENV}-CDN oWebAppBucketArn | sed -e 's/arn.*:::\(.*\)/s3:\/\/\1\//')
 
 echo """
 ----------------------------------
-       Uploading HTML
+       Uploading HTML to S3
 
-       S3: ${WEB_S3}
+       Bucket: ${WEB_S3}
 """
 
 
 aws s3 sync html/. ${WEB_S3}
 
+DOMAIN=$(getStackOutput stCapita-RTA-${ENV}-CDN oWebAppDomainName)
+
+
 echo """
 
-Deployment Completed
+Deployment Completed:
+
+    https://${DOMAIN}
+
 """

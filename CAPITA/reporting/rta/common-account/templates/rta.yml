@@ -131,6 +131,12 @@ Resources:
               "AWS": "555239192020" # FirstGroup NONPROD root
             Action:
               - "sts:AssumeRole"
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "512953984022" # FirstGroup PROD root
+            Action:
+              - "sts:AssumeRole"
       Path: "/"
       ManagedPolicyArns: ["arn:aws:iam::aws:policy/AmazonKinesisAnalyticsFullAccess"]
 

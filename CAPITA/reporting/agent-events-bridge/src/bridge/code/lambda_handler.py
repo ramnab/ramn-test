@@ -6,39 +6,55 @@ import base64
 import json
 import os
 import boto3
+import logging
 
 
-def handler(event, __context):
+logger = logging.getLogger()
+# INFO = 20, DEBUG = 10
+LOGGING_LEVEL = int(os.environ.get("LOGGING_LEVEL", "20"))
+logger.setLevel(LOGGING_LEVEL)
+
+
+def handler(event, _context):
     """Main Handler function"""
-    events = []
+    connect_events = []
     records = event.get('Records', [])
+    logger.info(f"Received {len(records)} records")
     for record in records:
         data = record.get('kinesis', {}).get('data', '')
-        data_decoded = base64.b64decode(data).decode('utf8')
-        trigger = json.loads(data_decoded)
+        decoded = base64.b64decode(data).decode('utf8')
+        connect_event = json.loads(decoded)
 
-        trigger['ClientName'] = os.environ.get('Client_Name')
-        if trigger:
-            events.append(trigger)
+        if connect_event and not is_excluded_event(connect_event):
+            logger.info(f"Adding event: {connect_event}")
+            connect_event['ClientName'] = os.environ.get('Client_Name')
+            connect_events.append(connect_event)
 
-    recordsinput = build_records_input(events)
+    kinesis_records = to_kinesis(connect_events)
+    if kinesis_records:
+        logger.info(f"Sending {len(kinesis_records)} records onwards")
+        destination_role = os.environ.get('Common_Account_Role_ARN')
+        session = switch_account(destination_role)
+        stream_name = os.environ.get('Target_Stream_Name')
+        logger.info(f"Payload to {stream_name}: {kinesis_records}")
+        session.client('kinesis').put_records(
+            Records=kinesis_records,
+            StreamName=stream_name
+        )
+    else:
+        logger.info(f"Sending zero records onwards")
 
-    remoterolearn = os.environ.get('Common_Account_Role_ARN')
-    remotesession = switch_account(remoterolearn)
-    remotekinesisclient = remotesession.client('kinesis')
 
-    remotekinesisclient.put_records(
-        Records=recordsinput,
-        StreamName=os.environ.get('Target_Stream_Name')
-    )
+def is_excluded_event(event):
+    return event.get("EventType", "") == "HEART_BEAT"
 
 
-def switch_account(rolearn):
+def switch_account(role_arn):
     """Assume role in common account, return session information."""
-    stsclient = boto3.client('sts')
-    assume = stsclient.assume_role(
-        RoleArn=rolearn,
-        RoleSessionName='Role_provisioner'
+    sts_client = boto3.client('sts')
+    assume = sts_client.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName='role_provisioner'
     )
     session = boto3.session.Session(
         aws_session_token=assume['Credentials']['SessionToken'],
@@ -48,12 +64,13 @@ def switch_account(rolearn):
     return session
 
 
-def build_records_input(events):
+def to_kinesis(events):
     """Creates input list of records for kinesis command"""
     records = []
     for event in events:
-        record = {}
-        record['Data'] = json.dumps(event)
-        record['PartitionKey'] = os.environ.get('Client_Name')
+        record = {
+            'Data': json.dumps(event),
+            'PartitionKey': os.environ.get('Client_Name')
+        }
         records.append(record)
     return records

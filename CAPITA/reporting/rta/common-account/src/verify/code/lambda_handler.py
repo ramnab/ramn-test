@@ -6,7 +6,9 @@ import re
 from datetime import datetime
 from datetime import timedelta
 import boto3
+from botocore.exceptions import ClientError
 import logging
+
 
 logger = logging.getLogger()
 # INFO = 20
@@ -49,14 +51,30 @@ def get_schedule_from_s3(event):
 
 def upload_schedule_to_s3(schedule):
     """Convert file to bytes format and upload to s3"""
-    s3client = boto3.client('s3')
+    s3_client = boto3.client('s3')
 
-    schedulebytes = json.dumps(schedule).encode('utf-8')
+    schedule_as_bytes = json.dumps(schedule).encode('utf-8')
 
-    bucketname = os.environ.get("output_s3_bucket")
-    objectkey = os.environ.get("output_file_path")
+    bucket_name = os.environ.get("output_s3_bucket")
+    key = os.environ.get("output_file_path")
 
-    s3client.put_object(Bucket=bucketname, Key=objectkey, Body=schedulebytes)
+    try:
+        logging.info(f"Uploading schedule to s3://{bucket_name}/{key}")
+        s3_client.put_object(Bucket=bucket_name, Key=key, Body=schedule_as_bytes)
+    except ClientError as e:
+        logging.warning(f"Exception uploading to s3://{bucket_name}/{key}: {e}")
+
+    try:
+        bypass_bucket = os.environ.get("bypass_to_prod")
+        if bypass_bucket:
+            logging.info(f"Uploading schedule to bypass s3://{bypass_bucket}/{key}")
+            s3_client.put_object(
+                ACL='bucket-owner-full-control',
+                Bucket=bypass_bucket, Key=key,
+                Body=schedule_as_bytes)
+
+    except ClientError as e:
+        logging.warning(f"Exception uploading to s3://{bypass_bucket}/{key}: {e}")
 
 
 def verify_schedule_contents(row):
@@ -247,7 +265,6 @@ def create_alarm_time(alarm_config, alarm, code, schedule, agent, time_code):
 
     schedtime = datetime.strptime(schedtime, '%Y-%m-%dT%H:%M')
     alarm_time = calulate_alarm_time(schedtime, time_config, alarm_config)
-    logger.info(f"Created alarm {agent} for {agent}: {schedtime} -{time_code}-> {str(alarm_time)}")
     return str(alarm_time)
 
 
