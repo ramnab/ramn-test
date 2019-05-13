@@ -1,5 +1,5 @@
 import argparse
-import json
+from botocore.exceptions import ClientError
 import sys
 import boto3
 import collections
@@ -25,8 +25,15 @@ def list_stacks():
 
 
 def list_resources(stack_name):
-    return cf_client.list_stack_resources(StackName=stack_name) \
-                    .get("StackResourceSummaries", [])
+    try:
+        return cf_client.list_stack_resources(StackName=stack_name) \
+                        .get("StackResourceSummaries", [])
+    except ClientError as e:
+        msg = e.response['Error']['Message']
+        print(msg)
+        if 'does not exist' in msg:
+            print("Are you in the right account for the environment you've chosen?")
+        exit(1)
 
 
 def get_physical_resource_id(resources: list, logical_id: str):

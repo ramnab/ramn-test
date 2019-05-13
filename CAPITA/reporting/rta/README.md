@@ -21,23 +21,45 @@ The deployment script deploys the entire stack into Capita Common dev/test/prod 
 # switch to the target account
 awsume capita-common-nonprod
 
-# Replace ENV with Dev / Test / Prod
-./bin/deploy.sh ENV
+# Replace DEPARTMENT with ccm
+# Replace ENV with dev / test / prod
+./bin/deploy.sh DEPARTMENT ENV
 
 ```
 
-## Adding new users, changing permissions
+## Adding new users, changing permissions for existing users
 
-The helper script `bin/create_users.py` can create individual dashboard users or create
-from a CSV file. If the user exists then the custom attribute 'client' is updated instead.
+The helper script `bin/users.py` creates or updates RTA dashboard users.
+Either create an individual user by providing the params on the command line
+or specify a CSV file. See `config/users_v1.0.csv` for the current set of users.
+
+Note that this script will update which clients the user can access if the user 
+already exists.
+
+Note that when adding a single user via the command line, the client list is comma
+delimited. In the CSV file, the client list is space-delimited. The special client 
+token `all` is used as a wildcard to allow the user access to all clients.
 
 ```bash
-# to add / update a single user
+# to view all commands
+python users.py --help
 
-python create_users.py --pool POOLID --username USERNAME --email EMAIL --clients CLIENTS 
+# to view help for a given command, for example 'create-user'
+python users.py create-user --help
+
+# to add / update a single user, note that CLIENTS must be comma-delimited
+python users.py create-user --pool-id POOLID --username USERNAME --email EMAIL --clients CLIENTS 
 
 # to add / update multiple users from a csv
+python users.py create-user --pool-id POOLID --csv CSV
 
-python create_users.py --pool POOLID --file CSV
+# to list all pools in current account
+python users.py list-pools
+
+# to list all users in a given user pool
+python users.py list-users POOLID
+
+# to export all users from the given user pool to a CSV file (can be used for importing)
+python users.py list-users POOLID --export FILE
 
 ```

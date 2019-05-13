@@ -4,6 +4,8 @@ This solution is to be deployed across a COMMON account and a CUSTOMER account (
 
 There are a number of inter-dependencies which means deployment needs to occur in a specific sequence.
 
+Once deployed, updates to Common account or Customer account can be conducted independently of one-another
+
 ## Prerequisites
 
 1. awsume
@@ -42,6 +44,10 @@ where
 
 ### 2.1. Include python dependencies for firehose-mod
 
+The firehose-mod lambda is a special case - it uses a more recent version of boto3
+than that provided in the lambda environment. Install the version (and dependencies)
+using the requirements.txt file as specified below before packaging and deployment.
+
 ```bash
 # if not run already, go to project root mi/ and run
 pipenv shell
@@ -56,7 +62,7 @@ This will add the dependencies such as boto3 to the code/ directory
 ### 2.2 Deploy / Update MI
 
 ```bash
-# in *appropriate* customer account:
+# in *appropriate* customer account, e.g. tradeuk-nonprod:
 scripts/deploy-customer.sh DEPARTMENT CLIENT ENV
 ```
 
@@ -80,11 +86,30 @@ for agent-interval and queue-interval respectively**
 
 ## 3. Update Common Reporting Bucket Permissions 
 
+Once the customer firehoses have been created, the common reporting bucket
+requires explicit permissions to allow them access. This is done via updating the
+bucket policy.
+
+Update the appropriate resource file
+`modules/base-common/resources/reporting-bucket-policies-ENV.yml`
+to allow the `arn:aws:iam::CUSTOMER_ACCOUNT_ID:role/CA_MI_ENV` access then run
+the update script as below. Note that there is a specific resource file for each
+environment.
+
 ```bash
 # in common account: 
-cf sync -y --context transforms/config-ccm-common-<env>.yml \
-   modules/base-common/reporting-bucket-policies.stacks
+scripts/update-common.sh DEPARTMENT ENV
 ```
 
-*Make sure that the file modules/base-common/resources/reporting-bucket-policies.yml
-is up to date for the firehose roles in the appropriate customer accounts*
+<hr>
+
+## Viewing the customer distribution
+
+You can get a description of the MI Solution resource values by running
+the following. It will also provide details of how to wire up the Connect instance.  
+
+```bash
+# in correct customer account, where ENV is one of dev, test, prod:
+python scripts/describe.py -e ENV
+
+``` 
