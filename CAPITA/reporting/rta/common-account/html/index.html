@@ -546,7 +546,7 @@
                 })
                 .catch(e => { 
                     console.log("Error:", e);
-                    if (e.response && e.response.status == 401) {
+                    if (e.response && e.response.status == 401 && vapp.requested_client != null) {
                         console.log("You are not authorised to view client " + vapp.requested_client)
                         clearInterval(vapp.autoRefreshInterval)
                         // setTimeout(function() {vapp.authorised = false}, 1000);
