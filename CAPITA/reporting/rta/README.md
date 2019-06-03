@@ -1,6 +1,8 @@
 # CAPITA RTA Application
 
-Deployment instructions
+Design: (Real Time Adherence Display)[https://kcom-enterprise.atlassian.net/wiki/spaces/DEVOPS/pages/648642887/Real+Time+Adherence+Display]
+
+Deployment instructions:
 
 ## Pre-requisites
 
