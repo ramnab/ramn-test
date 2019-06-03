@@ -3,17 +3,15 @@ import json
 import argparse
 import os
 import logging.config
+import re
 from abc import ABC, abstractmethod
 
 
 import boto3
 
-script_path = os.path.dirname(__file__)
-logging.config.fileConfig(f'{script_path}/logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger("connectMetrics")
-
-aws_region = 'eu-central-1'
-metric_mapping = {
+ROLE_ARN_TEMPLATE = "arn:aws:iam::{account_id}:role/CA_CONNECT_METRICS_{environment}"
+AWS_REGION = 'eu-central-1'
+METRIC_MAPPING = {
     "CONTACTS_QUEUED": "Call",
     "CONTACTS_ABANDONED": "Abandoned",
     "QUEUE_ANSWER_TIME": "ASA",
@@ -24,14 +22,20 @@ metric_mapping = {
     "AGENTS_AVAILABLE": "Available"
 }
 
-
+script_path = os.path.dirname(__file__)
+logging.config.fileConfig(f'{script_path}/logging.ini', disable_existing_loggers=False)
+logger = logging.getLogger("connectMetrics")
 configuration_directory = f'{script_path}/../../../config'
 output_directory = f'{script_path}/../../../output'
+VERSION_RE = re.compile(r'''__version__ = ['"]([0-9.]+)['"]''')
 
 
 class ConnectMetricRequest(ABC):
-    def __init__(self, connect_client):
+    queue_arn_template = "arn:aws:connect:{region}:{account_id}:instance/{instance_id}/queue/{queue_id}"
+
+    def __init__(self, connect_client, region):
         self.connect_client = connect_client
+        self.region = region
 
     def create_request(self, metadata):
         request = {
@@ -40,7 +44,7 @@ class ConnectMetricRequest(ABC):
                 'Channels': [
                     'VOICE'
                 ],
-                'Queues': list(metadata['queues'].keys())
+                'Queues': self.construct_queue_arns(metadata)
             },
             "Groupings": [
                 'QUEUE'
@@ -48,9 +52,26 @@ class ConnectMetricRequest(ABC):
         }
         return request
 
+    def construct_queue_arns(self, metadata):
+        return list(
+            map(
+                lambda queue: self.create_queue_arn(metadata['accountId'], metadata['instanceId'], queue),
+                list(metadata['queues'].keys())
+            )
+        )
+
     @abstractmethod
     def get_web_request(self):
         pass
+
+    @staticmethod
+    def create_queue_arn(account_id, instance_id, queue_id):
+        return ConnectMetricRequest.queue_arn_template.format(
+            account_id=account_id,
+            region=AWS_REGION,
+            instance_id=instance_id,
+            queue_id=queue_id
+        )
 
     def execute(self, metadata):
         request = self.create_request(metadata)
@@ -60,8 +81,8 @@ class ConnectMetricRequest(ABC):
 
 
 class CurrentMetricRequest(ConnectMetricRequest):
-    def __init__(self, connect_client):
-        super().__init__(connect_client)
+    def __init__(self, connect_client, region):
+        super().__init__(connect_client, region)
 
     def create_request(self, metadata):
         request = super().create_request(metadata)
@@ -98,8 +119,8 @@ class CurrentMetricRequest(ConnectMetricRequest):
 
 
 class HistoricMetricRequest(ConnectMetricRequest):
-    def __init__(self, connect_client):
-        super().__init__(connect_client)
+    def __init__(self, connect_client, region):
+        super().__init__(connect_client, region)
 
     def create_request(self, metadata):
         request = super().create_request(metadata)
@@ -156,22 +177,31 @@ class HistoricMetricRequest(ConnectMetricRequest):
         return midnight
 
 
-def get_metric_data(profile, configuration):
-    queue_metadata = read_configuration(configuration)
+def get_metric_data(profile, client, environment):
+    lower_client = client.lower()
+    lower_environment = environment.lower()
+
+    logger.info(
+        "Retrieving metrics for profile %s, client %s and environment %s",
+        profile,
+        lower_client,
+        lower_environment
+    )
+    queue_metadata = read_configuration(lower_client, lower_environment)
 
     connect_client = create_connect_client(profile, queue_metadata)
 
     metrics = make_requests(connect_client, queue_metadata)
-    output_metrics(metrics, queue_metadata["clientName"], configuration)
+    output_metrics(metrics, lower_client, lower_environment)
 
 
 def create_connect_client(profile, queue_metadata):
     session = create_session(profile)
     credentials = assume_role(queue_metadata, session)
-    logger.debug("Creating Amazon Connect client for region %s", aws_region)
+    logger.debug("Creating Amazon Connect client for region %s", AWS_REGION)
     connect_client = session.client(
         'connect',
-        region_name=aws_region,
+        region_name=AWS_REGION,
         aws_access_key_id=credentials["AccessKeyId"],
         aws_secret_access_key=credentials["SecretAccessKey"],
         aws_session_token=credentials["SessionToken"]
@@ -180,10 +210,11 @@ def create_connect_client(profile, queue_metadata):
 
 
 def assume_role(queue_metadata, session):
-    logger.debug("Assuming role %s...", queue_metadata["metricsRoleArn"])
-    sts_client = session.client("sts", region_name=aws_region)
+    role_arn = create_role_arn(queue_metadata)
+    logger.debug("Assuming role %s...", role_arn)
+    sts_client = session.client("sts", region_name=AWS_REGION)
     assumed_role = sts_client.assume_role(
-        RoleArn=queue_metadata["metricsRoleArn"],
+        RoleArn=role_arn,
         RoleSessionName="dashboard_connect_metrics"
     )
     credentials = assumed_role["Credentials"]
@@ -196,8 +227,8 @@ def create_session(profile):
     return session
 
 
-def read_configuration(configuration):
-    config_file = f'{configuration_directory}/{configuration}.json'
+def read_configuration(client, environment):
+    config_file = f'{configuration_directory}/{client}-{environment}.json'
     logger.debug("Reading configuration from %s", config_file)
     with open(config_file) as f:
         queue_metadata = json.load(f)
@@ -206,8 +237,8 @@ def read_configuration(configuration):
 
 def make_requests(connect_client, metadata):
 
-    current_metrics_request = CurrentMetricRequest(connect_client)
-    historic_metrics_request = HistoricMetricRequest(connect_client)
+    current_metrics_request = CurrentMetricRequest(connect_client, AWS_REGION)
+    historic_metrics_request = HistoricMetricRequest(connect_client, AWS_REGION)
 
     call_metrics = {}
 
@@ -224,7 +255,7 @@ def make_requests(connect_client, metadata):
 
 def lookup_metric_name(name):
     try:
-        return metric_mapping[name]
+        return METRIC_MAPPING[name]
     except KeyError:
         return name
 
@@ -238,7 +269,7 @@ def store_metrics(call_metrics, metrics, metadata):
             queue[metric_name] = int(collection['Value'])
 
 
-def output_metrics(call_metrics, client, configuration):
+def output_metrics(call_metrics, client, environment):
     output = []
     for queue_name, metrics in call_metrics.items():
         queue_metrics = {'Date': datetime.datetime.now().isoformat(), 'Client': client, 'QueueName': queue_name}
@@ -246,7 +277,7 @@ def output_metrics(call_metrics, client, configuration):
             queue_metrics[key] = value
         output.append(queue_metrics)
 
-    metric_output_file = f'{output_directory}/{configuration}-metric-data.json'
+    metric_output_file = f'{output_directory}/{client}-{environment}-metric-data.json'
     logger.debug("Saving metrics to %s", metric_output_file)
 
     with open(metric_output_file, 'w') as f:
@@ -255,29 +286,44 @@ def output_metrics(call_metrics, client, configuration):
 
 def lookup_queue_name(metric, metadata):
     arn = metric['Dimensions']['Queue']['Arn']
+    last_slash_index = arn.rfind('/')
+    queue_id = arn[last_slash_index + 1:]
+
     try:
-        return metadata['queues'][arn]
+        return metadata['queues'][queue_id]
     except KeyError:
         return arn
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("profile", help="The name of the AWS profile to use to authenticate the API call")
-    parser.add_argument("configuration", help="The name of the configuration to use to access the API")
-    parser.add_argument(
-        "-v",
-        "--verbosity",
-        help="Adjusts the logging level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default="DEBUG"
-    )
+    parser.add_argument("-p", "--profile", help="The name of the AWS profile to use to authenticate the API call")
+    parser.add_argument("-c", "--client", help="The name of the client to retrieve metrics for")
+    parser.add_argument("-e", "--environment",
+                        help="The environment to use, either dev, test, or prod",
+                        choices=["dev", "test", "prod"]
+                        )
+    parser.add_argument("-v", "--version", help="Displays the script version", action="store_true")
     return parser.parse_args()
+
+
+def create_role_arn(queue_metadata):
+    return ROLE_ARN_TEMPLATE.format(
+        account_id=queue_metadata["accountId"],
+        environment=queue_metadata["environment"].upper()
+    )
+
+
+def get_version():
+    init = open(os.path.join(script_path, '__init__.py')).read()
+    return VERSION_RE.search(init).group(1)
 
 
 if __name__ == '__main__':
     args = parse_arguments()
-    logger.info("Retrieving metrics for profile %s and configuration %s", args.profile, args.configuration)
+    if args.version:
+        print(get_version())
+        exit(0)
 
-    get_metric_data(args.profile, args.configuration)
+    get_metric_data(args.profile, args.client, args.environment)
     logger.info("Successfully retrieved metrics")

@@ -9,7 +9,7 @@ Two scripts are provided to support the solution:
 * connectmetrics.py - A python script that invokes the `get_metric_data` and `get_current_metric_data` APIs and flattens
 the results in JSON format.
 * connect-metrics-cli.ps1 - A powershell wrapper that invokes the `connectmetrics.py` script and sends the results to
-PowerBI
+PowerBI.
 
 ## connectmetrics.py python script
 The Amazon Connect API is currently limited in the functionality it provides; there is no option to enumerate the
@@ -27,10 +27,12 @@ The format of the file is detailed below.
 ```json
 {
   "clientName": "<name of the client to identify the metrics in PowerBI, e.g. TradeUK>",
+  "accountId": "<the id of the account to access>",
+  "environment": "<the environment to connect to, either DEV, TEST or PROD>",
   "instanceId": "<connect instance GUID>",
   "queues": {
-      "<Queue ARN>": "<Queue Name>",
-      "<Queue ARN>": "<Queue Name>"
+      "<Queue Id GUID>": "<Queue Name>",
+      "<Queue Id GUID>": "<Queue Name>"
     }
 }
 ```
@@ -38,30 +40,33 @@ For example:
 ```json
 {
   "clientName": "TradeUK",
+  "accountId": "111111111111",
+  "environment": "DEV",
   "instanceId": "0d525d33-c2af-4b86-9d67-393db396e896",
   "queues": {
-      "arn:aws:connect:eu-central-1:111111111111:instance/0d525d33-c2af-4b86-9d67-393db396e896/queue/e42fa1d8-620e-4bf8-bd9a-eafc60b9c0ef": "BasicQueue"
+      "e42fa1d8-620e-4bf8-bd9a-eafc60b9c0ef": "BasicQueue"
     }
 }
 ```
 
-The script requires one argument to run, the AWS Profile to use to connect to the instance.
-The AWS Profile is used to look up the appropriate configuration and to authenticate with the Metrics API.
+The script requires three arguments to run, the name of the client, the environment  and the AWS Profile to use to 
+connect to the instance. The AWS Profile is used to look up the appropriate configuration and to authenticate with the 
+Metrics API.
 
 ```powershell
-python src\connectmetrics\code\connectmetrics.py <profile>
+python src\connectmetrics\code\connectmetrics.py --client <client> --environment <environment> --profile <profile>
 ```
 
 For example:
 ```powershell
-python src\connectmetrics\code\connectmetrics.py capita-tradeuk-dev
+python src\connectmetrics\code\connectmetrics.py --client tradeuk --environment dev --profile capita-tradeuk-dev
 ```
 
 The script outputs the metrics to an `output` directory which it will create if it does not already exist. The
 output will be a JSON file with a flattened JSON structure. The file will be named using a similar convention
 to the configuration file.
 
-`.\output\<AWS Profile Name>-metric-data.json`, e.g. `capita-tradeuk-dev-metric-data.json`
+`.\output\<client name>-<environment>-metric-data.json`, e.g. `tradeuk-dev-metric-data.json`
 
 The format of the file is shown below.
 
@@ -97,10 +102,11 @@ The format of the file is shown below.
 
 ## connect-metrics-cli.ps1 powershell script
 This powershell script is a wrapper to the python script, that invokes the python script and pushes the 
-resulting metrics to PowerBI. The script takes one argument, the AWS Profile.
+resulting metrics to PowerBI. The script takes four arguments, the client name, the environment and the AWS Profile and
+the endpoint for PowerBI.
 
 ```powershell
-.\scripts\connect-metrics-cli.ps1 capita-tradeuk-dev
+.\scripts\connect-metrics-cli.ps1 -Client tradeuk -Environment dev -ProfileName capita-tradeuk-dev -PowerBIUrl http://localhost:8080
 ```
 
 ### Cross Account Access
@@ -113,7 +119,7 @@ the user the `connect:GetCurrentMetricData` and `connect:GetMetricData` permissi
 
 
 #### AWS Credential Configuration
-The following configuration should be defined in the AWS ~/.aws/credentials and ~/.aws/config files to facilitate the
+The following configuration should be defined in the AWS ~/.aws/credentials to facilitate the
 cross account access.
 
 ##### Credentials
@@ -131,27 +137,9 @@ aws_access_key_id = <access-key>
 aws_secret_access_key = <secret-access-key>
 ```
 
-This user will have the relevant permission to assume the connect metric role in the client accounts. The client
-accounts will not require credentials as will therefore be held in the `config` file.
+This user will have the relevant permission to assume the connect metric role in the client accounts. 
 
-##### Config
-An entry will exist in the config file for each client and environment the dashboard will support. The config file is
-structure as follows:
-
-```ini
-[profile capita-tradeuk-dashboard-dev]
-role_arn = arn:aws:iam::<tradeuk dev account id>:role/CA_CONNECT_METRICS_DEV
-source_profile = capita-common-dashboard-dev
-region = eu-central-1
-
-[profile capita-tradeuk-dashboard-prod]
-role_arn = arn:aws:iam::<tradeuk prod account id>:role/CA_CONNECT_METRICS_PROD
-source_profile = capita-common-dashboard-prod
-region = eu-central-1
-
-```
-
-## Deploying MI
+## Deploying the Dashboard resources
 
 This solution is to be deployed across a COMMON account and a CUSTOMER account (e.g. tradeuk)
 
@@ -201,5 +189,14 @@ where
 where
 * DEPARTMENT and ENV are as above
 * CLIENT is the customer name, e.g. tradeuk
+
+## Packaging the dashboard scripts for distribution
+A script has been provided to generate a distribution package to provide to the MI team at Capita. To create the
+packaged distribution, run the following script:
+```bash
+./scripts/package.sh
+```
+
+This will create a `./dist` folder containing the `connect-dashboard-metrics.zip` file for distribution.
 
 

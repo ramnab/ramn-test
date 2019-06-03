@@ -1,20 +1,21 @@
 {
   "clientName": "TradeUK",
-  "metricsRoleArn": "arn:aws:iam::443350248290:role/CA_CONNECT_METRICS_DEV",
+  "environment": "PROD",
+  "accountId": "443350248290",
   "instanceId": "0b89d1f7-ab32-48f8-9870-67be7409181f",
   "queues": {
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/86841fd9-2515-49aa-bbec-45f19cfd0540": "Collections",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/4dc9c089-3bf5-44a0-9849-c1dcc412d8f3": "Collections Specialist",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/a21e03a0-e8e9-4f80-a810-c78c2f1bab35": "Collections Voiceage",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/39e74f5b-92f2-47c1-aa8e-e6a495d81148": "Customer Services",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/b4da2122-0538-46b7-b271-6e1c78e6d1ff": "Fraud",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/0e23d0d0-9fa5-4422-9b49-ed356cfbf4c1": "National Accounts",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/8551f506-ac1d-41e8-b5f8-88dc94438be3": "New Accounts",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/cb5109b3-c54d-4f53-a0cd-bdc0615b66e7": "New Business Specialist",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/7f4a09e1-f4e8-4ad7-963e-24b2e6ebc63d": "Payment IVR",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/024fba37-6731-4bd0-8528-1ec2cdb6b2f9": "Payments",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/5f1235dd-1677-417b-8363-9d5a2d69b091": "Pre Legal",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/b445d26e-7676-42c4-927d-5f58bda07425": "Revive Callbacks",
-    "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/5c83b254-3dc5-4503-9d8e-30f4f3f16ec9": "Web Portal"
+    "86841fd9-2515-49aa-bbec-45f19cfd0540": "Collections",
+    "4dc9c089-3bf5-44a0-9849-c1dcc412d8f3": "Collections Specialist",
+    "a21e03a0-e8e9-4f80-a810-c78c2f1bab35": "Collections Voiceage",
+    "39e74f5b-92f2-47c1-aa8e-e6a495d81148": "Customer Services",
+    "b4da2122-0538-46b7-b271-6e1c78e6d1ff": "Fraud",
+    "0e23d0d0-9fa5-4422-9b49-ed356cfbf4c1": "National Accounts",
+    "8551f506-ac1d-41e8-b5f8-88dc94438be3": "New Accounts",
+    "cb5109b3-c54d-4f53-a0cd-bdc0615b66e7": "New Business Specialist",
+    "7f4a09e1-f4e8-4ad7-963e-24b2e6ebc63d": "Payment IVR",
+    "024fba37-6731-4bd0-8528-1ec2cdb6b2f9": "Payments",
+    "5f1235dd-1677-417b-8363-9d5a2d69b091": "Pre Legal",
+    "b445d26e-7676-42c4-927d-5f58bda07425": "Revive Callbacks",
+    "5c83b254-3dc5-4503-9d8e-30f4f3f16ec9": "Web Portal"
   }
 }

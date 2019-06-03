@@ -7,7 +7,7 @@ The CAPITA directory is further split into the following projects:
 
 1. New Customer Baseline - a basic set up for any new *customer* account
 2. Reporting:
-  * RTA Reporting - real-time adherance for call-centre agents
+  * RTA Reporting - real-time adherence for call-centre agents
   * MI Reporting - business intelligence reporting
   * Dashboard - agent and queue metric scripts (client-side only)
 3. Active Directory - integration with ADFS

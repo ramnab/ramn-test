@@ -1,14 +1,19 @@
 param (
-  [Parameter(Mandatory=$true)][String]
-  $Configuration,
-  [Parameter(Mandatory=$true)][String]
-  $ProfileName
+  [Parameter(Mandatory=$true, ParameterSetName="ScriptExecution")][String]
+  $Client,
+  [Parameter(Mandatory=$true, ParameterSetName="ScriptExecution")][String]
+  $Environment,
+  [Parameter(Mandatory=$true, ParameterSetName="ScriptExecution")][String]
+  $ProfileName,
+  [Parameter(Mandatory=$true, ParameterSetName="ScriptExecution")][String]
+  $PowerBIUrl,
+  [Parameter(ParameterSetName="Version")][Switch]
+  $Version
 )
 
 $ErrorActionPreference = "Stop"
 
 $outputPath = "$PSScriptRoot/../output"
-$powerBIEndpoint = "http://localhost:8080"
 
 function Write-Log() {
   Param (
@@ -30,20 +35,26 @@ function Invoke-ConnectMetrics() {
     [String]
     $ProfileName,
     [String]
-    $Configuration
+    $Client,
+    [String]
+    $Environment
   )
 
   Write-Log "Executing the connectmetrics script..."
   Write-Log "**************************************"
-  $process = Start-Process -FilePath "python" -ArgumentList "$PSScriptRoot/../src/connectmetrics/code/connectmetrics.py $ProfileName $Configuration" -NoNewWindow -Wait -PassThru
+  $process = Start-Process  -FilePath "python" `
+                            -ArgumentList "$PSScriptRoot/../src/connectmetrics/code/connectmetrics.py --profile $ProfileName --client $Client --environment $Environment" `
+                            -NoNewWindow `
+                            -Wait `
+                            -PassThru
 
   if ($process.ExitCode -ne 0) {
-    throw "Failed to retrieve Amazon Connect metrics for $ClientName"
+    throw "Failed to retrieve Amazon Connect metrics for $Configuration"
   }
   Write-Log "**************************************"
   Write-Log "connectmetrics execution succeded"
 
-  $metrics = Read-Metrics -ProfileName $ProfileName
+  $metrics = Read-Metrics -Client $Client -Environment $Environment
   return $metrics
 }
 
@@ -64,19 +75,22 @@ function Confirm-VirtualenvExists() {
   if (-Not(Test-Path -Path $venvPath)) {
     Write-Log "Creating virtual environment"
     python -m venv $venvPath
-    Write-Log "Activating virtual environment and installing dependencies..."
+    Write-Log "Activating virtual environment..."
     & "$venvPath/Scripts/Activate.ps1"
-    pip install -r "$PSScriptRoot/../requirements.txt"
   }
+  Write-Log "Installing dependencies..."
+  pip install -r "$PSScriptRoot/../requirements.txt"
 }
 
 function Read-Metrics() {
     Param(
       [String]
-      $ProfileName
+      $Client,
+      [String]
+      $Environment
     )
     Write-Log "Reading the metrics data file"
-    $metrics = Get-Content "$OutputPath/$ProfileName-metric-data.json" | ConvertFrom-Json
+    $metrics = Get-Content "$OutputPath/$Client-$Environment-metric-data.json" | ConvertFrom-Json
     return $metrics
 }
 
@@ -98,7 +112,7 @@ function Invoke-PowerBI() {
     $Metric
   )
   $payload = ConvertTo-Json $metric
-  Invoke-WebRequest -Method Post -Uri $powerBIEndpoint -Body $payload -UseDefaultCredentials | Out-Null
+  Invoke-WebRequest -Method Post -Uri $PowerBIUrl -Body $payload -UseDefaultCredentials | Out-Null
 }
 
 function Send-MetricsToPowerBI() {
@@ -113,9 +127,22 @@ function Send-MetricsToPowerBI() {
   Write-Log "Successfully sent metrics"
 }
 
+function Read-Version() {
+  $process = Start-Process  -FilePath "python" `
+                            -ArgumentList "$PSScriptRoot/../src/connectmetrics/code/connectmetrics.py --version" `
+                            -NoNewWindow `
+                            -Wait `
+                            -PassThru
+}
+
+if ($Version) {
+  Read-Version
+  Exit
+}
+
 Confirm-VirtualenvExists
 Test-OutputDirectory -OutputPath $outputPath
-$metrics = Invoke-ConnectMetrics -Configuration $Configuration -ProfileName $ProfileName
+$metrics = Invoke-ConnectMetrics -Client $Client -ProfileName $ProfileName -Environment $Environment
 Send-MetricsToPowerBI -Metrics $metrics
 
 
