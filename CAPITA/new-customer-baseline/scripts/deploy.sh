@@ -145,13 +145,19 @@ REGION=${_arg_region}
 MASTER_KEY="alias/connect-master-${ENV_LOWER}"
 CALL_KEY="alias/connect-recordings-${ENV_LOWER}"
 # KMS names for production
-test ${ENV_LOWER} == 'prod' && MASTER_KEY="alias/connect-master" && CALL_KEY="alias/connect-recordings"
+test "${ENV_LOWER}" == 'prod' && MASTER_KEY="alias/connect-master" && CALL_KEY="alias/connect-recordings"
 
 modules=( customer-baseline )
 test ${_arg_module} != 'all' && modules=( ${_arg_module} )
 
 # ensure environment is one of dev/test/prod
-test ${ENV_LOWER} == 'dev' || test ${ENV_LOWER} == 'test' || test ${ENV_LOWER} == 'prod' || _PRINT_HELP=yes die "FATAL ERROR: Environment needs to be one of 'dev', 'test', 'prod'"
+
+#test ${ENV_LOWER} == 'dev' || test ${ENV_LOWER} == 'test' || test ${ENV_LOWER} == 'prod' || _PRINT_HELP=yes die "FATAL ERROR: Environment needs to be one of 'dev', 'test', 'prod'"
+
+if ! [[ ${ENV_LOWER} =~ dev|test|prod ]]; then
+    echo "${ENV_LOWER} is not a valid environment name"
+    exit 1
+fi
 
 # get name (alias) of current account
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
