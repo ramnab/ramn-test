@@ -52,7 +52,7 @@ Resources:
                 - kinesis:GetShardIterator
                 - kinesis:DescribeStream
                 - kinesis:ListStreams
-              Resource: !Sub "arn:aws:kinesis:eu-central-1:${AWS::AccountId}:stream/${pInputStreamName}"
+              Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${pInputStreamName}"
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -95,7 +95,7 @@ Resources:
     Type: AWS::Lambda::EventSourceMapping
     DependsOn: RtaBridgeLambda
     Properties:
-      EventSourceArn: !Sub "arn:aws:kinesis:eu-central-1:${AWS::AccountId}:stream/${pInputStreamName}"
+      EventSourceArn: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${pInputStreamName}"
       FunctionName: !Ref RtaBridgeLambda
       StartingPosition: TRIM_HORIZON
 
@@ -106,4 +106,4 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref RtaBridgeLambda
       Principal: kinesis.amazonaws.com
-      SourceArn: !Sub "arn:aws:kinesis:eu-central-1:${AWS::AccountId}:stream/${pInputStreamName}"
+      SourceArn: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${pInputStreamName}"

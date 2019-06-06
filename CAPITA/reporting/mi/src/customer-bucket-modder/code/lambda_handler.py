@@ -4,6 +4,7 @@ import boto3
 def handler(event, _context):
     print(f"@lambda_handler|handler|got event: {str(event)}")
 
+    region = boto3.session.Session().region_name
     bucket = event.get("bucket")
     prefix = event.get("prefix", "")
     lambda_name = event.get("lambda")
@@ -12,7 +13,7 @@ def handler(event, _context):
         return
 
     account_id = boto3.client('sts').get_caller_identity().get('Account')
-    lambda_arn = f"arn:aws:lambda:eu-central-1:{account_id}:function:{lambda_name}"
+    lambda_arn = f"arn:aws:lambda:{region}:{account_id}:function:{lambda_name}"
 
     s3 = boto3.resource('s3')
     notifications = s3.BucketNotification(bucket)

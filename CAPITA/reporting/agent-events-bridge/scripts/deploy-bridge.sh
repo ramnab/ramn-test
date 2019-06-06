@@ -1,18 +1,19 @@
 #!/bin/bash
 
 
-if [[ -z "$1" ]] || [[ -z "$2" ]]; then
-    echo "Usage: deploy-bridge.sh DEPARTMENT CLIENT ENV"
+if [[ -z "$1" ]] || [[ -z "$2" ]] || [[ -z "$3" ]] || [[ -z "$4" ]];  then
+    echo "Usage: deploy-bridge.sh REGION DEPARTMENT CLIENT ENV"
     exit
 fi
 
-DEPARTMENT=$(echo $1 | awk '{print tolower($0)}')
-CLIENT=$(echo $2 | awk '{print tolower($0)}')
-ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION=$1
+DEPARTMENT=$(echo $2 | awk '{print tolower($0)}')
+CLIENT=$(echo $3 | awk '{print tolower($0)}')
+ENV=$(echo $4 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 DIRECTORY=`dirname $0`
-LAMBDA_S3=s3-capita-${DEPARTMENT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-eu-central-1
+LAMBDA_S3=s3-capita-${DEPARTMENT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-${REGION}
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
 
 COMMON_ACCOUNT_ID=049293504011 # nonprod
@@ -30,6 +31,7 @@ echo """
   --------------------------------------------------
 
             Account:     ${ACCOUNT_ALIAS}
+            Region:      ${REGION}
             Department:  ${DEPARTMENT}
             Client:      ${CLIENT}
             Environment: ${ENV_LOWER}
@@ -47,13 +49,11 @@ if [[ ${cont} != "y" ]]; then
 fi
 
 
-echo "S3 bucket=${LAMBDA_S3}"
-
-aws cloudformation package --region eu-central-1 --template-file ${DIRECTORY}/../templates/bridge.yml \
+aws cloudformation package --region ${REGION} --template-file ${DIRECTORY}/../templates/bridge.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-bridge.yml
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy-bridge.yml \
+aws cloudformation deploy --region ${REGION} --template-file deploy-bridge.yml \
                           --stack-name stCapita-RTA-${ENV}-Bridge  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
@@ -63,7 +63,7 @@ aws cloudformation deploy --region eu-central-1 --template-file deploy-bridge.ym
                                 pDepartment=${DEPARTMENT} \
                                 pCommonAccountRoleArn=${CA_ROLE} \
                                 pTargetStreamName=ks-${DEPARTMENT}-agent-events-${ENV_LOWER} \
-                                pTargetStreamArn=arn:aws:kinesis:eu-central-1:${COMMON_ACCOUNT_ID}:stream/ks-${DEPARTMENT}-agent-events-${ENV_LOWER} \
+                                pTargetStreamArn=arn:aws:kinesis:${REGION}:${COMMON_ACCOUNT_ID}:stream/ks-${DEPARTMENT}-agent-events-${ENV_LOWER} \
                                 pInputStreamName=ks-ccm-agent-events-${ENV_LOWER}
 
 echo "Deployment success code: $?"

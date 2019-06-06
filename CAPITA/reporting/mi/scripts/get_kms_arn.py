@@ -1,9 +1,10 @@
 import boto3
 import sys
 
-key_alias = sys.argv[1]
+region = sys.argv[1]
+key_alias = sys.argv[2]
 
-kms = boto3.client("kms")
+kms = boto3.client("kms", region_name=region)
 
 aliases = kms.list_aliases().get("Aliases", [])
 

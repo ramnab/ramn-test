@@ -5,6 +5,7 @@ import cfnresponse
 def handler(event, context):
     print(f"event: {str(event)}")
     print(f"boto3 version = {boto3.__version__}")
+    print(f"boto3 region = {boto3.session.Session().region_name}")
 
     '''Pass in parameters in ResourceProperties under Custom Resource'''
     rp = event.get("ResourceProperties", {})
@@ -37,9 +38,9 @@ def handler(event, context):
 
         update = {}
 
-        print(f"Firehose: ${firehose}")
-        print(f"VersionId: ${versionId}")
-        print(f"DestinationId: ${destinationId}")
+        print(f"Firehose: {firehose}")
+        print(f"VersionId: {versionId}")
+        print(f"DestinationId: {destinationId}")
 
         if prefix:
             print(f"Setting prefix to: {prefix}")
@@ -62,7 +63,7 @@ def handler(event, context):
                     'RoleARN': transformation_role,
                     'DatabaseName': transformation_db,
                     'TableName': transformation_table,
-                    'Region': 'eu-central-1'
+                    'Region': boto3.session.Session().region_name
                 },
                 'InputFormatConfiguration': {
                     'Deserializer': {

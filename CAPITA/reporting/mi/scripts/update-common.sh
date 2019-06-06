@@ -2,17 +2,16 @@
 
 if [[ -z "$1" ]];
 then
-    echo """Usage: ./update-customer.sh DEPT ENV
+    echo """Usage: ./update-customer.sh REGION DEPT ENV
 """
     exit
 fi
 
-
-DEPT=$1
-ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION=$1
+DEPT=$2
+ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
-REGION="eu-central-1"
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
 
 echo """

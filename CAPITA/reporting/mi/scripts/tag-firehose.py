@@ -28,7 +28,7 @@ def add_tags(args):
         print(f"| {tag.get('Key').center(max_key_len)} | {tag.get('Value').center(max_val_len)} |")
     print('+' + '-' * (max_key_len + 2) + '+' + '-' * (max_val_len + 2) + '+')
 
-    client = boto3.client("firehose")
+    client = boto3.client("firehose", region_name=args.region)
     client.tag_delivery_stream(
         DeliveryStreamName=stream,
         Tags=tags_list
@@ -51,13 +51,16 @@ def main():
     parser = argparse.ArgumentParser(description='''
 
 Usage:
-    python tag-firehose.py -f FIREHOSE -t TAG1 TAG2 TAG3
+    python tag-firehose.py -r REGION -f FIREHOSE -t TAG1 TAG2 TAG3
     
 For example:
-    python tag-firehose.py -f kfh-ccm-agent-events-dev -t bus:ClientName tech:Environment
+    python tag-firehose.py -r eu-central-1 -f kfh-ccm-agent-events-dev -t bus:ClientName tech:Environment
      
 '''
                                      )
+    parser.add_argument('-r', '--region',
+                        help='AWS Region',
+                        required=True)
     parser.add_argument('-f', '--firehose',
                         help='The name of the firehose, e.g. kfh-ccm-agent-events-dev',
                         required=True)

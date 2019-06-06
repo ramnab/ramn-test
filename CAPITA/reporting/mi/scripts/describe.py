@@ -16,8 +16,8 @@ def dict_merge(dct: dict, merge_dct: dict):
             dct[k] = merge_dct[k]
 
 
-cf_client: CfClient = boto3.client('cloudformation')
-iam_client: IamClient = boto3.client("iam")
+cf_client: CfClient
+iam_client: IamClient
 
 
 def list_stacks():
@@ -70,7 +70,7 @@ def describe_qi(env: str):
     # kms_calls_alias: str = get_physical_id_from_stack(kms_stack_name, "ConnectCallRecordingKmsKeyAlias")
 
     field_length = max(len(customer_reporting_bucket_name),
-                    len(f"s3-capita-ccm-connect-common-{env}-reporting"))  + 2
+                   len(f"s3-capita-ccm-connect-common-{env}-reporting"))  + 2
     print(f"""
 
                                     QUEUE INTERVAL REPORTING SOLUTION
@@ -271,12 +271,16 @@ def main():
     parser = argparse.ArgumentParser(description='''
 
     Usage:
-        python describe.py -e ENV -s SOLUTION
+        python describe.py -r REGION -e ENV -s SOLUTION
 
     For example:
-        python describe.py -e dev -s ctr
+        python describe.py -r eu-central-1 -e dev -s ctr
 
     ''')
+    parser.add_argument('-r', '--region',
+                        help='AWS Region, e.g. eu-central, can be left blank for account default',
+                        required=False)
+
     parser.add_argument('-e', '--env',
                         help='Environment, e.g. dev, test or prod',
                         required=True)
@@ -286,6 +290,12 @@ def main():
                         required=False)
 
     args = parser.parse_args()
+    if args.region:
+        print(f"Setting region to '{args.region}'")
+        global cf_client, iam_client
+        iam_client = boto3.client("iam", region_name=args.region)
+        cf_client = boto3.client('cloudformation', region_name=args.region)
+
     connect_config = baseline(args.env.lower())
 
     if not args.solution or args.solution == "ctr":

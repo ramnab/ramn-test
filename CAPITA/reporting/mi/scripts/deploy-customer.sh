@@ -1,31 +1,51 @@
 #!/usr/bin/env bash
 
-if [[ -z "$1" ]] || [[ -z "$2" ]] || [[ -z "$3" ]];
-then
-    echo """Usage: ./deploy-customer.sh DEPT CLIENT ENV [MODULE]
 
-If no module is specified then all will be deployed
+# Deploy MI Solution to Customer Account
+#
+# Usage:
+#   deploy-customer.sh [-r|--region <arg>] [-d|--department <arg>] [-h|--help] <client> <env>
+#
+# where:
+# 	<client>          :  Client short name, e.g. tradeuk (required)
+#	<env>             :  Environment tag, e.g. dev (required)
+#	-r,--region       :  AWS region (default: 'eu-central-1')
+#	-d,--department   :  Department (default: 'ccm')
+#	-h,--help         :  Prints help (usage instructions)
 
-    """
-    exit
-fi
+
+#-----------------------------------------------------------------------
+# Get command line args using argbash.io
+# When updating, regenerate file by copy and pasting config into
+# http://argbash.io/generate
+# Please reflect any changes to usage docs above
+
+DIRECTORY=$(dirname $0)
+source ${DIRECTORY}/deploycustomerargs.sh "$@"
 
 
-if [[ -z "$4" ]];
+#-----------------------------------------------------------------------
+# Generate local variables
+
+if [[ ${_arg_module} == 'all' ]];
 then
     modules=( base-customer ctr queue-interval agent-interval )
 else
-    modules=( $4 )
+    modules=( ${_arg_module} )
 fi
 
-DEPT=$1
-DEPT_UPPER=$(echo "$1" | awk '{print toupper($0)}')
-CLIENT=$2
-ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+DEPT=${_arg_department}
+DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
+CLIENT=${_arg_client}
+ENV=$(echo ${_arg_env} | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
-REGION='eu-central-1'
+REGION=${_arg_region}
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
+
+
+#-----------------------------------------------------------------------
+# Begin deployment
 
 echo """
 
@@ -34,10 +54,11 @@ echo """
    -------------------------------------------
 
             Account:     ${ACCOUNT_ALIAS}
+            Region:      ${REGION}
             Department:  ${DEPT}
             Client:      ${CLIENT}
             Environment: ${ENV_LOWER}
-            Modules:     ${modules[@]}
+            Module(s):   ${modules[@]}
 
 """
 
@@ -47,8 +68,9 @@ if [[ ${cont} != "y" ]]; then
     exit
 fi
 
+
 # Create transform file
-DIRECTORY=$(dirname $0)
+
 mkdir -p ${DIRECTORY}/../transforms
 
 cat > ${DIRECTORY}/../transforms/config-customer-deployer.yml <<EOL
@@ -63,7 +85,7 @@ EOL
 
 
 do_deploy() {
-   eval "${1} ${DEPT} ${CLIENT} ${ENV_LOWER}"
+   eval "${1} ${REGION} ${DEPT} ${CLIENT} ${ENV_LOWER}"
 }
 
 for m in "${modules[@]}"
@@ -73,4 +95,4 @@ do
     do_deploy ${deployer}
 done
 
-#rm ${DIRECTORY}/../transforms/config-customer-deployer.yml
+rm ${DIRECTORY}/../transforms/config-customer-deployer.yml

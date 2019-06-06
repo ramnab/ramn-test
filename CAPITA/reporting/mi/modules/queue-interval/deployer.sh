@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-DEPT=$1
-CLIENT=$2
-ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION=$1
+DEPT=$2
+CLIENT=$3
+ENV=$(echo $4 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 
-LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-eu-central-1
+LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-${REGION}
 
 DIRECTORY=$(dirname $0)
 
@@ -21,9 +22,10 @@ function bucket_exists() {
 }
 
 function resource_exists() {
-    stack=$1
-    resource=$2
-    output=$(aws cloudformation describe-stack-resources --stack-name ${stack} 2> /dev/null)
+    region=$1
+    stack=$2
+    resource=$3
+    output=$(aws cloudformation --region ${region} describe-stack-resources --stack-name ${stack} 2> /dev/null)
 
     if [[ ${output} == *"${resource}"* ]]; then
         exists="true"
@@ -41,7 +43,7 @@ echo """
 """
 
 # check is pre-requisite resources exist
-resource_exists stCapita-MI-${ENV}-CrossAccountRole CrossAccountFirehoseRole
+resource_exists ${REGION} stCapita-MI-${ENV}-CrossAccountRole CrossAccountFirehoseRole
 if [[ ${exists} == "true" ]]; then
     resource_cross_account_role="Available"
 else
@@ -57,7 +59,7 @@ else
     resources_missing=" (resources missing)"
 fi
 
-resource_exists stCapita-MI-${ENV}-GlueDb GlueDb
+resource_exists ${REGION} stCapita-MI-${ENV}-GlueDb GlueDb
 if [[ ${exists} == "true" ]]; then
     resource_gluedb="Available"
 else
@@ -65,7 +67,7 @@ else
     resources_missing=" (resources missing)"
 fi
 
-resource_exists stCapita-MI-${ENV}-FirehoseModder FirehoseModderLambda
+resource_exists ${REGION} stCapita-MI-${ENV}-FirehoseModder FirehoseModderLambda
 if [[ ${exists} == "true" ]]; then
     resource_fh_modder="Available"
 else
@@ -107,16 +109,16 @@ KEY_ALIAS=connect-master
 if [[ ${ENV_LOWER} != 'prod' ]]; then
     KEY_ALIAS=connect-master-${ENV_LOWER}
 fi
-KMS=$(python ${DIRECTORY}/../../scripts/get_kms_arn.py ${KEY_ALIAS})
+KMS=$(python ${DIRECTORY}/../../scripts/get_kms_arn.py ${REGION} ${KEY_ALIAS})
 
 echo "KMS key = $KMS"
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/resources/queue-intervals.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-queue-intervals.yml
 
-aws cloudformation deploy --region eu-central-1 \
+aws cloudformation deploy --region ${REGION} \
                           --template-file deploy-queue-intervals.yml \
                           --stack-name stCapita-MI-${ENV}-QueueIntervals  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -141,7 +143,7 @@ echo """
 
 """
 
-aws lambda invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
+aws lambda --region ${REGION} invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
   \"debug\": true,
   \"ResourceProperties\": {
@@ -150,12 +152,12 @@ aws lambda invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
     \"ErrorPrefix\": \"errors/queue_interval/!{firehose:error-output-type}/clientname=${CLIENT}/rowdate=!{timestamp:yyyy-MM-dd}/\",
     \"TransformationDb\": \"gl_${DEPT}_${ENV_LOWER}\",
     \"TransformationTable\": \"glt_queue_intervals_${ENV_LOWER}\",
-    \"TransformationRole\": \"rl_mi_queue_interval_${ENV_LOWER}\"
+    \"TransformationRole\": \"CA_MI_${ENV_UPPER}\"
   }
 }" result.txt
 
 
-python ${DIRECTORY}/../../scripts/tag-firehose.py -f kfh-${DEPT}-qi-${ENV_LOWER} \
+python ${DIRECTORY}/../../scripts/tag-firehose.py -r ${REGION} -f kfh-${DEPT}-qi-${ENV_LOWER} \
                     -t sec:Compliance:Normal bus:BusinessUnit:${DEPT} bus:ClientName:${CLIENT} \
                        tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-${DEPT}-connect \
                        tech:ApplicationRole:reporting
@@ -171,8 +173,8 @@ echo """
 
 """
 
-aws lambda invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
-                  --payload "{
+aws lambda --region ${REGION} invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
+           --payload "{
   \"debug\": true,
   \"ResourceProperties\": {
     \"FirehoseName\": \"kfh-${DEPT}-qi-daily-${ENV_LOWER}\",
@@ -180,12 +182,12 @@ aws lambda invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
     \"ErrorPrefix\": \"errors/queue_daily/!{firehose:error-output-type}/clientname=${CLIENT}/rowdate=!{timestamp:yyyy-MM-dd}/\",
     \"TransformationDb\": \"gl_${DEPT}_${ENV_LOWER}\",
     \"TransformationTable\": \"glt_queue_intervals_${ENV_LOWER}\",
-    \"TransformationRole\": \"rl_mi_queue_interval_${ENV_LOWER}\"
+    \"TransformationRole\": \"CA_MI_${ENV_UPPER}\"
   }
 }" result.txt
 
 
-python scripts/tag-firehose.py -f kfh-${DEPT}-qi-daily-${ENV_LOWER} \
+python scripts/tag-firehose.py -r ${REGION} -f kfh-${DEPT}-qi-daily-${ENV_LOWER} \
                     -t sec:Compliance:Normal bus:BusinessUnit:${DEPT} bus:ClientName:${CLIENT} \
                        tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-${DEPT}-connect \
                        tech:ApplicationRole:reporting
@@ -199,9 +201,15 @@ echo """
          ---------------------------------------
 
 """
+echo """
+
+* REGION is ${REGION}
+
+"""
+
 # Note that the s3 prefix may need to be changed to point to the correct connect instance
 # This is because sometimes the dev Connect instance will be used for testing
-aws lambda invoke --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
+aws lambda invoke --region ${REGION} --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
                     \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
                     \"prefix\": \"connect/${DEPT}-dev-${CLIENT}-connect/reports/queue_interval/\",
@@ -216,7 +224,7 @@ echo """
 """
 # Note that the s3 prefix may need to be changed to point to the correct connect instance
 # This is because sometimes the dev Connect instance will be used for testing
-aws lambda invoke --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
+aws lambda invoke --region ${REGION} --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
                     \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
                     \"prefix\": \"connect/${DEPT}-dev-${CLIENT}-connect/reports/queue_daily/\",

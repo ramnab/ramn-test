@@ -1,21 +1,50 @@
 #!/usr/bin/env bash
 
-if [[ -z "$1" ]];
+
+# Deploy MI Solution to Common Account
+# Usage:
+#   deploy-common.sh [-r|--region <arg>] [-d|--department <arg>] [-h|--help] <env> [<module>]
+#
+# where:
+#	<env>              :  Environment tag
+#	<module>           :  Specific module to deploy (default: 'all')
+#	-r,--region        :  AWS region (default: 'eu-central-1')
+#	-d,--department    :  Department (default: 'ccm')"
+#	-h,--help          :  Prints help
+
+
+#-----------------------------------------------------------------------
+# Get command line args using argbash.io
+# When updating, regenerate file by copy and pasting config into
+# http://argbash.io/generate
+# Please reflect any changes to usage docs above
+
+DIRECTORY=$(dirname $0)
+source ${DIRECTORY}/deploycommonargs.sh "$@"
+
+
+#-----------------------------------------------------------------------
+# Generate local variables
+
+if [[ ${_arg_module} == 'all' ]];
 then
-    echo """
-Usage: ./deploy-customer.sh DEPT ENV
-"""
-    exit
+    modules=( base-common common-health )
+else
+    modules=( ${_arg_module} )
 fi
 
-
-DEPT=$1
-DEPT_UPPER=$(echo "$1" | awk '{print toupper($0)}')
-ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION=${_arg_region}
+DEPT=${_arg_department}
+DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
+ENV=$(echo ${_arg_env} | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
-REGION='eu-central-1'
+
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases | [0]" --output text)
+
+
+#-----------------------------------------------------------------------
+# Begin deployment
 
 echo """
 
@@ -24,8 +53,10 @@ echo """
      -----------------------------------------
 
             Account:     ${ACCOUNT_ALIAS}
+            Region:      ${REGION}
             Department:  ${DEPT}
             Environment: ${ENV_LOWER}
+            Module(s):   ${modules}
 
 """
 
@@ -49,10 +80,10 @@ region: ${REGION}
 EOL
 
 do_deploy() {
-   eval "${1} ${DEPT} ${ENV_LOWER}"
+   eval "${1} ${REGION} ${DEPT} ${ENV_LOWER}"
 }
 
-modules=( base-common common-health )
+
 for m in "${modules[@]}"
 do
     r=".*/${m}/deployer\.sh"

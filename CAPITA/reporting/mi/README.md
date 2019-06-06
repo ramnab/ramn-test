@@ -32,13 +32,22 @@ pipenv install
 ## 1. Deploy Common Resources
 
 ```bash
-# in common account run:
-./scripts/deploy-common.sh DEPARTMENT ENV
+
+# Usage: 
+#   deploy-common.sh [-r|--region <arg>] [-d|--department <arg>] [-h|--help] <env> [<module>]
+#
+# where:
+#	<env>              :  Environment tag
+#	<module>           :  Specific module to deploy (default: 'all')
+#	-r,--region        :  AWS region (default: 'eu-central-1')
+#	-d,--department    :  Department (default: 'ccm')"
+#	-h,--help          :  Prints help
+
+# for example, in common account run:
+deploy-common.sh -r eu-central-1 -d ccm dev
+
 ```
 
-where 
-* DEPARTMENT is the CAPITA department code, e.g. ccm
-* ENV is one of dev/test/prod
 
 ## 2. Deploy Customer MI 
 
@@ -62,8 +71,21 @@ This will add the dependencies such as boto3 to the code/ directory
 ### 2.2 Deploy / Update MI
 
 ```bash
+
+# Usage:
+#   deploy-customer.sh [-r|--region <arg>] [-d|--department <arg>] [-h|--help] <client> <env>
+#
+# where:
+# 	<client>          :  Client short name, e.g. tradeuk (required)
+#	<env>             :  Environment tag, e.g. dev (required)
+#	-r,--region       :  AWS region (default: 'eu-central-1')
+#	-d,--department   :  Department (default: 'ccm')
+#	-h,--help         :  Prints help (usage instructions)
+
+
 # in *appropriate* customer account, e.g. tradeuk-nonprod:
-scripts/deploy-customer.sh DEPARTMENT CLIENT ENV
+scripts/deploy-customer.sh -r eu-west-2 -d ccm tradeuk dev
+
 ```
 
 where
@@ -98,7 +120,7 @@ environment.
 
 ```bash
 # in common account: 
-scripts/update-common.sh DEPARTMENT ENV
+scripts/update-common.sh REGION DEPARTMENT ENV
 ```
 
 <hr>
@@ -110,6 +132,6 @@ the following. It will also provide details of how to wire up the Connect instan
 
 ```bash
 # in correct customer account, where ENV is one of dev, test, prod:
-python scripts/describe.py -e ENV
+python scripts/describe.py -e ENV -r REGION
 
 ``` 

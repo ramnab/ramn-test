@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-DEPT=$1
-CLIENT=$2
-ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION=$1
+DEPT=$2
+CLIENT=$3
+ENV=$(echo $4 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 
@@ -19,9 +20,10 @@ function bucket_exists() {
 }
 
 function resource_exists() {
-    stack=$1
-    resource=$2
-    output=$(aws cloudformation describe-stack-resources --stack-name ${stack} 2> /dev/null)
+    region=$1
+    stack=$2
+    resource=$3
+    output=$(aws cloudformation --region ${region} describe-stack-resources --stack-name ${stack} 2> /dev/null)
 
     if [[ ${output} == *"${resource}"* ]]; then
         exists="true"
@@ -38,7 +40,7 @@ echo """
 """
 
 # check is pre-requisite resources exist
-resource_exists stCapita-MI-${ENV}-CrossAccountRole CrossAccountFirehoseRole
+resource_exists ${REGION} stCapita-MI-${ENV}-CrossAccountRole CrossAccountFirehoseRole
 if [[ ${exists} == "true" ]]; then
     resource_cross_account_role="Available"
 else
@@ -88,7 +90,7 @@ echo """
 
 """
 
-aws lambda invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
+aws lambda --region ${REGION} invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
   \"debug\": true,
   \"ResourceProperties\": {
@@ -102,7 +104,7 @@ aws lambda invoke --function-name lmbMiFirehoseModder-${DEPT}-${ENV_UPPER} \
 }" result.txt
 
 
-python ${DIRECTORY}/../../scripts/tag-firehose.py -f kfh-${DEPT}-ctr-${ENV_LOWER} \
+python ${DIRECTORY}/../../scripts/tag-firehose.py -r ${REGION} -f kfh-${DEPT}-ctr-${ENV_LOWER} \
                     -t sec:Compliance:PII bus:BusinessUnit:${DEPT} bus:ClientName:${CLIENT} \
                        tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-${DEPT}-connect \
                        tech:ApplicationRole:reporting

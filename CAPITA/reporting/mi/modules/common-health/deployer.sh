@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-DEPT=$1
-ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION=$1
+DEPT=$2
+ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
 ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 
 
-LAMBDA_S3=s3-capita-ccm-connect-common-${ENV_LOWER}-lambdas-eu-central-1
+LAMBDA_S3=s3-capita-ccm-connect-common-${ENV_LOWER}-lambdas-${REGION}
 DIRECTORY=$(dirname $0)
 
 echo """
@@ -31,12 +32,12 @@ getStackOutput () {
 REPORT_BUCKET=$(getStackOutput stCapita-MI-${ENV}-CommonReportingBucket oCommonReportingBucket)
 
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/resources/health-checker.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-healthchecker.yml
 
-aws cloudformation deploy --region eu-central-1 \
+aws cloudformation deploy --region ${REGION} \
                           --template-file deploy-healthchecker.yml \
                           --stack-name stCapita-MI-${ENV}-Health \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \

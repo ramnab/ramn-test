@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-DEPT=$1
-CLIENT=$2
-ENV=$(echo $3 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
-ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
+REGION=$1
+DEPT=$2
+CLIENT=$3
+ENV=$(echo $4 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
+ENV_LOWER=$(echo ${ENV} | awk '{print tolower($0)}')
 
 DIRECTORY=$(dirname $0)
 
@@ -28,15 +29,15 @@ echo """
 
 """
 
-LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-eu-central-1
+LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-${REGION}
 
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/resources/fh-modder.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-fh-modder.yml
 
-aws cloudformation deploy --region eu-central-1 \
+aws cloudformation deploy --region ${REGION} \
                           --template-file deploy-fh-modder.yml \
                           --stack-name stCapita-MI-${ENV}-FirehoseModder  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -70,12 +71,12 @@ echo """
 
 """
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/resources/customer-reporting-modder.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-customer-reporting-modder.yml
 
-aws cloudformation deploy --region eu-central-1 \
+aws cloudformation deploy --region ${REGION} \
                           --template-file deploy-customer-reporting-modder.yml \
                           --stack-name stCapita-MI-${ENV}-ReportingBucketModder  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
