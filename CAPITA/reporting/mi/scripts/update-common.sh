@@ -2,7 +2,7 @@
 
 if [[ -z "$1" ]];
 then
-    echo """Usage: ./update-customer.sh REGION DEPT ENV
+    echo """Usage: ./update-common.sh REGION DEPT ENV
 """
     exit
 fi

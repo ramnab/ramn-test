@@ -1,4 +1,4 @@
- - business-objects:
+ -  name: business-objects-[env_lower]
     description: This Workgroup will be contain the user that the Business Objects 4 Universe will use to access Athena
     query-location: s3://s3-capita-ccm-connect-common-[env_lower]-reporting/query-results/business-objects
     encryption: SSE_S3
@@ -9,9 +9,9 @@
       - tech:ApplicationID:capita-[department]-connect
       - tech:ApplicationRole:reporting
 
- - mi-analyst:
+ -  name: mi-analyst-[env_lower]
     description: This Workgroup contains the MI Analyst who will run adhoc queries against Athena
-    query-location: s3://s3-capita-ccm-connect-common-[env]-reporting/query-results/mi-analyst
+    query-location: s3://s3-capita-ccm-connect-common-[env_lower]-reporting/query-results/mi-analyst
     encryption: SSE_S3
     tags:
       - sec:Compliance:PII

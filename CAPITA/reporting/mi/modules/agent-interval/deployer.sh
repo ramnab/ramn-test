@@ -201,7 +201,7 @@ echo """
 aws lambda invoke --region ${REGION}  --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
                     \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
-                    \"prefix\": \"connect/${DEPT}-dev-${CLIENT}-connect/reports/agent_interval/\",
+                    \"prefix\": \"connect/capita-ccm-gassafe-connect-${ENV_LOWER}/reports/agent_interval/\",
                     \"lambda\": \"lmbMIAgentInterval-${DEPT}-${ENV_UPPER}\"}" r.txt
 
 
@@ -216,7 +216,7 @@ echo """
 aws lambda invoke --region ${REGION} --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
                     \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
-                    \"prefix\": \"connect/${DEPT}-dev-${CLIENT}-connect/reports/agent_daily/\",
+                    \"prefix\": \"connect/capita-ccm-gassafe-connect-${ENV_LOWER}/reports/agent_daily/\",
                     \"lambda\": \"lmbMIAgentInterval-${DEPT}-${ENV_UPPER}\"}" r.txt
 
 

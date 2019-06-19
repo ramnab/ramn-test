@@ -47,3 +47,13 @@ Resources:
           Resource:
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
           - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        -
+          Effect: Allow
+          Principal:
+            # GasSafe Test MI Role
+            AWS: "arn:aws:iam::857211198995:role/CA_MI_TEST"
+          Action:
+          - s3:*
+          Resource:
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+          - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"

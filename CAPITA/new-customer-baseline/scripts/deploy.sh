@@ -43,7 +43,7 @@ CALL_KEY="alias/connect-recordings-${ENV_LOWER}"
 # KMS names for production
 test "${ENV_LOWER}" == 'prod' && MASTER_KEY="alias/connect-master" && CALL_KEY="alias/connect-recordings"
 
-modules=( customer-baseline )
+modules=( customer-baseline call-recordings-bucket keys )
 test ${_arg_module} != 'all' && modules=( ${_arg_module} )
 
 # ensure environment is one of dev/test/prod (or a variation, e.g. dev01)
@@ -98,7 +98,7 @@ EOL
 
 
 do_deploy() {
-   eval "${1} ${DEPT} ${CLIENT} ${ENV_LOWER}"
+   eval "${1} ${REGION} ${DEPT} ${CLIENT} ${ENV_LOWER}"
 }
 
 getStackOutput () {
@@ -122,8 +122,9 @@ REPORT_BUCKET=$(getStackOutput stCapita-${DEPT_UPPER}-Customer-Connect-${ENV}-Re
 rm ${DIRECTORY}/../transforms/config-deployer.yml
 
 echo """
-===============================================================
+===================================================================
 UPDATE CONNECT with following settings:
+(note that data will be missing if deployed to a different region)
 
     Data Storage:
         Call recordings:
@@ -136,6 +137,6 @@ UPDATE CONNECT with following settings:
             Encryption KMS key:  ${MASTER_KEY}
 
 
-=========================- COMPLETE -=========================
+===========================- COMPLETE -==========================
 
 """

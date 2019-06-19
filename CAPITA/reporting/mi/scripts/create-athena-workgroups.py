@@ -15,6 +15,7 @@ python create-athena-workgroups.py DEPT ENV
 def fill_config(values, conf):
     if isinstance(conf, dict):
         for k, v in conf.items():
+            k = fill_string(values, k)
             if isinstance(v, str):
                 conf[k] = fill_string(values, v)
             if isinstance(v, list):
@@ -23,7 +24,7 @@ def fill_config(values, conf):
                     new_list.append(fill_config(values, i))
                 conf[k] = new_list
             if isinstance(v, dict):
-                fill_config(values, v)
+                conf[k] = fill_config(values, v)
     elif isinstance(conf, list):
         for i in conf:
             fill_config(values, i)
@@ -57,9 +58,8 @@ def main():
 
         existing_wgroups = list_workgroups()
 
-        for workgroupconfig in config:
-            wgroupname = [*workgroupconfig][0]
-            wconfig = workgroupconfig[wgroupname]
+        for wconfig in config:
+            wgroupname = wconfig['name']
 
             if wgroupname in existing_wgroups:
                 print(f"Updating workgroup '{wgroupname}'")

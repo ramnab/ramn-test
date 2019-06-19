@@ -10,12 +10,15 @@ IFS="|"
 
 USERS=(${USERNAMES})
 
+PRODPOOLID="eu-central-1_l3AJqGcNs"
 TESTPOOLID="eu-central-1_5vpngTHt2"
 DEVPOOLID="eu-central-1_VvHvpO1fe"
 POOLID=${TESTPOOLID}
 
 if [[ ${ENV} == "dev" ]]; then
     POOLID=${DEVPOOLID}
+elif [[ ${ENV} == "prod" ]]; then
+    POOLID=${PRODPOOLID}
 fi
 
 USERATTR="Name=custom:client,Value=${CLIENT}"

@@ -1,0 +1,9 @@
+region: '[region]'
+stacks:
+
+  stCapita-[department_upper]-Customer-Connect-[env]-Keys:
+    template-url: resources/kms.yml
+    timeout: 900
+    parameters:
+      pCallRecordingKey: '[call_key]'
+      pConnectMasterKeyName: '[master_key]'

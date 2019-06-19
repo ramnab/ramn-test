@@ -14,26 +14,19 @@ run() { "$@"; code=$?; [[ ${code} -ne 0 ]] && die2 "command [$*] failed with err
 
 echo """
 ----------------------------------------------------
-                customer baseline
-                -----------------
+                call-recordings-bucket
+                ----------------------
 
         Deploying:
-            - Lambda Distribution Bucket
-            - Customer Reporting Bucket
-            - Agent Event Stream + Firehose
+            - Call Recordings Bucket
 
 """
 
 run cf sync -y --context ${DIRECTORY}/../../transforms/config-deployer.yml ${DIRECTORY}/deployment.stacks
 
-echo "Tagging Agent Event Firehose..."
-python ${DIRECTORY}/../../scripts/tag-firehose.py -r ${REGION} -f kfh-ccm-agent-events-${ENV_LOWER} \
-                    -t sec:Compliance:PII bus:BusinessUnit:ccm bus:ClientName:${CLIENT} \
-                       tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-${DEPT}-connect \
-                       tech:ApplicationRole:reporting
 echo """
 
-              customer baseline: complete
+              call-recordings-bucket: complete
 ----------------------------------------------------
 
 """

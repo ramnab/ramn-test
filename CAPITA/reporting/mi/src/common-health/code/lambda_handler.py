@@ -53,7 +53,7 @@ def queue_intervals(metrics, bucket, clients, rowdate):
     for client in clients:
         conf = {
             'dimensions': {
-                'ReportCategory': 'AgentIntervalReports',
+                'ReportCategory': 'QueueIntervalReports',
                 'Client': client
             }
         }
