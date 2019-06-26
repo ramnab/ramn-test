@@ -80,7 +80,8 @@ region: ${REGION}
 EOL
 
 do_deploy() {
-   eval "${1} ${REGION} ${DEPT} ${ENV_LOWER}"
+    echo "Running: ${1} ${REGION} ${DEPT} ${ENV_LOWER}"
+    eval "${1} ${REGION} ${DEPT} ${ENV_LOWER}"
 }
 
 

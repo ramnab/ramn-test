@@ -25,7 +25,7 @@ stacks:
     timeout: 1200
     parameters:
       pClient: '[client]'
-      pEnvironment: '[env]'
+#      pEnvironment: '[env]'
       pEnvironmentLowerCase: '[env_lower]'
       pDepartment: '[department]'
-      pCustomerReportBucket: '|ref|stCapita-[department_upper]-Customer-Connect-[env]-ReportingBucket.oCustomerReportingBucketArn'
+#      pCustomerReportBucket: '|ref|stCapita-[department_upper]-Customer-Connect-[env]-ReportingBucket.oCustomerReportingBucketArn'

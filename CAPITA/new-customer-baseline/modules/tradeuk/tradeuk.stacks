@@ -8,3 +8,11 @@ stacks:
       pDepartment: '[department]'
       pEnvironment: '[env]'
       pEnvironmentLowerCase: '[env_lower]'
+
+  stCapita-[department_upper]-Customer-Connect-[env]-AgentEvents:
+    template-url: resources/agent-events.yml
+    timeout: 1200
+    parameters:
+      pClient: '[client]'
+      pEnvironmentLowerCase: '[env_lower]'
+      pDepartment: '[department]'

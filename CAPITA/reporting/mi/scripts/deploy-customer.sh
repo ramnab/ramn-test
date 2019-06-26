@@ -29,7 +29,7 @@ source ${DIRECTORY}/deploycustomerargs.sh "$@"
 
 if [[ ${_arg_module} == 'all' ]];
 then
-    modules=( base-customer ctr queue-interval agent-interval )
+    modules=( base-customer ctr queue-interval agent-interval agent-events )
 else
     modules=( ${_arg_module} )
 fi

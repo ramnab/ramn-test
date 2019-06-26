@@ -45,8 +45,16 @@ fi
 cf sync -y --context ${DIRECTORY}/../../transforms/config-common-deployer.yml \
                      ${DIRECTORY}/athena.stacks
 
-LAMBDA_S3="s3-capita-ccm-connect-common-${ENV_LOWER}-lambdas-${REGION}"
 
+function create_bucket_if_not_exist {
+    aws s3api head-bucket --bucket $2
+    if [[ ! $? -eq 0 ]]; then
+        echo "Creating new lambda distro bucket: $2 in region $1"
+        aws s3 --region $1 mb s3://$2
+    fi
+}
+LAMBDA_S3="s3-capita-${DEPT}-connect-common-${ENV_LOWER}-lambdas-${REGION}"
+create_bucket_if_not_exist ${REGION} ${LAMBDA_S3}
 
 
 echo """
@@ -75,7 +83,7 @@ aws cloudformation deploy --region ${REGION} --template-file deploy-partitioner.
                                 pDepartment=${DEPT} \
                                 pClients=tradeuk \
                                 pGlueDb=ccm_connect_reporting_${ENV_LOWER} \
-                                pTables=agent_interval,contact_record,queue_interval,agent_daily,queue_daily \
+                                pTables=agent_interval,contact_record,queue_interval,agent_daily,queue_daily,agent_events \
                                 pCommonReportingBucket=${REPORTING_BUCKET}
 
 rm deploy-partitioner.yml

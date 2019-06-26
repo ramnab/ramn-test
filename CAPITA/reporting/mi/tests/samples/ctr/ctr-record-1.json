@@ -6,9 +6,9 @@
     "Attributes": {},
     "Channel": "VOICE",
     "ConnectedToSystemTimestamp": "2019-01-30T15:11:35Z",
-    "ContactId": "4cdd0d7e-0992-4d66-9ad3-0ec33b478fa1",
+    "ContactId": "4cdd0d7e-0992-4d66-9ad3-0ec33b478fdd",
     "CustomerEndpoint": {
-        "Address": "+447772707934",
+        "Address": "+4412345678",
         "Type": "TELEPHONE_NUMBER"
     },
     "DisconnectTimestamp": "2019-01-30T15:11:39Z",

@@ -9,7 +9,7 @@ account:
 - Lambda Distribution Bucket
 - Customer Reporting Bucket
 - Call Recordings Bucket
-- Agent Event Stream + Firehose
+- Agent Event Stream
 - Connect Master and Call Recordings Key
 
 

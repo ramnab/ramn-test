@@ -39,6 +39,10 @@ Parameters:
     Type: String
     Default: agent_daily/
     Description: Name of prefix containing Agent Daily data in Parquet format
+  pAgentEventsLocation:
+    Type: String
+    Default: agent_events/
+    Description: Name of prefix containing Agent Events data in Parquet format
 
 Resources:
   AthenaMachineUser:
@@ -897,3 +901,45 @@ Resources:
             Type: int
           - Name: outboundagentaftercontactworktime
             Type: int
+
+  GlueAgentEventsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: agent_events
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pAgentEventsLocation}"
+          SerdeInfo:
+             Name: "serde-info"
+             Parameters:
+               serialization.format: 1
+             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Name: AWSAccountId
+            Type: string
+          - Name: AgentARN
+            Type: string
+          - Name: CurrentAgentAnapshot
+            Type: string
+          - Name: EventId
+            Type: string
+          - Name: EventTimestamp
+            Type: timestamp
+          - Name: InstanceARN
+            Type: string
+          - Name: PreviousAgentSnapshot
+            Type: string
+          - Name: Version
+            Type: string

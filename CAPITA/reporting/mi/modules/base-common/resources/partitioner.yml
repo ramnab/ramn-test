@@ -101,4 +101,3 @@ Outputs:
   oPartitionerLambdaArn:
     Value: !GetAtt PartitionerLambda.Arn
 
-  

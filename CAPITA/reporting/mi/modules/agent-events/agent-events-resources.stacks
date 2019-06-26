@@ -1,0 +1,14 @@
+region: '[region]'
+stacks:
+  stCapita-MI-[env]-AgentEvents:
+    template-url: resources/agent-events-resources.yml
+    timeout: 1200
+    parameters:
+      pTransformationDb: gl_[department]_[env_lower]
+      pCtrCommonDestination: 's3-capita-[department]-connect-common-[env_lower]-reporting'
+      pDepartment: '[department]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentUpperCase: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
+      pCustomerReportBucket: 's3-capita-ccm-connect-[client]-[env_lower]-reporting'
+      pAgentKinesisStreamName: 'ks-[department]-agent-events-[env_lower]'
