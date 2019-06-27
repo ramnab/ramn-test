@@ -14,7 +14,7 @@ Usage:
 def main():
     parser = argparse.ArgumentParser(description="""
 Usage:
-    python send-kinesis.py -r REGION STREAM FILE    
+    python send-kinesis.py -r REGION STREAM FILE
     """)
     parser.add_argument('--region', '-r', action="store", default=boto3.session.Session().region_name)
     parser.add_argument('stream', action="store")

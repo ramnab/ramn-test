@@ -9,7 +9,8 @@ verify_ssl = true
 boto3 = "*"
 pytest = "*"
 pytest-mock = "*"
-pyyaml = "*"
+pyyaml = "==3.13"
+progress = "*"
 
 [requires]
 python_version = "3.6"

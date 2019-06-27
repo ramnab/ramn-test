@@ -931,9 +931,11 @@ Resources:
             Type: string
           - Name: AgentARN
             Type: string
-          - Name: CurrentAgentAnapshot
+          - Name: CurrentAgentSnapshot
             Type: string
           - Name: EventId
+            Type: string
+          - Name: EventType
             Type: string
           - Name: EventTimestamp
             Type: timestamp

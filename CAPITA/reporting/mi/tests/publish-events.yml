@@ -1,0 +1,8 @@
+region: eu-central-1
+client: tradeuk
+source-env: prod
+target-env: test
+source-role: arn:aws:iam::443350248290:role/tradeuk_connect_prod_admin
+target-role: arn:aws:iam::907290942892:role/tradeuk_connect_nonprod_admin
+max-agent-files: 1
+max-ctr-files: 1
