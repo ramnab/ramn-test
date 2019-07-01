@@ -17,6 +17,18 @@ Parameters:
   pClient:
     Type: String
     Description: Customer/Client identifier
+  pExpirationReports:
+    Type: Number
+    Default: 30
+    Description: Expiration after given number of days for all reports
+  pExpirationCTRs:
+    Type: Number
+    Default: 30
+    Description: Expiration after given number of days for raw ctr records
+  pExpirationAgentEvents:
+    Type: Number
+    Default: 30
+    Description: Expiration after given number of days for raw agent events
 
 
 Resources:
@@ -40,17 +52,17 @@ Resources:
           Id: raw-ctr-removal
           Status: Enabled
           Prefix: raw-ctr
-          ExpirationInDays: 30
+          ExpirationInDays: !Ref pExpirationCTRs
         -
           Id: raw-agentevents-removal
           Status: Enabled
           Prefix: raw-agentevents
-          ExpirationInDays: 30
+          ExpirationInDays: !Ref pExpirationAgentEvents
         -
           Id: reports-removal
           Status: Enabled
           Prefix: reports
-          ExpirationInDays: 7
+          ExpirationInDays: !Ref pExpirationReports
       Tags:
         -
             Key: "tech:ApplicationID"

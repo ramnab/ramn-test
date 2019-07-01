@@ -17,6 +17,10 @@ Parameters:
   pClient:
     Type: String
     Description: Customer/Client identifier
+  pExpirationCalls:
+    Type: Number
+    Default: 90
+    Description: Expiration in days for call recordings
 
 
 Resources:
@@ -39,7 +43,7 @@ Resources:
         -
           Id: call-recordings-removal
           Status: Enabled
-          ExpirationInDays: 90
+          ExpirationInDays: !Ref pExpirationCalls
       Tags:
         -
             Key: "tech:ApplicationID"

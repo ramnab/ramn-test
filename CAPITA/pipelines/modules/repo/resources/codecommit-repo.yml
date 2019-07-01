@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Source Code Repository
+
+Parameters:
+  pRepoName:
+    Type: String
+    Default: capita-ccm-connect-source
+    Description: Source code CodeCommit repository name
+
+Resources:
+  Repo:
+    Type: AWS::CodeCommit::Repository
+    Description: CAPITA Connect Source Code Repository
+    Properties:
+      RepositoryDescription: CAPITA Connect Source Code Repository
+      RepositoryName: !Ref pRepoName
+
+Outputs:
+  oRepoName:
+    Value: !GetAtt Repo.Name
+  oRepoArn:
+    Value: !GetAtt Repo.Arn
+  oCloneUrlHttp:
+    Value: !GetAtt Repo.CloneUrlHttp
+  oCloneUrlSsh:
+    Value: !GetAtt Repo.CloneUrlSsh

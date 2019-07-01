@@ -1,0 +1,5 @@
+region: 'eu-central-1'
+stacks:
+    stCapita-Pipeline-Customer-Baseline:
+        template-url: resources/codebuild.yml
+        timeout: 1200

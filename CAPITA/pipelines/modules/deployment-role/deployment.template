@@ -1,0 +1,8 @@
+region: 'eu-central-1'
+stacks:
+    stCapita-Pipeline-Deployment-Role:
+        template-url: resources/pipeline-deployment-role.yml
+        timeout: 1200
+        parameters:
+            # Replace account id once created:
+            pPipelineAccountId: '0123456789'

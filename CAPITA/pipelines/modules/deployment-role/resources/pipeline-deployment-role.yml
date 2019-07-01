@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Pipeline Deployment Role
+
+Parameters:
+  pPipelineAccountId:
+    Type: String
+    Description: Pipeline account which is permitted to assume this role
+
+Resources:
+  DeploymentRole:
+    Type: AWS::IAM::Role
+    Description: Pipeline Deployment Role
+    Properties:
+      RoleName: !Sub "CA_PIPELINE_DEPLOY"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal:
+                AWS: !Sub "arn:aws:iam::${pPipelineAccountId}:root"
+              Action:
+                - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref DeploymentPolicy
+
+  DeploymentPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: Deployment Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Resource: "arn:aws:iam::*:role/*"
+
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:Describe*
+              - cloudformation:UpdateStack
+              - cloudformation:CreateChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:GetTemplateSummary
+              - cloudformation:DescribeStacks
+              - cloudformation:List
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resources:
+             - "arn:aws:s3:::*"
+             - "arn:aws:s3:::*/*"
+
+          # Following will require tailoring to the pipeline resources in future
+          - Effect: Allow
+            Action: "*"
+            Resource: "*"

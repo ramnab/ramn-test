@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Customer Baseline Deployment Pipeline
+
+Parameters:
+  pRepoURL:
+    Type: String
+    Description: HTTPS clone URL for the CodeCommit Repo
+  pRepoArn:
+    Type: String
+    Description: Repo ARN
+
+Resources:
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuildservicepolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - logs:*
+                Resource:
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/codebuild/customer-baseline"
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/codebuild/customer-baseline:*"
+
+                Effect: Allow
+
+              - Action:
+                  - codecommit:GitPull
+                Resource:
+                  - !Ref pRepoArn
+                Effect: Allow
+
+              - Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                Resource:
+                  - "arn:aws:s3:::codepipeline-eu-central-1-*"
+                Effect: Allow
+
+  DeploymentProject:
+    Type: AWS::CodeBuild::Project
+    DependsOn: CodeBuildServiceRole
+    Properties:
+      Description: CAPITA CodeBuild project for customer baseline
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/python:3.6.5
+        Type: LINUX_CONTAINER
+      Name: customer-baseline
+      ServiceRole: !Ref CodeBuildServiceRole
+      Source:
+        BuildSpec: CAPITA/pipelines/modules/customer-baseline-pipeline/buildspec.yml
+        Type: CODECOMMIT
+        Location: !Ref pRepoURL
