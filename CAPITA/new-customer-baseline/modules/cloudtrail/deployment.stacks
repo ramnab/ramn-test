@@ -1,0 +1,11 @@
+region: '[region]'
+stacks:
+
+  stCapita-[department_upper]-Connect-CloudTrail:
+    template-url: resources/cloudtrail-base.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pUploadTimeout: '[upload_timeout_days]'
+      pLogRetentionInDays: '[log_retention_days]'
+      pAuditRetentionDays: '[audit_retention_days]'

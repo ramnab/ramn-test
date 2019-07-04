@@ -94,6 +94,7 @@ client: ${CLIENT}
 region: ${REGION}
 master_key: ${MASTER_KEY}
 call_key: ${CALL_KEY}
+expiration_calls: 90
 EOL
 
 
