@@ -16,4 +16,5 @@ phases:
       - echo "Building / updating a new customer baseline"
       - for f in $(find ./CAPITA/ -type f -regex ".*/pipeline-deployer.sh"); do chmod +x "$f"; done
       - cd CAPITA/pipelines/modules/customer-baseline-pipeline
-      - ./pipeline-deployer.sh gc $ENV $CONFIG
+      - if [[ ! ${MODULE} ]]; then $MODULE='all'; fi
+      - ./pipeline-deployer.sh gc $ENV $CONFIG $MODULE
