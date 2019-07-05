@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-REGION=$1
+#REGION=$1
 DEPT=$2
-DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
+#DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
 DIRECTORY=$(dirname $0)
 
 # defaults
