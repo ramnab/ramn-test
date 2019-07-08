@@ -17,6 +17,4 @@ phases:
       - for f in $(find ./CAPITA/ -type f -regex ".*/pipeline-deployer.sh"); do chmod +x "$f"; done
       - cd CAPITA/pipelines/modules/customer-baseline-pipeline
       - if [ ! ${MODULE} ]; then MODULE='all'; fi
-#      - ignore actual deployment for testing phase
-#      - ./pipeline-deployer.sh gc $ENV $CONFIG $MODULE
-      - aws s3 ls
+      - ./pipeline-deployer.sh gc $ENV $CONFIG $MODULE
