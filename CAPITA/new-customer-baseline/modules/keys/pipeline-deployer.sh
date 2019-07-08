@@ -25,6 +25,7 @@ DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
 ENV_LOWER=$(echo "${ENV}" | awk '{print tolower($0)}')
 CLIENT="$(prop 'client')"
 REGION="$(prop 'region.reports' eu-central-1)"
+CALLS_REGION="$(prop 'region.calls' ${REGION})"
 
 # Defaults for KMS keys
 MASTER_KEY="alias/connect-master-${ENV_LOWER}"
@@ -73,8 +74,30 @@ run aws cloudformation --region ${REGION} set-stack-policy \
   ]
 }"
 run aws cloudformation --region ${REGION}  update-termination-protection  \
-                   --enable-termination-protection --stack-name ${KMS_STACK}
+                       --enable-termination-protection --stack-name ${KMS_STACK}
 
+
+# detect if the calls bucket is in a different region
+if [[ ${REGION} != ${CALLS_REGION} ]]; then
+
+echo "Deploying keys to the call region ${CALLS_REGION}"
+
+cat > ${DIRECTORY}/cf-config.yml <<EOL
+region: ${CALLS_REGION}
+env: ${ENV}
+department: ${DEPT}
+department_upper: ${DEPT_UPPER}
+master_key: ${MASTER_KEY}
+call_key: ${CALL_KEY}
+EOL
+
+run cf sync -y --context ${DIRECTORY}/cf-config.yml ${DIRECTORY}/deployment.stacks
+
+run aws cloudformation --region ${CALLS_REGION}  update-termination-protection  \
+                       --enable-termination-protection --stack-name ${KMS_STACK}
+
+fi
 
 rm ${DIRECTORY}/cf-config.yml
+
 echo "keys module COMPLETED"
