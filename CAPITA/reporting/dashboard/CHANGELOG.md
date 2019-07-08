@@ -2,6 +2,10 @@
 CHANGELOG
 =========
 
+2.0
+=====
+* feature: split the time out into a separate field [Story-576]
+
 1.0
 =====
 
