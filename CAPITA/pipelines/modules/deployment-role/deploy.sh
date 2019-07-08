@@ -19,7 +19,7 @@ Deploying pipeline deployment role...
 
 """
 
-run cf sync -y resources/pipeline-deployment-role.yml
+run cf sync -y deployment.template
 
 echo """
 
