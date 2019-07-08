@@ -120,7 +120,8 @@ test_date = datetime.datetime.now()
 
 expected_mapped_metrics = [
   {
-    "Date": test_date.isoformat(),
+    "Date": test_date.date().isoformat(),
+    "Time": test_date.time().isoformat(),
     "Client": "client1",
     "QueueName": "BasicQueue",
     "Call": 1,
@@ -136,7 +137,8 @@ expected_mapped_metrics = [
     "ASA": 1
   },
   {
-    "Date": test_date.isoformat(),
+    "Date": test_date.date().isoformat(),
+    "Time": test_date.time().isoformat(),
     "Client": "client1",
     "QueueName": "AnotherQueue",
     "Call": 1,

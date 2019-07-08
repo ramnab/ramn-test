@@ -271,8 +271,14 @@ def store_metrics(call_metrics, metrics, metadata):
 
 def output_metrics(call_metrics, client, environment):
     output = []
+    current_date = datetime.datetime.now()
     for queue_name, metrics in call_metrics.items():
-        queue_metrics = {'Date': datetime.datetime.now().isoformat(), 'Client': client, 'QueueName': queue_name}
+        queue_metrics = {
+            'Date': current_date.date().isoformat(),
+            'Time': current_date.time().isoformat(),
+            'Client': client,
+            'QueueName': queue_name
+        }
         for key, value in metrics.items():
             queue_metrics[key] = value
         output.append(queue_metrics)
