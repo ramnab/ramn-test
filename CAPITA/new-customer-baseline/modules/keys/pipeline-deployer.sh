@@ -48,6 +48,9 @@ Deploying customer Connect KMS keys, incorporating:
 
 cat > ${DIRECTORY}/cf-config.yml <<EOL
 region: ${REGION}
+env: ${ENV}
+department: ${DEPT}
+department_upper: ${DEPT_UPPER}
 master_key: ${MASTER_KEY}
 call_key: ${CALL_KEY}
 EOL

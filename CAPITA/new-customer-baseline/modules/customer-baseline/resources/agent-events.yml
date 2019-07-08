@@ -2,13 +2,13 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: CAPITA Connect Agent Events Stack
 
 Parameters:
-#  pCustomerReportBucket:
-#    Type: String
-#    Description: Name of Customer S3 Bucket to trigger lambda
-#  pEnvironment:
-#    Type: String
-#    Default: DEV
-#    Description: Environment label to apply to resources naming
+  pCustomerReportBucket:
+    Type: String
+    Description: Name of Customer S3 Bucket to trigger lambda
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
   pEnvironmentLowerCase:
     Type: String
     Default: dev
