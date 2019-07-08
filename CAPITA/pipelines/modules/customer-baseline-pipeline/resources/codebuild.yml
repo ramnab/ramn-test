@@ -26,6 +26,9 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              - Action: sts:AssumeRole
+                Effect: Allow
+                Resource: "arn:aws:iam::*:role/CA_PIPELINE_DEPLOY"
               - Action:
                   - logs:*
                 Resource:
