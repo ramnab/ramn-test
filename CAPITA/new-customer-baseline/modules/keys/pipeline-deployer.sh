@@ -53,6 +53,7 @@ env: ${ENV}
 department: ${DEPT}
 department_upper: ${DEPT_UPPER}
 master_key: ${MASTER_KEY}
+call_key: ${CALL_KEY}
 EOL
 
 run cf sync -y --context ${DIRECTORY}/cf-config.yml ${DIRECTORY}/deployment.stacks
