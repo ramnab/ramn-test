@@ -10,8 +10,8 @@
 #
 
 ENV=$1
-#DIRECTORY=$(dirname $0)
-source ../scripts/helpers.sh
+DIRECTORY=$(dirname $0)
+source ${DIRECTORY}/../../scripts/helpers.sh
 
 echo """
 ---------------------------------------
@@ -19,7 +19,7 @@ Deploying pipeline deployment role...
 
 """
 
-run cf sync -y deployment.template
+run cf sync -y ${DIRECTORY}/deployment.template
 
 echo """
 

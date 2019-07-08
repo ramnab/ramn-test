@@ -11,15 +11,15 @@ Resources:
     Type: AWS::IAM::Role
     Description: Pipeline Deployment Role
     Properties:
-      RoleName: !Sub "CA_PIPELINE_DEPLOY"
+      RoleName: CA_PIPELINE_DEPLOY
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
-          Statement:
-            - Effect: "Allow"
-              Principal:
-                AWS: !Sub "arn:aws:iam::${pPipelineAccountId}:root"
-              Action:
-                - "sts:AssumeRole"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${pPipelineAccountId}:root"
+            Action:
+              - "sts:AssumeRole"
       ManagedPolicyArns:
         - !Ref DeploymentPolicy
 
@@ -28,7 +28,7 @@ Resources:
     Description: Deployment Policy
     Properties:
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action: sts:AssumeRole
@@ -45,13 +45,6 @@ Resources:
               - cloudformation:DescribeStacks
               - cloudformation:List
             Resource: "*"
-
-          - Effect: Allow
-            Action:
-              - s3:*
-            Resources:
-             - "arn:aws:s3:::*"
-             - "arn:aws:s3:::*/*"
 
           # Following will require tailoring to the pipeline resources in future
           - Effect: Allow
