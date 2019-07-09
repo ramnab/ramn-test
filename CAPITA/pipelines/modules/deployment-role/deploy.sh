@@ -6,7 +6,7 @@
 # Run in to the customer target account / environment directly
 #
 # Usage:
-#   deploy.sh ENV
+#   deploy.sh
 #
 
 DIRECTORY=$(dirname $0)

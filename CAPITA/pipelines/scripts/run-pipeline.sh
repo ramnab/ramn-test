@@ -67,7 +67,7 @@ while ! [[ ${status} =~ 'COMPLETED' ]]; do
         echo ${status}
     fi
     prevstatus=${status}
-    sleep 1s
+    sleep 3s
 
 done
 

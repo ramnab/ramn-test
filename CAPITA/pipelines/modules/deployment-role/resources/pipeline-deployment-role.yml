@@ -44,9 +44,45 @@ Resources:
               - cloudformation:GetTemplateSummary
               - cloudformation:DescribeStacks
               - cloudformation:List
+              - cloudformation:SetStackPolicy
+              - cloudformation:UpdateTerminationProtection
             Resource: "*"
 
           # Following will require tailoring to the pipeline resources in future
           - Effect: Allow
-            Action: "*"
+            Action:
+            - "s3:*"
+            Resource: "*"
+          - Effect: Allow
+            Action: "kms:*"
+            Resource: "*"
+          - Effect: Allow
+            Action: "logs:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "iam:CreateRole"
+            - "iam:CreatePolicy"
+            - "iam:GetRolePolicy"
+            - "iam:PutRolePolicy"
+            - "iam:UpdateRole"
+            - "iam:UpdatePolicy"
+            - "iam:DeleteRolePolicy"
+            Resource: "*"
+          - Effect: Allow
+            Action: "cloudtrail:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "sns:CreateTopic"
+            - "sns:DeleteTopic"
+            - "sns:GetTopicAttributes"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "ssm:PutParameter"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "kinesis:*"
             Resource: "*"
