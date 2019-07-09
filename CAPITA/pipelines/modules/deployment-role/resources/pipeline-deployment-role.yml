@@ -61,11 +61,15 @@ Resources:
             Resource: "*"
           - Effect: Allow
             Action:
+            - "iam:GetRole"
+            - "iam:PassRole"
             - "iam:CreateRole"
             - "iam:CreatePolicy"
             - "iam:GetRolePolicy"
             - "iam:PutRolePolicy"
             - "iam:UpdateRole"
+            - "iam:DeleteRole"
+            - "iam:DeleteRolePolicy"
             - "iam:UpdatePolicy"
             - "iam:DeleteRolePolicy"
             Resource: "*"
@@ -80,7 +84,7 @@ Resources:
             Resource: "*"
           - Effect: Allow
             Action:
-            - "ssm:PutParameter"
+            - "ssm:*"
             Resource: "*"
           - Effect: Allow
             Action:
