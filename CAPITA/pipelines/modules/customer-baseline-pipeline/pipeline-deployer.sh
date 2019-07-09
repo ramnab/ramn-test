@@ -12,6 +12,7 @@
 #   ENV     is environment such as 'dev'
 #   CONFIG  is the name of the config file, e.g. 'gassafe' will use /pipelines/config/gassafe.conf
 
+set -e
 
 DEPT=$1
 ENV=$2
