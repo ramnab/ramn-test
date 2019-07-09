@@ -55,7 +55,7 @@ echo -e "\nStarted build process for build id ${BUILDID}"
 
 getBuildStatus () {
     buildid=$1
-    status=$(aws codebuild batch-get-builds --ids ${BUILDID} --query 'builds[].{phase:currentPhase,status:buildStatus}' --output text)
+    status=$(aws codebuild batch-get-builds --ids ${buildid} --query 'builds[].{phase:currentPhase,status:buildStatus}' --output text)
 }
 
 echo -e "\nBuild phase and status:"
