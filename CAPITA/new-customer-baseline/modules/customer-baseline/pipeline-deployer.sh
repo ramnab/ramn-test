@@ -60,15 +60,7 @@ expiration_ctr: ${EXPIRATION_CTR}
 expiration_agentevents: ${EXPIRATION_AGENT_EVENTS}
 EOL
 
-
 run cf sync -y --context ${DIRECTORY}/cf-config.yml ${DIRECTORY}/deployment.stacks
 
-
-echo "Tagging Agent Event Firehose..."
-python ${DIRECTORY}/../../scripts/tag-firehose.py -r ${REGION} -f kfh-${DEPT_LOWER}-agent-events-${ENV_LOWER} \
-                    -t sec:Compliance:PII bus:BusinessUnit:ccm bus:ClientName:${CLIENT} \
-                       tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-${DEPT}-connect \
-                       tech:ApplicationRole:reporting
-
 rm ${DIRECTORY}/cf-config.yml
-echo "call-recordings-bucket module COMPLETED"
+echo "customer baseline module COMPLETED"
