@@ -9,7 +9,6 @@
 #   deploy.sh ENV
 #
 
-#ENV=$1
 DIRECTORY=$(dirname $0)
 source ${DIRECTORY}/../../scripts/helpers.sh
 
