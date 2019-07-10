@@ -21,7 +21,6 @@ CONF="${DIRECTORY}/../../../pipelines/config/${3}.conf"
 config_exists ${CONF}
 
 DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
-DEPT_LOWER=$(echo "${DEPT}" | awk '{print tolower($0)}')
 ENV_LOWER=$(echo "${ENV}" | awk '{print tolower($0)}')
 CLIENT="$(prop 'client')"
 REGION="$(prop 'region.reports' eu-central-1)"
