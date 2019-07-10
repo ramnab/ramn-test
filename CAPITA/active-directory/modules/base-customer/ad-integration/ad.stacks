@@ -1,0 +1,10 @@
+region: '[region]'
+stacks:
+  stCapita-AD-[env]-Permissions:
+    template-url: resources/ad-permissions.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
+      pIdentityProviderArn: 'REPLACEME'

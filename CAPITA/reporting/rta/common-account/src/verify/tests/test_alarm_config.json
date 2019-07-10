@@ -1,0 +1,67 @@
+{
+  "default": {
+    "BSE": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window",
+      "T2": "SCHEDULE.CODE.T1,-BSE.grace"
+    },
+    "BSL": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+BSE.grace",
+      "T2": "SCHEDULE.CODE.T2"
+    },
+    "ESE": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,-ESE.grace"
+    },
+    "ESL": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+ESL.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window"
+    }
+  },
+  "TUK": {
+    "BSE": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window",
+      "T2": "SCHEDULE.CODE.T1,-BSE.grace"
+    }
+  },
+  "FG": {
+    "BSE": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window",
+      "T2": "SCHEDULE.CODE.T1,-BSE.grace"
+    },
+    "BSL": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+BSE.grace",
+      "T2": "SCHEDULE.CODE.T2"
+    }
+  }
+}

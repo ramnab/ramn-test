@@ -1,0 +1,373 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CAPITA MI Reporting Agent Interval
+
+Parameters:
+  pTransformationDb:
+    Type: String
+    Description: Name of Glue database in this account, used for transformation
+  pCommonDestination:
+    Type: String
+    Description: Name of S3 Bucket in Common account for the reports
+  pCustomerReportBucket:
+    Type: String
+    Description: Name of Customer S3 Bucket to trigger lambda
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pEnvironmentUpperCase:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming, uppercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Customer/Client identifier
+  pKMSArn:
+    Type: String
+    Description: Arn to Connect KMS key
+  pBufferIntervalInSeconds:
+    Type: Number
+    Default: 300
+    Description: Buffer Timeout in seconds for firehose
+
+Resources:
+  AgentIntervalLambda:
+    Type: AWS::Serverless::Function
+    DependsOn: AgentIntervalParquetFirehose
+    Properties:
+      FunctionName: !Sub "lmbMIAgentInterval-${pDepartment}-${pEnvironment}"
+      Description: CAPITA MI Agent Interval Lambda
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../../../src/agent-intervals/code/
+      Environment:
+        Variables:
+          FIREHOSE_INTERVAL: !Ref AgentIntervalParquetFirehose
+          FIREHOSE_DAILY: !Ref AgentDailyParquetFirehose
+          CONFIG: "agent,startinterval,endinterval,agentname,agentfirstname,agentlastname,servicelevel15seconds,servicelevel20seconds,servicelevel25seconds,servicelevel30seconds,servicelevel45seconds,servicelevel60seconds,servicelevel90seconds,servicelevel120seconds,servicelevel180seconds,servicelevel240seconds,servicelevel300seconds,servicelevel600seconds"
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "firehose:*"
+              Resource: "*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - iam:GetRole
+                - iam:PassRole
+              Resource: "*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:*
+              Resource:
+                - !Sub "arn:aws:s3:::${pCustomerReportBucket}/"
+                - !Sub "arn:aws:s3:::${pCustomerReportBucket}/*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:*
+              Resource: !Ref pKMSArn
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: AgentIntervalLambda
+    Properties:
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${AgentIntervalLambda}"
+
+  AgentIntervalReportTriggerPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: AgentIntervalLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AgentIntervalLambda
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${pCustomerReportBucket}"
+
+  AgentIntervalParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-ai-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
+        BufferingHints:
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref AgentIntervalFirehoseLogGroup
+          LogStreamName: !Ref AgentIntervalFirehoseLogStream
+        Prefix: "agent_interval/"
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
+
+  AgentDailyParquetFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "kfh-${pDepartment}-ai-daily-${pEnvironmentLowerCase}"
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${pCommonDestination}"
+        BufferingHints:
+          IntervalInSeconds: !Ref pBufferIntervalInSeconds
+          SizeInMBs: 128
+        CompressionFormat: UNCOMPRESSED
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref AgentDailyFirehoseLogGroup
+          LogStreamName: !Ref AgentDailyFirehoseLogStream
+        Prefix: "agent_daily/"
+        RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/CA_MI_${pEnvironmentUpperCase}"
+
+  AgentIntervalFirehoseIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "rl_mi_agent_interval_${pEnvironmentLowerCase}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              "Service": "firehose.amazonaws.com"
+      Policies:
+        - PolicyName: !Sub "access_reporting_bucket_only_agent_interval_${pEnvironmentLowerCase}"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "glue:*"
+                Effect: Allow
+                Resource: "*"
+              - Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub "arn:aws:s3:::${pCommonDestination}"
+                  - !Sub "arn:aws:s3:::${pCommonDestination}/*"
+                Effect: Allow
+                Sid: agentintervalreportfirehoses
+              - Action:
+                  - logs:PutLogEvents
+                Resource: !GetAtt AgentIntervalFirehoseLogGroup.Arn
+                Effect: Allow
+                Sid: agentintervalreportfirehoselogs
+              - Action:
+                  - logs:PutLogEvents
+                Resource: !GetAtt AgentDailyFirehoseLogGroup.Arn
+                Effect: Allow
+                Sid: agentdailyreportfirehoselogs
+
+  AgentIntervalFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub "/firehose/mi-${pEnvironmentLowerCase}-agent-interval"
+
+  AgentIntervalFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    DependsOn: AgentIntervalFirehoseLogGroup
+    Properties:
+      LogGroupName: !Ref AgentIntervalFirehoseLogGroup
+
+  AgentDailyFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+      LogGroupName: !Sub "/firehose/mi-${pEnvironmentLowerCase}-agent-interval-daily"
+
+  AgentDailyFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    DependsOn: AgentDailyFirehoseLogGroup
+    Properties:
+      LogGroupName: !Ref AgentDailyFirehoseLogGroup
+
+
+  GlueAgentIntervalTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref pTransformationDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "glt_agent_intervals_${pEnvironmentLowerCase}"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: json
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          SerdeInfo:
+            Name: "serde-info"
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Name: agent
+            Type: string
+          - Name: startinterval
+            Type: timestamp
+          - Name: endinterval
+            Type: timestamp
+          - Name: agentname
+            Type: string
+          - Name: agentfirstname
+            Type: string
+          - Name: agentlastname
+            Type: string
+          - Name: aftercontactworktime
+            Type: int
+          - Name: agentoncontacttime
+            Type: int
+          - Name: agentidletime
+            Type: int
+          - Name: nonproductivetime
+            Type: int
+          - Name: averageaftercontactworktime
+            Type: int
+          - Name: contactsagenthungupfirst
+            Type: int
+          - Name: contactsconsulted
+            Type: int
+          - Name: contactshandled
+            Type: int
+          - Name: contactshandledincoming
+            Type: int
+          - Name: contactshandledoutbound
+            Type: int
+          - Name: callbackcontactshandled
+            Type: int
+          - Name: contactsputonhold
+            Type: int
+          - Name: contactsholddisconnect
+            Type: int
+          - Name: contactsholdagentdisconnect
+            Type: int
+          - Name: contactsholdcustomerdisconnect
+            Type: int
+          - Name: contactsincoming
+            Type: int
+          - Name: callbackcontacts
+            Type: int
+          - Name: contactsqueued
+            Type: int
+          - Name: contactstransferredin
+            Type: int
+          - Name: contactstransferredout
+            Type: int
+          - Name: contactstransferredoutinternal
+            Type: int
+          - Name: contactstransferredoutexternal
+            Type: int
+          - Name: contactstransferredinfromqueue
+            Type: int
+          - Name: contactstransferredoutfromqueue
+            Type: int
+          - Name: errorstatustime
+            Type: int
+          - Name: customerholdtime
+            Type: int
+          - Name: agentanswerrate
+            Type: int
+          - Name: maximumqueuedtime
+            Type: int
+          - Name: contactsmissed
+            Type: int
+          - Name: contacthandletime
+            Type: int
+          - Name: contactflowtime
+            Type: int
+          - Name: occupancy
+            Type: int
+          - Name: servicelevel15seconds
+            Type: string
+          - Name: servicelevel20seconds
+            Type: string
+          - Name: servicelevel25seconds
+            Type: string
+          - Name: servicelevel30seconds
+            Type: string
+          - Name: servicelevel45seconds
+            Type: string
+          - Name: servicelevel60seconds
+            Type: string
+          - Name: servicelevel90seconds
+            Type: string
+          - Name: servicelevel120seconds
+            Type: string
+          - Name: servicelevel180seconds
+            Type: string
+          - Name: servicelevel240seconds
+            Type: string
+          - Name: servicelevel300seconds
+            Type: string
+          - Name: servicelevel600seconds
+            Type: string
+          - Name: onlinetime
+            Type: int
+          - Name: agentinteractionandholdtime
+            Type: int
+          - Name: agentinteractiontime
+            Type: int
+          - Name: averageoutboundagentinteractiontime
+            Type: int
+          - Name: averageoutboundaftercontactworktime
+            Type: int
+          - Name: breaktime
+            Type: int
+          - Name: lunchtime
+            Type: int
+          - Name: mentortime
+            Type: int
+          - Name: admintime
+            Type: int
+          - Name: trainingtime
+            Type: int
+          - Name: meetingtime
+            Type: int
+          - Name: onetoonetime
+            Type: int
+          - Name: outboundtime
+            Type: int
+          - Name: special1time
+            Type: int
+          - Name: outboundagentinteractiontime
+            Type: int
+          - Name: outboundagentaftercontactworktime
+            Type: int
+
+
+
+Outputs:
+  oAgentIntervalLambdaArn:
+    Value: !GetAtt AgentIntervalLambda.Arn
+  oAgentIntervalFirehose:
+    Value: !Ref AgentIntervalParquetFirehose
+  oAgentDailyFirehose:
+    Value: !Ref AgentDailyParquetFirehose

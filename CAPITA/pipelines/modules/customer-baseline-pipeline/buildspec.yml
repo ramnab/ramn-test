@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+  pre_build:
+    commands:
+       - pip install cfn-square
+       - pip install pyyaml==3.13
+       - chmod +x CAPITA/pipelines/scripts/assume_role.sh
+       - ./CAPITA/pipelines/scripts/assume_role.sh "CAPITA/pipelines/config/${CONFIG}.conf" "${ENV}"
+
+  build:
+    commands:
+      - echo "Building / updating a new customer baseline"
+      - for f in $(find ./CAPITA/ -type f -regex ".*/pipeline-deployer.sh"); do chmod +x "$f"; done
+      - cd CAPITA/pipelines/modules/customer-baseline-pipeline
+      - if [ ! ${MODULE} ]; then MODULE='all'; fi
+      - ./pipeline-deployer.sh gc $ENV $CONFIG $MODULE

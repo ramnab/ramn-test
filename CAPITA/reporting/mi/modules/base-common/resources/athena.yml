@@ -1,0 +1,947 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: MI athena related resources for Common Account
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+
+  pReportBucket:
+    Type: String
+    Default: "s3-capita-ccm-connect-common-dev-reporting"
+    Description: Name of bucket containing reports in Parquet format
+  pCtrLocation:
+    Type: String
+    Default: contact_record/
+    Description: Name of prefix containing CTR data in Parquet format
+  pQILocation:
+    Type: String
+    Default: queue_interval/
+    Description: Name of prefix containing Queue Interval data in Parquet format
+  pAILocation:
+    Type: String
+    Default: agent_interval/
+    Description: Name of prefix containing Agent Interval data in Parquet format
+  pQDailyLocation:
+    Type: String
+    Default: queue_daily/
+    Description: Name of prefix containing Queue Daily data in Parquet format
+  pADailyLocation:
+    Type: String
+    Default: agent_daily/
+    Description: Name of prefix containing Agent Daily data in Parquet format
+  pAgentEventsLocation:
+    Type: String
+    Default: agent_events/
+    Description: Name of prefix containing Agent Events data in Parquet format
+
+Resources:
+  AthenaMachineUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub "machine-mi-athena-${pDepartment}-${pEnvironmentLowerCase}"
+      Policies:
+      - PolicyName: !Sub "access_athena_queries${pEnvironmentLowerCase}"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+            - "s3:*"
+            Resource:
+            - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-common-${pEnvironmentLowerCase}-reporting"
+            - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-common-${pEnvironmentLowerCase}-reporting/*"
+      ManagedPolicyArns: 
+      - "arn:aws:iam::aws:policy/service-role/AWSQuicksightAthenaAccess"
+
+  MIAnalystPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "mi-analyst-${pEnvironmentLowerCase}"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: !Sub "AthenaWorkgroupQueryAccess${pEnvironment}"
+          Effect: Allow
+          Action:
+            - athena:StartQueryExecution
+            - athena:GetQueryResults
+            - athena:DeleteNamedQuery
+            - athena:GetNamedQuery
+            - athena:ListQueryExecutions
+            - athena:StopQueryExecution
+            - athena:GetQueryResultsStream
+            - athena:GetQueryExecutions
+            - athena:ListNamedQueries
+            - athena:CreateNamedQuery
+            - athena:GetQueryExecution
+            - athena:BatchGetNamedQuery
+            - athena:BatchGetQueryExecution
+            - athena:GetWorkGroup
+          Resource:
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/primary"
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/mi-analyst"
+
+        - Sid: !Sub "AthenaWorkgroupManagement${pEnvironment}"
+          Effect: Allow
+          Action:
+            - athena:DeleteWorkGroup
+            - athena:UpdateWorkGroup
+            - athena:GetWorkGroup
+            - athena:CreateWorkGroup
+          Resource:
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/mi-analyst"
+
+  BusinessObjectsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "business-objects-${pEnvironmentLowerCase}"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: !Sub "AthenaWorkgroupBO${pEnvironment}"
+          Effect: Allow
+          Action:
+            - athena:StartQueryExecution
+            - athena:GetQueryResults
+            - athena:DeleteNamedQuery
+            - athena:GetNamedQuery
+            - athena:ListQueryExecutions
+            - athena:StopQueryExecution
+            - athena:GetQueryResultsStream
+            - athena:GetQueryExecutions
+            - athena:ListNamedQueries
+            - athena:CreateNamedQuery
+            - athena:GetQueryExecution
+            - athena:BatchGetNamedQuery
+            - athena:BatchGetQueryExecution
+            - athena:GetWorkGroup
+          Resource:
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/primary"
+            - !Sub "arn:aws:athena:eu-central-1:${AWS::AccountId}:workgroup/business-objects"
+
+
+
+  GlueDb:
+    Type: AWS::Glue::Database
+    Properties:
+      DatabaseInput:
+        Name: !Sub "${pDepartment}_connect_reporting_${pEnvironmentLowerCase}"
+      CatalogId: !Ref AWS::AccountId
+
+  GlueCtrTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "contact_record"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pCtrLocation}"
+          SerdeInfo:
+             Name: "serde-info"
+             Parameters:
+               serialization.format: 1
+             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          -  Name: AWSAccountId
+             Type: string
+          -  Name: AWSContactTraceRecordFormatVersion
+             Type: string
+          -  Name: Agent
+             Type: string
+          -  Name: AgentConnectionAttempts
+             Type: string
+          -  Name: Attributes
+             Type: string
+          -  Name: Channel
+             Type: string
+          -  Name: ConnectedToSystemTimestamp
+             Type: timestamp
+          -  Name: ContactId
+             Type: string
+          -  Name: CustomerEndpoint
+             Type: string
+          -  Name: DisconnectTimestamp
+             Type: timestamp
+          -  Name: InitialContactId
+             Type: string
+          -  Name: InitiationMethod
+             Type: string
+          -  Name: InitiationTimestamp
+             Type: timestamp
+          -  Name: InstanceARN
+             Type: string
+          -  Name: LastUpdateTimestamp
+             Type: timestamp
+          -  Name: MediaStreams
+             Type: string
+          -  Name: NextContactId
+             Type: string
+          -  Name: PreviousContactId
+             Type: string
+          -  Name: Queue
+             Type: string
+          -  Name: Recording
+             Type: string
+          -  Name: Recordings
+             Type: string
+          -  Name: SystemEndpoint
+             Type: string
+          -  Name: TransferCompletedTimestamp
+             Type: timestamp
+          -  Name: TransferredToEndpoint
+             Type: string
+
+  GlueQueueIntervalTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "queue_interval"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pQILocation}"
+          SerdeInfo:
+            Name: "serde-info"
+            Parameters:
+              serialization.format: 1
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+            - Name: queue
+              Type: string
+            - Name: startinterval
+              Type: timestamp
+            - Name: endinterval
+              Type: timestamp
+            - Name: aftercontactworktime
+              Type: int
+            - Name: agentoncontacttime
+              Type: int
+            - Name: agentidletime
+              Type: int
+            - Name: averagequeueabandontime
+              Type: int
+            - Name: averageaftercontactworktime
+              Type: int
+            - Name: averagequeueanswertime
+              Type: int
+            - Name: averagehandletime
+              Type: int
+            - Name: averagecustomerholdtime
+              Type: int
+            - Name: averageagentinteractionandcustomerholdtime
+              Type: int
+            - Name: averageagentinteractiontime
+              Type: int
+            - Name: contactsabandoned
+              Type: int
+            - Name: contactsabandonedin15seconds
+              Type: int
+            - Name: contactsabandonedin20seconds
+              Type: int
+            - Name: contactsabandonedin25seconds
+              Type: int
+            - Name: contactsabandonedin30seconds
+              Type: int
+            - Name: contactsabandonedin45seconds
+              Type: int
+            - Name: contactsabandonedin60seconds
+              Type: int
+            - Name: contactsabandonedin90seconds
+              Type: int
+            - Name: contactsabandonedin120seconds
+              Type: int
+            - Name: contactsabandonedin180seconds
+              Type: int
+            - Name: contactsabandonedin240seconds
+              Type: int
+            - Name: contactsabandonedin300seconds
+              Type: int
+            - Name: contactsabandonedin600seconds
+              Type: int
+            - Name: contactsagenthungupfirst
+              Type: int
+            - Name: contactsconsulted
+              Type: int
+            - Name: contactshandled
+              Type: int
+            - Name: contactshandledincoming
+              Type: int
+            - Name: contactshandledoutbound
+              Type: int
+            - Name: callbackcontactshandled
+              Type: int
+            - Name: contactsputonhold
+              Type: int
+            - Name: contactsholddisconnect
+              Type: int
+            - Name: contactsholdagentdisconnect
+              Type: int
+            - Name: contactsholdcustomerdisconnect
+              Type: int
+            - Name: contactsincoming
+              Type: int
+            - Name: callbackcontacts
+              Type: int
+            - Name: contactsansweredin15seconds
+              Type: int
+            - Name: contactsansweredin20seconds
+              Type: int
+            - Name: contactsansweredin25seconds
+              Type: int
+            - Name: contactsansweredin30seconds
+              Type: int
+            - Name: contactsansweredin45seconds
+              Type: int
+            - Name: contactsansweredin60seconds
+              Type: int
+            - Name: contactsansweredin90seconds
+              Type: int
+            - Name: contactsansweredin120seconds
+              Type: int
+            - Name: contactsansweredin180seconds
+              Type: int
+            - Name: contactsansweredin240seconds
+              Type: int
+            - Name: contactsansweredin300seconds
+              Type: int
+            - Name: contactsansweredin600seconds
+              Type: int
+            - Name: contactsqueued
+              Type: int
+            - Name: contactstransferredin
+              Type: int
+            - Name: contactstransferredout
+              Type: int
+            - Name: contactstransferredoutinternal
+              Type: int
+            - Name: contactstransferredoutexternal
+              Type: int
+            - Name: contactstransferredinfromqueue
+              Type: int
+            - Name: contactstransferredoutfromqueue
+              Type: int
+            - Name: customerholdtime
+              Type: int
+            - Name: agentanswerrate
+              Type: int
+            - Name: maximumqueuedtime
+              Type: int
+            - Name: contactsmissed
+              Type: int
+            - Name: contacthandletime
+              Type: int
+            - Name: contactflowtime
+              Type: int
+            - Name: occupancy
+              Type: int
+            - Name: servicelevel15seconds
+              Type: string
+            - Name: servicelevel20seconds
+              Type: string
+            - Name: servicelevel25seconds
+              Type: string
+            - Name: servicelevel30seconds
+              Type: string
+            - Name: servicelevel45seconds
+              Type: string
+            - Name: servicelevel60seconds
+              Type: string
+            - Name: servicelevel90seconds
+              Type: string
+            - Name: servicelevel120seconds
+              Type: string
+            - Name: servicelevel180seconds
+              Type: string
+            - Name: servicelevel240seconds
+              Type: string
+            - Name: servicelevel300seconds
+              Type: string
+            - Name: servicelevel600seconds
+              Type: string
+            - Name: agentinteractionandholdtime
+              Type: int
+            - Name: agentinteractiontime
+              Type: int
+            - Name: averageoutboundagentinteractiontime
+              Type: int
+            - Name: averageoutboundaftercontactworktime
+              Type: int
+
+  GlueAgentIntervalTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Sub "agent_interval"
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pAILocation}"
+          SerdeInfo:
+            Name: "serde-info"
+            Parameters:
+              serialization.format: 1
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Name: agent
+            Type: string
+          - Name: startinterval
+            Type: timestamp
+          - Name: endinterval
+            Type: timestamp
+          - Name: agentname
+            Type: string
+          - Name: agentfirstname
+            Type: string
+          - Name: agentlastname
+            Type: string
+          - Name: aftercontactworktime
+            Type: int
+          - Name: agentoncontacttime
+            Type: int
+          - Name: agentidletime
+            Type: int
+          - Name: nonproductivetime
+            Type: int
+          - Name: averageaftercontactworktime
+            Type: int
+          - Name: contactsagenthungupfirst
+            Type: int
+          - Name: contactsconsulted
+            Type: int
+          - Name: contactshandled
+            Type: int
+          - Name: contactshandledincoming
+            Type: int
+          - Name: contactshandledoutbound
+            Type: int
+          - Name: callbackcontactshandled
+            Type: int
+          - Name: contactsputonhold
+            Type: int
+          - Name: contactsholddisconnect
+            Type: int
+          - Name: contactsholdagentdisconnect
+            Type: int
+          - Name: contactsholdcustomerdisconnect
+            Type: int
+          - Name: contactsincoming
+            Type: int
+          - Name: callbackcontacts
+            Type: int
+          - Name: contactsqueued
+            Type: int
+          - Name: contactstransferredin
+            Type: int
+          - Name: contactstransferredout
+            Type: int
+          - Name: contactstransferredoutinternal
+            Type: int
+          - Name: contactstransferredoutexternal
+            Type: int
+          - Name: contactstransferredinfromqueue
+            Type: int
+          - Name: contactstransferredoutfromqueue
+            Type: int
+          - Name: errorstatustime
+            Type: int
+          - Name: customerholdtime
+            Type: int
+          - Name: agentanswerrate
+            Type: int
+          - Name: maximumqueuedtime
+            Type: int
+          - Name: contactsmissed
+            Type: int
+          - Name: contacthandletime
+            Type: int
+          - Name: contactflowtime
+            Type: int
+          - Name: occupancy
+            Type: int
+          - Name: servicelevel15seconds
+            Type: string
+          - Name: servicelevel20seconds
+            Type: string
+          - Name: servicelevel25seconds
+            Type: string
+          - Name: servicelevel30seconds
+            Type: string
+          - Name: servicelevel45seconds
+            Type: string
+          - Name: servicelevel60seconds
+            Type: string
+          - Name: servicelevel90seconds
+            Type: string
+          - Name: servicelevel120seconds
+            Type: string
+          - Name: servicelevel180seconds
+            Type: string
+          - Name: servicelevel240seconds
+            Type: string
+          - Name: servicelevel300seconds
+            Type: string
+          - Name: servicelevel600seconds
+            Type: string
+          - Name: onlinetime
+            Type: int
+          - Name: agentinteractionandholdtime
+            Type: int
+          - Name: agentinteractiontime
+            Type: int
+          - Name: averageoutboundagentinteractiontime
+            Type: int
+          - Name: averageoutboundaftercontactworktime
+            Type: int
+          - Name: breaktime
+            Type: int
+          - Name: lunchtime
+            Type: int
+          - Name: mentortime
+            Type: int
+          - Name: admintime
+            Type: int
+          - Name: trainingtime
+            Type: int
+          - Name: meetingtime
+            Type: int
+          - Name: onetoonetime
+            Type: int
+          - Name: outboundtime
+            Type: int
+          - Name: special1time
+            Type: int
+          - Name: outboundagentinteractiontime
+            Type: int
+          - Name: outboundagentaftercontactworktime
+            Type: int
+
+
+
+  GlueQueueDailyTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: queue_daily
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pQDailyLocation}"
+          SerdeInfo:
+            Name: "serde-info"
+            Parameters:
+              serialization.format: 1
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+            - Name: queue
+              Type: string
+            - Name: startinterval
+              Type: timestamp
+            - Name: endinterval
+              Type: timestamp
+            - Name: aftercontactworktime
+              Type: int
+            - Name: agentoncontacttime
+              Type: int
+            - Name: agentidletime
+              Type: int
+            - Name: averagequeueabandontime
+              Type: int
+            - Name: averageaftercontactworktime
+              Type: int
+            - Name: averagequeueanswertime
+              Type: int
+            - Name: averagehandletime
+              Type: int
+            - Name: averagecustomerholdtime
+              Type: int
+            - Name: averageagentinteractionandcustomerholdtime
+              Type: int
+            - Name: averageagentinteractiontime
+              Type: int
+            - Name: contactsabandoned
+              Type: int
+            - Name: contactsabandonedin15seconds
+              Type: int
+            - Name: contactsabandonedin20seconds
+              Type: int
+            - Name: contactsabandonedin25seconds
+              Type: int
+            - Name: contactsabandonedin30seconds
+              Type: int
+            - Name: contactsabandonedin45seconds
+              Type: int
+            - Name: contactsabandonedin60seconds
+              Type: int
+            - Name: contactsabandonedin90seconds
+              Type: int
+            - Name: contactsabandonedin120seconds
+              Type: int
+            - Name: contactsabandonedin180seconds
+              Type: int
+            - Name: contactsabandonedin240seconds
+              Type: int
+            - Name: contactsabandonedin300seconds
+              Type: int
+            - Name: contactsabandonedin600seconds
+              Type: int
+            - Name: contactsagenthungupfirst
+              Type: int
+            - Name: contactsconsulted
+              Type: int
+            - Name: contactshandled
+              Type: int
+            - Name: contactshandledincoming
+              Type: int
+            - Name: contactshandledoutbound
+              Type: int
+            - Name: callbackcontactshandled
+              Type: int
+            - Name: contactsputonhold
+              Type: int
+            - Name: contactsholddisconnect
+              Type: int
+            - Name: contactsholdagentdisconnect
+              Type: int
+            - Name: contactsholdcustomerdisconnect
+              Type: int
+            - Name: contactsincoming
+              Type: int
+            - Name: callbackcontacts
+              Type: int
+            - Name: contactsansweredin15seconds
+              Type: int
+            - Name: contactsansweredin20seconds
+              Type: int
+            - Name: contactsansweredin25seconds
+              Type: int
+            - Name: contactsansweredin30seconds
+              Type: int
+            - Name: contactsansweredin45seconds
+              Type: int
+            - Name: contactsansweredin60seconds
+              Type: int
+            - Name: contactsansweredin90seconds
+              Type: int
+            - Name: contactsansweredin120seconds
+              Type: int
+            - Name: contactsansweredin180seconds
+              Type: int
+            - Name: contactsansweredin240seconds
+              Type: int
+            - Name: contactsansweredin300seconds
+              Type: int
+            - Name: contactsansweredin600seconds
+              Type: int
+            - Name: contactsqueued
+              Type: int
+            - Name: contactstransferredin
+              Type: int
+            - Name: contactstransferredout
+              Type: int
+            - Name: contactstransferredoutinternal
+              Type: int
+            - Name: contactstransferredoutexternal
+              Type: int
+            - Name: contactstransferredinfromqueue
+              Type: int
+            - Name: contactstransferredoutfromqueue
+              Type: int
+            - Name: customerholdtime
+              Type: int
+            - Name: agentanswerrate
+              Type: int
+            - Name: maximumqueuedtime
+              Type: int
+            - Name: contactsmissed
+              Type: int
+            - Name: contacthandletime
+              Type: int
+            - Name: contactflowtime
+              Type: int
+            - Name: occupancy
+              Type: int
+            - Name: servicelevel15seconds
+              Type: string
+            - Name: servicelevel20seconds
+              Type: string
+            - Name: servicelevel25seconds
+              Type: string
+            - Name: servicelevel30seconds
+              Type: string
+            - Name: servicelevel45seconds
+              Type: string
+            - Name: servicelevel60seconds
+              Type: string
+            - Name: servicelevel90seconds
+              Type: string
+            - Name: servicelevel120seconds
+              Type: string
+            - Name: servicelevel180seconds
+              Type: string
+            - Name: servicelevel240seconds
+              Type: string
+            - Name: servicelevel300seconds
+              Type: string
+            - Name: servicelevel600seconds
+              Type: string
+            - Name: agentinteractionandholdtime
+              Type: int
+            - Name: agentinteractiontime
+              Type: int
+            - Name: averageoutboundagentinteractiontime
+              Type: int
+            - Name: averageoutboundaftercontactworktime
+              Type: int
+
+  GlueAgentDailyTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: agent_daily
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pADailyLocation}"
+          SerdeInfo:
+            Name: "serde-info"
+            Parameters:
+              serialization.format: 1
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Name: agent
+            Type: string
+          - Name: startinterval
+            Type: timestamp
+          - Name: endinterval
+            Type: timestamp
+          - Name: agentname
+            Type: string
+          - Name: agentfirstname
+            Type: string
+          - Name: agentlastname
+            Type: string
+          - Name: aftercontactworktime
+            Type: int
+          - Name: agentoncontacttime
+            Type: int
+          - Name: agentidletime
+            Type: int
+          - Name: nonproductivetime
+            Type: int
+          - Name: averageaftercontactworktime
+            Type: int
+          - Name: contactsagenthungupfirst
+            Type: int
+          - Name: contactsconsulted
+            Type: int
+          - Name: contactshandled
+            Type: int
+          - Name: contactshandledincoming
+            Type: int
+          - Name: contactshandledoutbound
+            Type: int
+          - Name: callbackcontactshandled
+            Type: int
+          - Name: contactsputonhold
+            Type: int
+          - Name: contactsholddisconnect
+            Type: int
+          - Name: contactsholdagentdisconnect
+            Type: int
+          - Name: contactsholdcustomerdisconnect
+            Type: int
+          - Name: contactsincoming
+            Type: int
+          - Name: callbackcontacts
+            Type: int
+          - Name: contactsqueued
+            Type: int
+          - Name: contactstransferredin
+            Type: int
+          - Name: contactstransferredout
+            Type: int
+          - Name: contactstransferredoutinternal
+            Type: int
+          - Name: contactstransferredoutexternal
+            Type: int
+          - Name: contactstransferredinfromqueue
+            Type: int
+          - Name: contactstransferredoutfromqueue
+            Type: int
+          - Name: errorstatustime
+            Type: int
+          - Name: customerholdtime
+            Type: int
+          - Name: agentanswerrate
+            Type: int
+          - Name: maximumqueuedtime
+            Type: int
+          - Name: contactsmissed
+            Type: int
+          - Name: contacthandletime
+            Type: int
+          - Name: contactflowtime
+            Type: int
+          - Name: occupancy
+            Type: int
+          - Name: servicelevel15seconds
+            Type: string
+          - Name: servicelevel20seconds
+            Type: string
+          - Name: servicelevel25seconds
+            Type: string
+          - Name: servicelevel30seconds
+            Type: string
+          - Name: servicelevel45seconds
+            Type: string
+          - Name: servicelevel60seconds
+            Type: string
+          - Name: servicelevel90seconds
+            Type: string
+          - Name: servicelevel120seconds
+            Type: string
+          - Name: servicelevel180seconds
+            Type: string
+          - Name: servicelevel240seconds
+            Type: string
+          - Name: servicelevel300seconds
+            Type: string
+          - Name: servicelevel600seconds
+            Type: string
+          - Name: onlinetime
+            Type: int
+          - Name: agentinteractionandholdtime
+            Type: int
+          - Name: agentinteractiontime
+            Type: int
+          - Name: averageoutboundagentinteractiontime
+            Type: int
+          - Name: averageoutboundaftercontactworktime
+            Type: int
+          - Name: breaktime
+            Type: int
+          - Name: lunchtime
+            Type: int
+          - Name: mentortime
+            Type: int
+          - Name: admintime
+            Type: int
+          - Name: trainingtime
+            Type: int
+          - Name: meetingtime
+            Type: int
+          - Name: onetoonetime
+            Type: int
+          - Name: outboundtime
+            Type: int
+          - Name: special1time
+            Type: int
+          - Name: outboundagentinteractiontime
+            Type: int
+          - Name: outboundagentaftercontactworktime
+            Type: int
+
+  GlueAgentEventsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: agent_events
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        PartitionKeys:
+          - Name: clientname
+            Type: string
+          - Name: rowdate
+            Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub "s3://${pReportBucket}/${pAgentEventsLocation}"
+          SerdeInfo:
+             Name: "serde-info"
+             Parameters:
+               serialization.format: 1
+             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+          - Name: AWSAccountId
+            Type: string
+          - Name: AgentARN
+            Type: string
+          - Name: CurrentAgentSnapshot
+            Type: string
+          - Name: EventId
+            Type: string
+          - Name: EventType
+            Type: string
+          - Name: EventTimestamp
+            Type: timestamp
+          - Name: InstanceARN
+            Type: string
+          - Name: PreviousAgentSnapshot
+            Type: string
+          - Name: Version
+            Type: string

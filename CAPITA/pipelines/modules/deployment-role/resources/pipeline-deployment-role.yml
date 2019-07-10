@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Pipeline Deployment Role
+
+Parameters:
+  pPipelineAccountId:
+    Type: String
+    Description: Pipeline account which is permitted to assume this role
+
+Resources:
+  DeploymentRole:
+    Type: AWS::IAM::Role
+    Description: Pipeline Deployment Role
+    Properties:
+      RoleName: CA_PIPELINE_DEPLOY
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${pPipelineAccountId}:root"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref DeploymentPolicy
+
+  DeploymentPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: Deployment Policy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Resource: "arn:aws:iam::*:role/*"
+
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:Describe*
+              - cloudformation:UpdateStack
+              - cloudformation:CreateChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:GetTemplateSummary
+              - cloudformation:DescribeStacks
+              - cloudformation:List
+              - cloudformation:SetStackPolicy
+              - cloudformation:UpdateTerminationProtection
+            Resource: "*"
+
+          # Following will require tailoring to the pipeline resources in future
+          - Effect: Allow
+            Action:
+            - "s3:*"
+            Resource: "*"
+          - Effect: Allow
+            Action: "kms:*"
+            Resource: "*"
+          - Effect: Allow
+            Action: "logs:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "iam:GetRole"
+            - "iam:PassRole"
+            - "iam:CreateRole"
+            - "iam:CreatePolicy"
+            - "iam:GetRolePolicy"
+            - "iam:PutRolePolicy"
+            - "iam:UpdateRole"
+            - "iam:DeleteRole"
+            - "iam:DeleteRolePolicy"
+            - "iam:UpdatePolicy"
+            - "iam:DeleteRolePolicy"
+            Resource: "*"
+          - Effect: Allow
+            Action: "cloudtrail:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "sns:CreateTopic"
+            - "sns:DeleteTopic"
+            - "sns:GetTopicAttributes"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "ssm:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - "kinesis:*"
+            Resource: "*"

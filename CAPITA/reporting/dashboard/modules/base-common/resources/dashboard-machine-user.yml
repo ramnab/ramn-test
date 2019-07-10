@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: MI athena related resources for Common Account
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+
+Resources:
+  DashboardMachineUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub "machine-dashboard-metrics-${pDepartment}-${pEnvironmentLowerCase}"
+      Policies:
+      - PolicyName: !Sub "access_connect_metrics_${pEnvironmentLowerCase}"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: AssumeClientMetricsAccess
+            Effect: Allow
+            Action: sts:AssumeRole
+            Resource: !Sub "arn:aws:iam::*:role/CA_CONNECT_METRICS_${pEnvironment}"
+Outputs:
+  oDashboardMachineUserArn:
+    Value: !GetAtt DashboardMachineUser.Arn

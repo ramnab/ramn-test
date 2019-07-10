@@ -1,0 +1,10 @@
+region: '[region]'
+stacks:
+  stCapita-dashboard-[env]-ConnectDashboardMachineUser:
+    template-url: resources/dashboard-machine-user.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
+    

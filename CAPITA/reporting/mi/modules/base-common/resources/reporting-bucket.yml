@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA MI Common Reporting Bucket
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lower case
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+
+Resources:
+
+  CommonConnectS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "s3-capita-${pDepartment}-connect-common-${pEnvironmentLowerCase}-reporting"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration: 
+        Rules:
+          -
+            Id: agent-interval-removal
+            Prefix: agent_interval
+            Status: "Enabled"
+            ExpirationInDays: 395
+          -
+            Id: queue-interval-removal
+            Prefix: queue_interval
+            Status: "Enabled"
+            ExpirationInDays: 395
+          -
+            Id: contact-record-removal
+            Prefix: contact_record
+            Status: "Enabled"
+            ExpirationInDays: 395
+          -
+            Id: query-result-removal
+            Prefix: query-results
+            Status: "Enabled"
+            ExpirationInDays: 7
+      Tags:
+        -
+            Key: "tech:ApplicationID"
+            Value: !Sub "capita-${pDepartment}-connect"
+        -
+            Key: "tech:Environment"
+            Value: !Ref pEnvironmentLowerCase
+        -
+            Key: "tech:ApplicationRole"
+            Value: reporting
+        -
+            Key: "bus:BusinessUnit"
+            Value: !Ref pDepartment
+        -
+            Key: "sec:Compliance"
+            Value: PII
+
+Outputs:
+  oCommonReportingBucket:
+    Value: !Ref CommonConnectS3Bucket

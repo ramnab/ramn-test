@@ -1,0 +1,237 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Connect CloudTrail Solution
+
+Parameters:
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department tag, lower-case
+  pUploadTimeout:
+    Type: Number
+    Default: 30
+    Description: Number of days after which abort upload
+  pLogRetentionInDays:
+    Type: Number
+    Default: 90
+    Description: Number of days to retain logs
+  pAuditRetentionDays:
+    Type: Number
+    Default: 90
+    Description: Number of days to retain logs for auditing purposes
+
+
+Resources:
+  AccessLoggingS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: !Ref pUploadTimeout
+            Status: Enabled
+          - ExpirationInDays: !Ref pAuditRetentionDays
+            Status: Enabled
+
+  CloudTrailKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Enable Account IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+
+          - Sid: Allow CloudTrail to encrypt logs
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: kms:GenerateDataKey
+            Resource: "*"
+
+          - Sid: Allow CloudTrail to describe the key
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: kms:DescribeKey
+            Resource: "*"
+          - Sid: Allow CloudTrail update the key
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: "kms:*"
+            Resource: "*"
+
+      Tags:
+        - Key: Name
+          Value: CloudTrailKey
+        - Key: Environment
+          Value: Account
+
+  CloudTrailKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    DependsOn: CloudTrailKMSKey
+    Properties:
+      AliasName: "alias/cloudtrail-key"
+      TargetKeyId: !Ref CloudTrailKMSKey
+
+  CloudTrailS3Bucket:
+    Type: AWS::S3::Bucket
+    DependsOn: AccessLoggingS3Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingS3Bucket
+        LogFilePrefix: "CloudTrail/"
+
+      VersioningConfiguration:
+        Status: Enabled
+
+      LifecycleConfiguration:
+        Rules:
+          - AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: !Ref pUploadTimeout
+            Status: Enabled
+          - ExpirationInDays: !Ref pAuditRetentionDays
+            Status: Enabled
+
+      Tags:
+        - Key: "tech:ApplicationID"
+          Value: !Sub "capita-${pDepartment}-cloudtrail"
+        - Key: "bus:BusinessUnit"
+          Value: !Ref pDepartment
+
+
+  CloudTrailS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CloudTrailS3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AWSCloudTrailAclCheck
+            Action: "s3:GetBucketAcl"
+            Effect: Allow
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Resource: !Sub "arn:aws:s3:::${CloudTrailS3Bucket}"
+          - Sid: AWSCloudTrailWrite
+            Action: "s3:PutObject"
+            Effect: Allow
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Resource: !Sub "arn:aws:s3:::${CloudTrailS3Bucket}/AWSLogs/${AWS::AccountId}/*"
+          - Sid: AWSCloudTrailAll
+            Action: "s3:*"
+            Effect: Allow
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Resource:
+              - !Sub "arn:aws:s3:::${CloudTrailS3Bucket}"
+              - !Sub "arn:aws:s3:::${CloudTrailS3Bucket}/*"
+
+
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: !Ref pLogRetentionInDays
+
+
+  CloudWatchLogGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: cloudtrailassume1
+            Effect: Allow
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Action: "sts:AssumeRole"
+
+      Policies:
+        - PolicyName: cloudtrail-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AWSCloudTrailCreateLogStream
+                Effect: Allow
+                Action: "logs:CreateLogStream"
+                Resource: !GetAtt CloudWatchLogGroup.Arn
+              - Sid: AWSCloudTrailPutLogEvents
+                Effect: Allow
+                Action: "logs:PutLogEvents"
+                Resource: !GetAtt CloudWatchLogGroup.Arn
+
+  CloudTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: CloudTrailS3BucketPolicy
+    Properties:
+      S3BucketName: !Ref CloudTrailS3Bucket
+      CloudWatchLogsLogGroupArn: !GetAtt CloudWatchLogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt CloudWatchLogGroupRole.Arn
+      EnableLogFileValidation: true
+      IsMultiRegionTrail: true
+      IsLogging: true
+      IncludeGlobalServiceEvents: true
+      KMSKeyId: !GetAtt CloudTrailKMSKey.Arn
+
+      Tags:
+        - Key: Name
+          Value: CloudTrailTrail
+
+  CloudWatchAlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: SNS Topic for CloudWatch Alarms
+
+  SSMParameterCloudWatchAlarmTopicArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: SSM Parameter for CloudWatch SNS Alert Topic Arn
+      Name: !Sub "/CAPITA/${pDepartment}/CloudWatch/SNSAlertTopicArn"
+      Type: String
+      Value: !Ref CloudWatchAlarmSNSTopic
+
+
+Outputs:
+
+  oCloudTrailBucket:
+    Description: Name of CloudTrail logs bucket
+    Value: !Ref CloudTrailS3Bucket
+
+  oAccessLoggingBucket:
+    Description: Name of CloudTrail Access bucket logs
+    Value: !Ref AccessLoggingS3Bucket
+
+  oCloudWatchAlarmTopicArn:
+    Description: ARN of CloudWatch alert SNS
+    Value: !Ref CloudWatchAlarmSNSTopic
+

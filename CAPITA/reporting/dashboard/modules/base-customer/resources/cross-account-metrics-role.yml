@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Dashboard Cross-account role Amazon Connect
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pCommonAccountDashboardUserArn:
+    Type: String
+    Description: The Arn of the Common Account dashboard user that can assume access to the Connect Metrics role
+
+Resources:
+  ConnectMetricsAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "connect-metrics-access-${pEnvironmentLowerCase}"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Sub "ConnectMetricsApiAccess${pEnvironment}"
+            Effect: Allow
+            Action:
+              - connect:GetCurrentMetricData
+              - connect:GetMetricData
+            Resource:
+              - !Sub "arn:aws:connect:eu-central-1:${AWS::AccountId}:instance/*/queue/*"
+
+  CrossAccountConnectMetricsRole:
+     Type: AWS::IAM::Role
+     Properties:
+       AssumeRolePolicyDocument:
+         Version: "2012-10-17"
+         Statement:
+          - Sid: !Sub "AssumeClientMetricsAccess${pEnvironment}"
+            Effect: "Allow"
+            Action: sts:AssumeRole
+            Principal:
+              AWS: !Ref pCommonAccountDashboardUserArn
+
+       RoleName: !Sub "CA_CONNECT_METRICS_${pEnvironment}"
+       ManagedPolicyArns:
+        - !Ref ConnectMetricsAccessPolicy
+
+Outputs:
+  oCrossAccountConnectMetricsRoleArn:
+    Value: !GetAtt CrossAccountConnectMetricsRole.Arn

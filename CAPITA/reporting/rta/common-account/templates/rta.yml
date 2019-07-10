@@ -1,0 +1,255 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Main Capita RTA web application
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pAgentSchedule:
+    Type: String
+    Description: S3 location of the current agent schedule, e.g. s3://BUCKET/PREFIX
+  pSchedule:
+    Type: String
+    Default: cron(0/1 5-21 * * ? *)
+    Description: Cron schedule for starting the heart beats
+
+Resources:
+
+  RtaLambda:
+    Type: AWS::Serverless::Function
+    DependsOn: [RtaAgentStatusKinesisStream, RtaAlarmsDb, RtaAgentEventHistoryDb]
+    Properties:
+      FunctionName: !Sub "lmbRtaApp-${pDepartment}-${pEnvironment}"
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17' # Policy Document
+          Statement:
+            - Effect: Allow
+              Action:
+                - kinesis:GetRecords
+                - kinesis:GetShardIterator
+                - kinesis:DescribeStream
+                - kinesis:ListStreams
+              Resource: !GetAtt RtaAgentStatusKinesisStream.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource: !GetAtt RtaAlarmsDb.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource: !GetAtt RtaAgentEventHistoryDb.Arn
+      CodeUri: ../src/rta/code
+      Environment:
+        Variables:
+          ALARM_DB: !Ref RtaAlarmsDb
+          AGENT_SCHEDULE: !Ref pAgentSchedule
+          HISTORY_DB: !Ref RtaAgentEventHistoryDb
+          LOGGING_LEVEL: "20"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-rta-webapp"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "bus:BusinessUnit": !Ref pDepartment
+
+  RtaLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RtaLambda
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${RtaLambda}"
+
+  RtaAgentStatusKinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      Name: !Sub "ks-${pDepartment}-agent-events-${pEnvironmentLowerCase}"
+      ShardCount: 1
+      Tags:
+        -
+          Key: "tech:ApplicationID"
+          Value: !Sub "capita-${pDepartment}-rta-webapp"
+        -
+          Key: "tech:Environment"
+          Value: !Ref pEnvironmentLowerCase
+        -
+          Key: "bus:BusinessUnit"
+          Value: !Ref pDepartment
+
+  RtaKinesisEventsToLambda:
+    Type: AWS::Lambda::EventSourceMapping
+    DependsOn: [RtaAgentStatusKinesisStream, RtaLambda]
+    Properties:
+      BatchSize: 200
+      EventSourceArn: !GetAtt RtaAgentStatusKinesisStream.Arn    
+      FunctionName: !Ref RtaLambda
+      StartingPosition: TRIM_HORIZON
+
+  RtaLambdaKinesisPermissions:
+    Type: AWS::Lambda::Permission
+    DependsOn: [RtaAgentStatusKinesisStream]
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RtaLambda
+      Principal: kinesis.amazonaws.com
+      SourceArn: !GetAtt RtaAgentStatusKinesisStream.Arn
+
+  RtaKinesisExternalRole:
+    Type: AWS::IAM::Role
+    DependsOn: [RtaAgentStatusKinesisStream]
+    Properties:
+      RoleName: !Sub "CA_RTA_${pEnvironment}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "907290942892" # TradeUK NONPROD root
+            Action:
+              - "sts:AssumeRole"
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "443350248290" # TradeUKDev PROD root
+            Action:
+              - "sts:AssumeRole"
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "555239192020" # FirstGroup NONPROD root
+            Action:
+              - "sts:AssumeRole"
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "512953984022" # FirstGroup PROD root
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns: ["arn:aws:iam::aws:policy/AmazonKinesisAnalyticsFullAccess"]
+
+  RtaAlarmsDb:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: username
+          AttributeType: S
+        -
+          AttributeName: alarmcode
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: username
+          KeyType: "HASH"
+        -
+          AttributeName: alarmcode
+          KeyType: "RANGE"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 3
+        WriteCapacityUnits: 1
+      TableName: !Sub "rta-alarmsdb-${pDepartment}-${pEnvironmentLowerCase}"
+      TimeToLiveSpecification:
+        AttributeName: "ttl"
+        Enabled: true
+      Tags: 
+        -
+          Key: "tech:ApplicationID"
+          Value: !Sub "capita-${pDepartment}-rta-webapp"
+        -
+          Key: "tech:Environment"
+          Value: !Ref pEnvironmentLowerCase
+        -
+          Key: "bus:BusinessUnit"
+          Value: !Ref pDepartment
+
+  RtaAgentEventHistoryDb:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: username
+          AttributeType: S
+        -
+          AttributeName: prop
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: username
+          KeyType: "HASH"
+        -
+          AttributeName: prop
+          KeyType: "RANGE"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 3
+        WriteCapacityUnits: 1
+      TableName: !Sub "rta-eventhistory-${pDepartment}-${pEnvironmentLowerCase}"
+      TimeToLiveSpecification:
+        AttributeName: "ttl"
+        Enabled: true
+      Tags: 
+        -
+          Key: "tech:ApplicationID"
+          Value: !Sub "capita-${pDepartment}-rta-webapp"
+        -
+          Key: "tech:Environment"
+          Value: !Ref pEnvironmentLowerCase
+        -
+          Key: "bus:BusinessUnit"
+          Value: !Ref pDepartment
+
+  HeartBeat:
+    Type: AWS::Events::Rule
+    DependsOn: RtaLambda
+    Properties:
+      ScheduleExpression: !Ref pSchedule
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt RtaLambda.Arn
+        Id: heartbeats
+        Input: '{"EventType":"SP_HEART_BEAT"}'
+
+
+  HeartBeatsToLambdaPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - HeartBeat
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt RtaLambda.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HeartBeat.Arn
+
+
+
+Outputs:
+  oAgentEventStream:
+    Value: !Ref RtaAgentStatusKinesisStream
+  oAgentEventStreamArn:
+    Value: !GetAtt RtaAgentStatusKinesisStream.Arn
+  oRtaKinesisExternalRole:
+    Value: !GetAtt RtaKinesisExternalRole.Arn
+  oRtaAlarmsDbArn:
+    Value: !GetAtt RtaAlarmsDb.Arn
+  oRtaAlarmsDb:
+    Value: !Ref RtaAlarmsDb
+  oRtaAgentEventsDbArn:
+    Value: !GetAtt RtaAgentEventHistoryDb.Arn
+  oRtaAgentEventsDb:
+    Value: !Ref RtaAgentEventHistoryDb
+  oRtaLambdaArn:
+    Value: !GetAtt RtaLambda.Arn

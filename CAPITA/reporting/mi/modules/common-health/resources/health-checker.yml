@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CAPITA MI Health Checker
+
+Parameters:
+  pClients:
+    Type: String
+    Description: Comma delimited list of Customer/Client identifiers
+  pReportingBucket:
+    Type: String
+    Description: Name of reporting bucket to monitor
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pSchedule:
+    Type: String
+    Default: "cron(0/10 6-22 * * ? *)"
+    Description: Cron expression for health check
+
+Resources:
+  HealthCheckLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "lmbMIHealthCheck-${pDepartment}-${pEnvironment}"
+      Description: CAPITA MI Health Checker Lambda
+      Handler: lambda_handler.handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ../../../src/common-health/code/
+      Environment:
+        Variables:
+          REPORTING_BUCKET: !Ref pReportingBucket
+          CLIENTS: !Ref pClients
+          NAMESPACE: CAPITA/MI
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:List*
+                - s3:GetObject
+              Resource:
+                - !Sub "arn:aws:s3:::${pReportingBucket}"
+                - !Sub "arn:aws:s3:::${pReportingBucket}/*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: '*'
+
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "reporting"
+        "bus:BusinessUnit": !Ref pDepartment
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: HealthCheckLambda
+    Properties:
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${HealthCheckLambda}"
+
+  Schedule:
+    Type: AWS::Events::Rule
+    DependsOn: HealthCheckLambda
+    Properties:
+      ScheduleExpression: !Ref pSchedule
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt HealthCheckLambda.Arn
+        Id: healthcheck_scheduled
+        Input: '{}'
+
+  SchedulePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: Schedule
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HealthCheckLambda
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt Schedule.Arn

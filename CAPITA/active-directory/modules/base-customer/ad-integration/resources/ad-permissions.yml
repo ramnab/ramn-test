@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA Connect Active Directory Integration
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lower case
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pIdentityProviderArn:
+    Type: String
+    Description: ARN for the identity provider
+
+Resources:
+
+  ActiveDirectoryManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Allows Federated Access to Connect Instance
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: !Sub "amazon-connect-federated-access-${pEnvironmentLowerCase}"
+            Effect: Allow
+            Action:
+              - "connect:GetFederationToken"
+            Resource:
+              - "arn:aws:connect:eu-central-1:<account-id>:instance/*/user/${aws:userid}"
+
+  ActiveDirectoryRole:
+    Type: AWS::IAM::Role
+    DependsOn: ActiveDirectoryManagedPolicy
+    Properties:
+      RoleName: !Sub "amazon-connect-federation-role-${pEnvironmentLowerCase}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Federated: !Ref pIdentityProviderArn
+            Action: "sts:AssumeRoleWithSAML"
+            Condition:
+              StringEquals:
+                "SAML:aud": "https://signin.aws.amazon.com/saml"
+        Path: "/"
+        ManagedPolicyArns:
+        - Fn::GetAtt [ActiveDirectoryManagedPolicy, Arn]

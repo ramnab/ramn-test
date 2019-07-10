@@ -1,0 +1,311 @@
+{
+  "default": {
+    "BSE": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window",
+      "T2": "SCHEDULE.CODE.T1,-BSE.grace"
+    },
+    "BSL": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+BSE.grace",
+      "T2": "SCHEDULE.CODE.T2"
+    },
+    "ESE": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,-ESE.grace"
+    },
+    "ESL": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+ESL.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window"
+    },
+    "SIU": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window,-SIU.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window,+SIU.grace"
+    },
+    "SOU": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1",
+      "T2": "SCHEDULE.CODE.T2,-SOU.grace"
+    },
+    "BBE": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BBE.window",
+      "T2": "SCHEDULE.CODE.T1,-BBE.grace"
+    },
+    "EBL": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+EBL.grace",
+      "T2": "SCHEDULE.CODE.T2,+EBL.window"
+    },
+    "WOB": {
+      "grace": 5,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+WOB.grace",
+      "T2": "SCHEDULE.CODE.T2,-WOB.grace"
+    },
+    "BXE": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BXE.window",
+      "T2": "SCHEDULE.CODE.T1,-BXE.grace"
+    },
+    "EXL": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+EXL.grace",
+      "T2": "SCHEDULE.CODE.T2,+EXL.window"
+    },
+    "WOE": {
+      "grace": 5,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+WOE.grace",
+      "T2": "SCHEDULE.CODE.T2,-WOE.grace"
+    }
+  },
+  "TUK": {
+    "BSE": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window",
+      "T2": "SCHEDULE.CODE.T1,-BSE.grace"
+    },
+    "BSL": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+BSE.grace",
+      "T2": "SCHEDULE.CODE.T2"
+    },
+    "ESE": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,-ESE.grace"
+    },
+    "ESL": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+ESL.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window"
+    },
+    "SIU": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window,-SIU.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window,+SIU.grace"
+    },
+    "SOU": {
+      "grace": 5,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1",
+      "T2": "SCHEDULE.CODE.T2,-SOU.grace"
+    },
+    "BBE": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BBE.window",
+      "T2": "SCHEDULE.CODE.T1,-BBE.grace"
+    },
+    "EBL": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+EBL.grace",
+      "T2": "SCHEDULE.CODE.T2,+EBL.window"
+    },
+    "WOB": {
+      "grace": 5,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+WOB.grace",
+      "T2": "SCHEDULE.CODE.T2,-WOB.grace"
+    },
+    "BXE": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BXE.window",
+      "T2": "SCHEDULE.CODE.T1,-BXE.grace"
+    },
+    "EXL": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+EXL.grace",
+      "T2": "SCHEDULE.CODE.T2,+EXL.window"
+    },
+    "WOE": {
+      "grace": 5,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+WOE.grace",
+      "T2": "SCHEDULE.CODE.T2,-WOE.grace"
+    }
+  },
+  "FG": {
+    "BSE": {
+      "grace": 1,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window",
+      "T2": "SCHEDULE.CODE.T1,-BSE.grace"
+    },
+    "BSL": {
+      "grace": 0,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1",
+      "T2": "SCHEDULE.CODE.T2"
+    },
+    "ESE": {
+      "grace": 0,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2"
+    },
+    "ESL": {
+      "grace": 5,
+      "window": 30,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+ESL.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window"
+    },
+    "SIU": {
+      "grace": 1,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BSE.window,-SIU.grace",
+      "T2": "SCHEDULE.CODE.T2,+ESL.window,+SIU.grace"
+    },
+    "SOU": {
+      "grace": 1,
+      "codes": [
+        "WORK"
+      ],
+      "T1": "SCHEDULE.CODE.T1",
+      "T2": "SCHEDULE.CODE.T2,-SOU.grace"
+    },
+    "BBE": {
+      "grace": 1,
+      "window": 30,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BBE.window",
+      "T2": "SCHEDULE.CODE.T1,-BBE.grace"
+    },
+    "EBL": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+EBL.grace",
+      "T2": "SCHEDULE.CODE.T2,+EBL.window"
+    },
+    "WOB": {
+      "grace": 5,
+      "codes": [
+        "BREAK"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+WOB.grace",
+      "T2": "SCHEDULE.CODE.T2,-WOB.grace"
+    },
+    "BXE": {
+      "grace": 1,
+      "window": 30,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T1,-BXE.window",
+      "T2": "SCHEDULE.CODE.T1,-BXE.grace"
+    },
+    "EXL": {
+      "grace": 5,
+      "window": 15,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T2,+EXL.grace",
+      "T2": "SCHEDULE.CODE.T2,+EXL.window"
+    },
+    "WOE": {
+      "grace": 5,
+      "codes": [
+        "EXCEPTION"
+      ],
+      "T1": "SCHEDULE.CODE.T1,+WOE.grace",
+      "T2": "SCHEDULE.CODE.T2,-WOE.grace"
+    }
+  }
+}

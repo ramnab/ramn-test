@@ -1,0 +1,325 @@
+
+#-----------------------------------------------------------
+# 1. COMMON REPORTING BUCKET
+
+# in common-account - uses template reporting-bucket.yml
+cf sync -y stacks-common/<env>/deploy-reporting-bucket.stacks
+e.g. > cf sync -y stacks-common/dev/deploy-reporting-bucket.stacks
+
+NEW:  (deployed)
+cf sync -y --context transforms/config-ccm-common-dev.yml \
+   modules/base-common/common-reporting-bucket.stacks
+
+(deployed)
+cf sync -y --context transforms/config-ccm-common-test.yml \
+   modules/base-common/common-reporting-bucket.stacks
+
+
+
+2. CUSTOMER REPORTING BUCKET
+cf sync -y stacks-<client>/<env>/deploy-reporting-bucket.stacks
+e.g. > cf sync -y stacks-tradeuk/dev/deploy-reporting-bucket.stacks
+
+NEW:  (deployed)
+cf sync -y --context transforms/config-ccm-tradeuk-dev.yml \
+   modules/base-customer/customer-reporting-bucket.stacks
+
+(deployed)
+cf sync -y --context transforms/config-ccm-tradeuk-test.yml \
+   modules/base-customer/customer-reporting-bucket.stacks
+
+
+3. CUSTOMER FH MODDER lambda
+
+NEW:  (deployed)
+scripts/customer-tradeuk-ctr-modder-dev.sh
+
+(deployed)
+scripts/customer-tradeuk-ctr-modder-test.sh
+
+
+4. CUSTOMER GLUE DB
+
+NEW:  (deployed)
+cf sync -y --context transforms/config-ccm-tradeuk-dev.yml \
+   modules/base-customer/common-db.stacks
+
+(deployed)
+cf sync -y --context transforms/config-ccm-tradeuk-test.yml \
+   modules/base-customer/common-db.stacks
+
+
+
+5. CUSTOMER CTR RESOURCES
+cf sync -y stacks-<client>/<env>/deploy-ctr.stacks
+e.g. > cf sync -y stacks-tradeuk/test/deploy-ctr.stacks
+
+NEW:  (deployed)
+cf sync -y --context transforms/config-ccm-tradeuk-dev.yml \
+   modules/base-customer/ctr-resources.stacks
+
+(deployed)
+cf sync -y --context transforms/config-ccm-tradeuk-test.yml \
+   modules/base-customer/ctr-resources.stacks
+
+
+
+6. COMMON REPORT BUCKET POLICY
+cf sync -y stacks-common/<env>/deploy-bucket-policies.stacks
+e.g. > cf sync -y stacks-common/test/deploy-bucket-policies.stacks
+
+NEW:  (deployed)
+cf sync -y --context transforms/config-ccm-common-dev.yml \
+   modules/base-common/reporting-bucket-policies.stacks
+
+(deployed)
+cf sync -y --context transforms/config-ccm-common-test.yml \
+   modules/base-common/reporting-bucket-policies.stacks
+
+
+
+7. COMMON ATHENA USER / DB
+./stacks-common/<env>/deploy-athena.sh
+e.g. > ./stacks-common/test/deploy-athena.sh
+
+NEW:
+scripts/common-athena-dev.sh
+
+scripts/common-athena-test.sh
+
+
+8. COMMON ATHENA CTR TransformationTable
+???
+
+
+9. Run modder lambda
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#-----------------------------------------------------------
+# 2. CUSTOMER REPORTING SOLUTION: TEST
+
+# in customer-account:
+aws cloudformation package --region eu-central-1 --template-file templates/reporting.yml \
+                           --s3-bucket s3-capita-ccm-tradeuk-nonprod-lambdas-eu-central-1 \
+                           --output-template-file deploy-reporting.yml
+
+aws cloudformation deploy --region eu-central-1 --template-file deploy-reporting.yml \
+                          --stack-name stCapita-MI-Test-Reporting  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pClient=tradeuk \
+                                pAgentReportDestinationArn=arn:aws:s3:::s3-capita-ccm-connect-common-test-reporting \
+                                pQueueReportDestinationArn=arn:aws:s3:::s3-capita-ccm-connect-common-test-reporting \
+                                pEnvironment=TEST \
+                                pEnvironmentLowerCase=test \
+                                pDepartment=ccm \
+                                pCustomUpdateToken=1
+
+
+
+
+#-----------------------------------------------------------
+# 3. CUSTOMER CTR RESOURCES: TEST
+
+# in customer-account:
+cf sync -y deploy-test.stacks
+
+
+#-----------------------------------------------------------
+# 4. COMMON REPORTING BUCKET POLICIES: TEST
+
+# in common-account:
+cf sync -y deploy-test-2.stacks
+
+
+5. ATHENA User/DB/Table in COMMON
+
+
+
+
+
+
+
+
+
+
+
+
+#-------------------------------------------------------------------
+# MI Reporting
+# package for CAPITA CUSTOMER Account
+
+aws cloudformation package --region eu-central-1 --template-file templates/reporting.yml \
+                           --s3-bucket s3-capita-ccm-tradeuk-nonprod-lambdas-eu-central-1 \
+                           --output-template-file deploy-reporting.yml
+
+# deploy for CAPITA TEST
+aws cloudformation deploy --region eu-central-1 --template-file deploy-reporting.yml \
+                          --stack-name stCapita-MI-Test-Reporting  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pClient=tradeuk \
+                                pAgentReportDestinationArn=arn:aws:s3:::s3-capita-ccm-connect-common-test-reporting \
+                                pQueueReportDestinationArn=arn:aws:s3:::s3-capita-ccm-connect-common-test-reporting \
+                                pEnvironment=TEST \
+                                pEnvironmentLowerCase=test \
+                                pDepartment=ccm \
+                                pCustomUpdateToken=1
+
+export PIPENV_VENV_IN_PROJECT=1
+                        
+
+#--------------------------------------------------------------------
+
+from converter.code.lambda_handler import *
+import boto3
+with open('converter/tests/agent_interval_example.csv', 'r') as f:
+    c = f.read()
+entries = convert_csv_to_json(c)
+client = boto3.client('firehose', region_name='eu-central-1')
+client.put_record(DeliveryStreamName='kfh-ccm-agent-interval-dev', Record={'Data':entries[0]})
+
+
+#-----------------------------------------------------------------
+
+import boto3
+import json
+client = boto3.client('firehose', region_name='eu-central-1')
+def send(entry):
+    data = json.dumps(entry)
+    response = client.put_record(DeliveryStreamName='kfh-gc-ctr-dev',
+                                 Record={'Data': bytes(data, 'utf-8')})
+    print(response)
+
+send({"agent": "P123", "contact_count": 10})
+
+
+#---------------------------------------------------------------------
+import base64
+data = "ewogICAgIkFXU0FjY291bnRJZCI6ICI5MDcyOTA5NDI4OTIiLAogICAgIkFXU0NvbnRhY3RUcmFjZVJlY29yZEZvcm1hdFZlcnNpb24iOiAiMjAxNy0wMy0xMCIsCiAgICAiQWdlbnQiOiBudWxsLAogICAgIkFnZW50Q29ubmVjdGlvbkF0dGVtcHRzIjogMCwKICAgICJBdHRyaWJ1dGVzIjoge30sCiAgICAiQ2hhbm5lbCI6ICJWT0lDRSIsCiAgICAiQ29ubmVjdGVkVG9TeXN0ZW1UaW1lc3RhbXAiOiAiMjAxOS0wMS0zMFQxNToxMTozNVoiLAogICAgIkNvbnRhY3RJZCI6ICI0Y2RkMGQ3ZS0wOTkyLTRkNjYtOWFkMy0wZWMzM2I0NzhmYTEiLAogICAgIkN1c3RvbWVyRW5kcG9pbnQiOiB7CiAgICAgICAgIkFkZHJlc3MiOiAiKzQ0Nzc3MjcwNzkzNCIsCiAgICAgICAgIlR5cGUiOiAiVEVMRVBIT05FX05VTUJFUiIKICAgIH0sCiAgICAiRGlzY29ubmVjdFRpbWVzdGFtcCI6ICIyMDE5LTAxLTMwVDE1OjExOjM5WiIsCiAgICAiSW5pdGlhbENvbnRhY3RJZCI6IG51bGwsCiAgICAiSW5pdGlhdGlvbk1ldGhvZCI6ICJJTkJPVU5EIiwKICAgICJJbml0aWF0aW9uVGltZXN0YW1wIjogIjIwMTktMDEtMzBUMTU6MTE6MzVaIiwKICAgICJJbnN0YW5jZUFSTiI6ICJhcm46YXdzOmNvbm5lY3Q6ZXUtY2VudHJhbC0xOjkwNzI5MDk0Mjg5MjppbnN0YW5jZS83NjViZjJlMS0xNGZmLTQ0ZjAtODhkMi04MzU3YTM1MmNmNGIiLAogICAgIkxhc3RVcGRhdGVUaW1lc3RhbXAiOiAiMjAxOS0wMS0zMFQxNToxMjo0MVoiLAogICAgIk1lZGlhU3RyZWFtcyI6IFt7CiAgICAgICAgIlR5cGUiOiAiQVVESU8iCiAgICB9XSwKICAgICJOZXh0Q29udGFjdElkIjogbnVsbCwKICAgICJQcmV2aW91c0NvbnRhY3RJZCI6IG51bGwsCiAgICAiUXVldWUiOiBudWxsLAogICAgIlJlY29yZGluZyI6IG51bGwsCiAgICAiUmVjb3JkaW5ncyI6IG51bGwsCiAgICAiU3lzdGVtRW5kcG9pbnQiOiB7CiAgICAgICAgIkFkZHJlc3MiOiAiKzQ0MTQ2MjQxMzg2NyIsCiAgICAgICAgIlR5cGUiOiAiVEVMRVBIT05FX05VTUJFUiIKICAgIH0sCiAgICAiVHJhbnNmZXJDb21wbGV0ZWRUaW1lc3RhbXAiOiBudWxsLAogICAgIlRyYW5zZmVycmVkVG9FbmRwb2ludCI6IG51bGwKfQ=="
+base64.b64decode(data).decode('utf8')
+
+#----------------------------------------------------------------------
+# for agent-interval firehose
+
+{
+  "debug": true,
+  "ResourceProperties": {
+    "FirehoseName": "kfh-ccm-agent-intervals-dev",
+    "Prefix": "agent_interval/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "ErrorPrefix": "errors/agent_interval/!{firehose:error-output-type}/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "ClientId": "tradeuk",
+    "TransformationDb": "gl_dev",
+    "TransformationTable": "glt_agent_interval_dev",
+    "TransformationRole": "arn:aws:iam::561300540183:role/rl_mi_agent_interval_dev",
+    "PreProcessorArn": "arn:aws:lambda:eu-central-1:561300540183:function:lmbMiConverter-gc-DEV"
+  }
+}
+
+#------------------------------------------------------------------------------------
+# CTR in CUSTOMER ACCOUNT
+
+aws cloudformation package --region eu-central-1 --template-file templates/ctr-resources.yml \
+                           --s3-bucket s3-capita-ccm-tradeuk-nonprod-lambdas-eu-central-1 \
+                           --output-template-file deploy-ctr.yml
+
+# deploy for CAPITA DEV
+aws cloudformation deploy --region eu-central-1 --template-file deploy-ctr.yml \
+                          --stack-name stCapita-MI-Test-CTR  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pClient=tradeuk \
+                                pEnvironment=TEST \
+                                pEnvironmentLowerCase=test \
+                                pDepartment=ccm \
+                                pTransformationDb=gl_dev \
+                                pFirehoseModder=arn:aws:lambda:eu-central-1:561300540183:function:lmbMiFirehoseModder-gc-DEV \
+                                pCtrCommonDestination=s3-gchurcher-dumping-ground-eu-central-1 \
+
+                                pCustomUpdateToken=1
+
+
+#----------------------------------------------------------------------
+# for ctr firehose
+# PLAY ACC
+{
+  "debug": true,
+  "ResourceProperties": {
+    "FirehoseName": "kfh-gc-ctr-dev",
+    "Prefix": "contact_record/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "ErrorPrefix": "errors/contact_record/!{firehose:error-output-type}/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "TransformationDb": "gl_dev",
+    "TransformationTable": "glt_ctr_dev",
+    "TransformationRole": "arn:aws:iam::561300540183:role/rl_mi_ctr_dev"
+  }
+}
+
+# CUSTOMER TRADEUK ACC
+{
+  "debug": true,
+  "ResourceProperties": {
+    "FirehoseName": "kfh-ccm-ctr-test",
+    "Prefix": "contact_record/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "ErrorPrefix": "errors/contact_record/!{firehose:error-output-type}/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "TransformationDb": "gl_ccm_test",
+    "TransformationTable": "glt_ctr_test",
+    "TransformationRole": "arn:aws:iam::907290942892:role/rl_mi_ctr_test"
+  }
+}
+
+# CUSTOMER TRADEUK QUEUE INTERVAL **DEV**
+{
+  "debug": true,
+  "ResourceProperties": {
+    "FirehoseName": "kfh-ccm-qi-dev",
+    "Prefix": "queue_interval/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "ErrorPrefix": "errors/queue_interval/!{firehose:error-output-type}/clientname=tradeuk/rowdate=!{timestamp:yyyy-MM-dd}/",
+    "TransformationDb": "gl_ccm_dev",
+    "TransformationTable": "glt_queue_intervals_dev",
+    "TransformationRole": "arn:aws:iam::907290942892:role/rl_mi_queue_interval_dev"
+  }
+}
+
+#------------------------------------------------
+# ATHENA setup Common
+
+aws cloudformation package --region eu-central-1 --template-file templates/athena.yml \
+                           --s3-bucket s3-capita-ccm-dev-lambdas-eu-central-1 \
+                           --output-template-file deploy-athena.yml
+
+# deploy for CAPITA DEV
+aws cloudformation deploy --region eu-central-1 --template-file deploy-athena.yml \
+                          --stack-name stCapita-MI-Dev-Athena  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pEnvironment=DEV \
+                                pEnvironmentLowerCase=dev \
+                                pDepartment=ccm 
+
+
+aws cloudformation package --region eu-central-1 --template-file templates/athena.yml \
+                           --s3-bucket s3-capita-ccm-test-lambdas-eu-central-1 \
+                           --output-template-file deploy-athena.yml
+
+# deploy for CAPITA TEST
+aws cloudformation deploy --region eu-central-1 --template-file deploy-athena.yml \
+                          --stack-name stCapita-MI-Test-Athena  \
+                          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+                          --parameter-overrides \
+                                pEnvironment=TEST \
+                                pEnvironmentLowerCase=test \
+                                pDepartment=ccm 

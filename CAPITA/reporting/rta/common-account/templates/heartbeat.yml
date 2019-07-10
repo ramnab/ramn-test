@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Scheduled special Heart Beat for RTA
+Parameters:
+  pDepartment:
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+    Type: String
+  pEnvironment:
+    Default: DEV
+    Description: Environment label to apply to resources naming
+    Type: String
+  pEnvironmentLowerCase:
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+    Type: String
+  pSchedule:
+    Default: cron(0/1 5-21 * * ? *)
+    Description: Cron schedule for starting the heart beats
+    Type: String
+  pTargetLambdaArn:
+    Description: Arn for the target lambda
+    Type: String
+
+
+Resources:
+  HeartBeat:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: !Ref pSchedule
+      State: ENABLED
+      Targets:
+      - Arn:
+          Ref: pTargetLambdaArn
+        Id: heartbeats
+        Input: '{"EventType":"SP_HEART_BEAT"}'
+
+
+  HeartBeatsToLambdaPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - HeartBeat
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: pTargetLambdaArn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HeartBeat.Arn

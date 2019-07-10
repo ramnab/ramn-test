@@ -1,0 +1,18 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Pre-build phase
+      - pip install cfn-square
+      - echo "Role: ${ROLE}"
+      - echo "Department: ${DEPARTMENT}"
+      - echo "Client: ${CLIENT}"
+      - echo "Env: ${ENV}"
+
+  build:
+    commands:
+      - echo Build phase
+      - if [ -z "$ROLE" ] || [ -z "$DEPARTMENT" ] || [ -z "$CLIENT" ] || [ -z "$ENV" ]; then exit 1; fi
+      - ./scripts/assume_role.sh ${ROLE}
+      - ./scripts/deploy-baseline.sh ${DEPARTMENT} ${CLIENT} ${ENV}

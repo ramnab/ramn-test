@@ -1,0 +1,9 @@
+{
+  "clientName": "TradeUK",
+  "environment": "DEV",
+  "accountId": "907290942892",
+  "instanceId": "765bf2e1-14ff-44f0-88d2-8357a352cf4b",
+  "queues": {
+      "3737f766-9722-4676-ab89-a6d129401f04": "Collections"
+    }
+}

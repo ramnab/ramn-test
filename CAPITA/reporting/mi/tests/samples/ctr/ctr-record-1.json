@@ -1,0 +1,34 @@
+{
+    "AWSAccountId": "907290942892",
+    "AWSContactTraceRecordFormatVersion": "2017-03-10",
+    "Agent": null,
+    "AgentConnectionAttempts": 0,
+    "Attributes": {},
+    "Channel": "VOICE",
+    "ConnectedToSystemTimestamp": "2019-01-30T15:11:35Z",
+    "ContactId": "4cdd0d7e-0992-4d66-9ad3-0ec33b478fdd",
+    "CustomerEndpoint": {
+        "Address": "+4412345678",
+        "Type": "TELEPHONE_NUMBER"
+    },
+    "DisconnectTimestamp": "2019-01-30T15:11:39Z",
+    "InitialContactId": null,
+    "InitiationMethod": "INBOUND",
+    "InitiationTimestamp": "2019-01-30T15:11:35Z",
+    "InstanceARN": "arn:aws:connect:eu-central-1:907290942892:instance/765bf2e1-14ff-44f0-88d2-8357a352cf4b",
+    "LastUpdateTimestamp": "2019-01-30T15:12:41Z",
+    "MediaStreams": [{
+        "Type": "AUDIO"
+    }],
+    "NextContactId": null,
+    "PreviousContactId": null,
+    "Queue": null,
+    "Recording": null,
+    "Recordings": null,
+    "SystemEndpoint": {
+        "Address": "+441462413867",
+        "Type": "TELEPHONE_NUMBER"
+    },
+    "TransferCompletedTimestamp": null,
+    "TransferredToEndpoint": null
+}

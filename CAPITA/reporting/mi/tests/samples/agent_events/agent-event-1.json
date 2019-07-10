@@ -1,0 +1,141 @@
+{
+    "AWSAccountId": "443350248290",
+    "AgentARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/agent/1b50fbd1-5391-4355-b116-c7011a6b0d28",
+    "CurrentAgentSnapshot": {
+        "AgentStatus": {
+            "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/agent-state/17559a2a-abc0-41f7-834c-a15fcde2be2a",
+            "Name": "Available",
+            "StartTimestamp": "2019-06-24T08:58:34.253Z"
+        },
+        "Configuration": {
+            "AgentHierarchyGroups": null,
+            "FirstName": "Joe",
+            "LastName": "Bloggs",
+            "RoutingProfile": {
+                "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/routing-profile/6b07d3d9-2abe-4254-ac5f-108910f78ba1",
+                "DefaultOutboundQueue": {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/39e74f5b-92f2-47c1-aa8e-e6a495d81148",
+                    "Name": "Customer Services"
+                },
+                "InboundQueues": [{
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/b445d26e-7676-42c4-927d-5f58bda07425",
+                    "Name": "Revive Callbacks"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/5c83b254-3dc5-4503-9d8e-30f4f3f16ec9",
+                    "Name": "Web Portal"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/b6604043-f0c4-473e-8682-53707979105e",
+                    "Name": "CallQuality Test Queue"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/86841fd9-2515-49aa-bbec-45f19cfd0540",
+                    "Name": "Collections"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/024fba37-6731-4bd0-8528-1ec2cdb6b2f9",
+                    "Name": "Payments"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/agent/1b50fbd1-5391-4355-b116-c7011a6b0d28",
+                    "Name": null
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/a21e03a0-e8e9-4f80-a810-c78c2f1bab35",
+                    "Name": "Collections Voiceage"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/39e74f5b-92f2-47c1-aa8e-e6a495d81148",
+                    "Name": "Customer Services"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/7f4a09e1-f4e8-4ad7-963e-24b2e6ebc63d",
+                    "Name": "Payment IVR"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/8551f506-ac1d-41e8-b5f8-88dc94438be3",
+                    "Name": "New Accounts"
+                }],
+                "Name": "1. Customer Services"
+            },
+            "Username": "P12345678"
+        },
+        "Contacts": [{
+            "Channel": "VOICE",
+            "ConnectedToAgentTimestamp": null,
+            "ContactId": "29e1f3bf-c5f7-428d-a51f-a6371cf4c9a2",
+            "InitialContactId": null,
+            "InitiationMethod": "INBOUND",
+            "Queue": {
+                "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/86841fd9-2515-49aa-bbec-45f19cfd0540",
+                "Name": "Collections"
+            },
+            "QueueTimestamp": "2019-06-24T09:03:52.339Z",
+            "State": "CONNECTED",
+            "StateStartTimestamp": "2019-06-24T09:03:55.795Z"
+        }]
+    },
+    "EventId": "60291209-51f5-4f1b-bbd1-a8c43f16aaf8",
+    "EventTimestamp": "2019-06-24T09:03:55.795Z",
+    "EventType": "STATE_CHANGE",
+    "InstanceARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f",
+    "PreviousAgentSnapshot": {
+        "AgentStatus": {
+            "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/agent-state/17559a2a-abc0-41f7-834c-a15fcde2be2a",
+            "Name": "Available",
+            "StartTimestamp": "2019-06-24T08:58:34.253Z"
+        },
+        "Configuration": {
+            "AgentHierarchyGroups": null,
+            "FirstName": "Joe",
+            "LastName": "Bloggs",
+            "RoutingProfile": {
+                "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/routing-profile/6b07d3d9-2abe-4254-ac5f-108910f78ba1",
+                "DefaultOutboundQueue": {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/39e74f5b-92f2-47c1-aa8e-e6a495d81148",
+                    "Name": "Customer Services"
+                },
+                "InboundQueues": [{
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/b445d26e-7676-42c4-927d-5f58bda07425",
+                    "Name": "Revive Callbacks"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/5c83b254-3dc5-4503-9d8e-30f4f3f16ec9",
+                    "Name": "Web Portal"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/b6604043-f0c4-473e-8682-53707979105e",
+                    "Name": "CallQuality Test Queue"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/86841fd9-2515-49aa-bbec-45f19cfd0540",
+                    "Name": "Collections"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/024fba37-6731-4bd0-8528-1ec2cdb6b2f9",
+                    "Name": "Payments"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/agent/1b50fbd1-5391-4355-b116-c7011a6b0d28",
+                    "Name": null
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/a21e03a0-e8e9-4f80-a810-c78c2f1bab35",
+                    "Name": "Collections Voiceage"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/39e74f5b-92f2-47c1-aa8e-e6a495d81148",
+                    "Name": "Customer Services"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/7f4a09e1-f4e8-4ad7-963e-24b2e6ebc63d",
+                    "Name": "Payment IVR"
+                }, {
+                    "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/8551f506-ac1d-41e8-b5f8-88dc94438be3",
+                    "Name": "New Accounts"
+                }],
+                "Name": "1. Customer Services"
+            },
+            "Username": "P12345678"
+        },
+        "Contacts": [{
+            "Channel": "VOICE",
+            "ConnectedToAgentTimestamp": null,
+            "ContactId": "29e1f3bf-c5f7-428d-a51f-a6371cf4c9a2",
+            "InitialContactId": null,
+            "InitiationMethod": "INBOUND",
+            "Queue": {
+                "ARN": "arn:aws:connect:eu-central-1:443350248290:instance/0b89d1f7-ab32-48f8-9870-67be7409181f/queue/86841fd9-2515-49aa-bbec-45f19cfd0540",
+                "Name": "Collections"
+            },
+            "QueueTimestamp": "2019-06-24T09:03:52.339Z",
+            "State": "CONNECTING",
+            "StateStartTimestamp": "2019-06-24T09:03:52.518Z"
+        }]
+    },
+    "Version": "2017-10-01"
+}

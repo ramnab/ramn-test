@@ -1,0 +1,7 @@
+region: 'eu-central-1'
+stacks:
+    stCapita-Source-Code-Repo:
+        template-url: resources/codecommit-repo.yml
+        timeout: 1200
+        parameters:
+            pRepoName: 'ccm-connect-source'

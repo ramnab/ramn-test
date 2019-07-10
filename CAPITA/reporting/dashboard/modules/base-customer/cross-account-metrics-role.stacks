@@ -1,0 +1,10 @@
+region: '[region]'
+stacks:
+ stCapita-dashboard-[env]-CrossAccountMetricsRole:
+    template-url: resources/cross-account-metrics-role.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
+      pCommonAccountDashboardUserArn: '[common_account_dashboard_user]'

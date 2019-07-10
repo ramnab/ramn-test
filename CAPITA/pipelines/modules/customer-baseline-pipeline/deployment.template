@@ -1,0 +1,8 @@
+region: 'eu-central-1'
+stacks:
+    stCapita-Pipeline-Customer-Baseline:
+        template-url: resources/codebuild.yml
+        timeout: 1200
+        parameters:
+            pRepoArn: arn:aws:codecommit:eu-central-1:992061356719:ccm-connect-source
+            pRepoURL: https://git-codecommit.eu-central-1.amazonaws.com/v1/repos/ccm-connect-source

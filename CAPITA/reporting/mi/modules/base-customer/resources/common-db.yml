@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CAPITA MI Customer Account Glue Database
+
+Parameters:
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+
+
+Resources:
+  GlueDb:
+    Type: AWS::Glue::Database
+    Properties:
+      DatabaseInput:
+        Name: !Sub "gl_${pDepartment}_${pEnvironmentLowerCase}"
+      CatalogId: !Ref AWS::AccountId
+  

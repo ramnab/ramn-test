@@ -1,0 +1,12 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CAPITA MI Health Checker Alarm Topic
+
+Resources:
+  HealthcheckAlarmTopic:
+    Type: AWS::SNS::Topic
+
+Outputs:
+  oHealthcheckAlarmTopicArn:
+    Value: !Ref HealthcheckAlarmTopic
+  oHealthcheckAlarmTopic:
+    Value: !GetAtt HealthcheckAlarmTopic.TopicName

@@ -1,0 +1,8 @@
+region: '[region]'
+stacks:
+  stCapita-MI-[env]-GlueDb:
+    template-url: resources/common-db.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pEnvironmentLowerCase: '[env_lower]'

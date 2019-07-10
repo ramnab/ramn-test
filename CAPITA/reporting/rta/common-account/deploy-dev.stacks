@@ -1,0 +1,22 @@
+region: eu-central-1
+stacks:
+  stCapita-RTA-Dev-AccountSetup:
+    template-url: templates/account-setup.yml
+    timeout: 1200
+    parameters:
+      pDepartment: ccm
+      pEnvironment: DEV
+      pEnvironmentLowerCase: dev
+  stCapita-RTA-Dev-IdentityManagement:
+    template-url: templates/identity-management.yml
+    timeout: 1200
+    parameters:
+      pEnvironment: DEV
+  stCapita-RTA-Dev-CDN:
+    template-url: templates/cdn.yml
+    timeout: 24000
+    parameters:
+      pEnvironment: DEV
+      pEnvironmentLowerCase: dev
+      pDepartment: ccm
+      pCacheTimeout: 0

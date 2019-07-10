@@ -1,0 +1,92 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "CAPITA/MI", "Freshness", "ReportCategory", "QueueIntervalReports", "Client", "tradeuk", { "period": 300, "stat": "Average" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "eu-central-1",
+                "period": 300,
+                "liveData": false,
+                "yAxis": {
+                    "left": {
+                        "showUnits": false,
+                        "min": 0
+                    },
+                    "right": {
+                        "showUnits": false
+                    }
+                },
+                "annotations": {
+                    "horizontal": [
+                        {
+                            "color": "#d62728",
+                            "label": "stale reporting",
+                            "value": 45
+                        }
+                    ]
+                },
+                "legend": {
+                    "position": "hidden"
+                },
+                "title": "Queue Interval Freshness"
+            }
+        },
+        {
+            "type": "text",
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2,
+            "properties": {
+                "markdown": "\n## TRADEUK\n\nConnect interval reporting\n"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "CAPITA/MI", "Freshness", "ReportCategory", "AgentIntervalReports", "Client", "tradeuk", { "stat": "Average", "period": 300 } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "eu-central-1",
+                "period": 300,
+                "liveData": false,
+                "yAxis": {
+                    "left": {
+                        "showUnits": false,
+                        "min": 0
+                    },
+                    "right": {
+                        "showUnits": false
+                    }
+                },
+                "annotations": {
+                    "horizontal": [
+                        {
+                            "color": "#d62728",
+                            "label": "stale reporting",
+                            "value": 45
+                        }
+                    ]
+                },
+                "legend": {
+                    "position": "hidden"
+                },
+                "title": "Agent Interval Freshness"
+            }
+        }
+    ]
+}
