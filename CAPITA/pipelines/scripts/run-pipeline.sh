@@ -72,5 +72,10 @@ while ! [[ ${status} =~ 'COMPLETED' ]]; do
 done
 
 echo -e "\nPipeline completed"
+
+BUILD_STATUS=$(aws codebuild batch-get-builds --ids ${BUILDID} --query  'builds[*].phases[?phaseType==`BUILD`].{status:phaseStatus}' --output text)
+
+echo -e "\nFinal build status: ${BUILD_STATUS}"
+
 LOGS=$(aws codebuild batch-get-builds --ids ${BUILDID} --query 'builds[].logs.deepLink' --output text)
 echo "Cloudwatch logs are available at: ${LOGS}"
