@@ -16,7 +16,7 @@ function prop {
 
 
 ACCOUNTID="$(prop ${ENV}'.accountid')"
-ROLE_ARN="arn:aws:iam::${ACCOUNTID}:role/CA_TESTING"
+ROLE_ARN="arn:aws:iam::${ACCOUNTID}:role/CA_PIPELINE_DEPLOY"
 
 echo "Assuming role: ${ROLE_ARN}"
 

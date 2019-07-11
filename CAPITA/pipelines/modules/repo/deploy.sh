@@ -7,8 +7,7 @@
 # Usage:
 #   deploy.sh
 #
-
-source ../scripts/helpers.sh
+DIRECTORY=$(dirname $0)
 
 echo """
 ---------------------------------------
@@ -16,7 +15,7 @@ Creating Source Code Repository
 
 """
 
-run cf sync -y resources/code-commit-repo.yml
+cf sync -y ${DIRECTORY}/deployment.template
 
 echo """
 

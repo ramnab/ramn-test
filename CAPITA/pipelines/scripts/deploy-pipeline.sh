@@ -44,7 +44,7 @@ do_deploy() {
    eval "${1}"
 }
 
-r=".*/${PIPELINE}/deployer\.sh"
+r=".*/${PIPELINE}/deploy\.sh"
 deployer=$(find ./modules/ -type f -regex ${r})
 do_deploy ${deployer}
 

@@ -8,6 +8,13 @@ Parameters:
     Description: Source code CodeCommit repository name
 
 Resources:
+
+  RepoSNSTopic:
+    Type: AWS::SNS::Topic
+    Description: CAPITA Connect Source Code Topic
+    Properties:
+      TopicName: CAPITAConnectRepo
+
   Repo:
     Type: AWS::CodeCommit::Repository
     Description: CAPITA Connect Source Code Repository
@@ -15,12 +22,17 @@ Resources:
       RepositoryDescription: CAPITA Connect Source Code Repository
       RepositoryName: !Ref pRepoName
 
+
 Outputs:
   oRepoName:
+    Description: Repository Name
     Value: !GetAtt Repo.Name
   oRepoArn:
+    Description: Repository Arn
     Value: !GetAtt Repo.Arn
   oCloneUrlHttp:
+    Description: HTTP Url for Repository
     Value: !GetAtt Repo.CloneUrlHttp
   oCloneUrlSsh:
+    Description: SSH address for Repository
     Value: !GetAtt Repo.CloneUrlSsh
