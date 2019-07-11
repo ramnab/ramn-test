@@ -32,6 +32,11 @@ echo """
 
 """
 
+cat >> ${DIRECTORY}/../../transforms/config-deployer.yml <<EOL
+upload_timeout_days: ${UploadTimeout}
+log_retention_days: ${LogRetentionInDays}
+audit_retention_days: ${AuditRetentionDays}
+EOL
 run cf sync -y --context ${DIRECTORY}/../../transforms/config-deployer.yml ${DIRECTORY}/deployment.stacks
 
 echo """
