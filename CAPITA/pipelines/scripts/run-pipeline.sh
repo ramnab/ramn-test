@@ -46,7 +46,7 @@ echo """
 
 """
 aws codebuild --region eu-central-1 start-build --project-name ${PIPELINE} \
-              --source-version feature/cloudtrail-for-organisations \
+              --source-version master \
               --environment-variables-override name=CONFIG,value=${CONFIG},type=PLAINTEXT \
                                                name=ENV,value=${ENV},type=PLAINTEXT &> /dev/null
 
