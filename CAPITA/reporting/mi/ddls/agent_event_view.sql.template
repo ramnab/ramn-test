@@ -31,4 +31,4 @@ SELECT
 , "json_extract_scalar"("previousagentsnapshot", '$.configuration.routingprofile.name') "previousagentsnapshotconfigurationroutingprofilename"
 , "json_extract_scalar"("previousagentsnapshot", '$.configuration.username') "previousagentsnapshotconfigurationusername"
 FROM
-  ccm_connect_reporting_test.agent_events
+  ccm_connect_reporting_[env].agent_events

@@ -50,7 +50,7 @@ For example:
 
 def load_query(view_name, env):
     dll_path = Path(os.path.dirname(os.path.realpath(__file__))) / '../ddls/'
-    dll_file = dll_path / f'{view_name}_view.sql'
+    dll_file = dll_path / f'{view_name}_view.sql.template'
     if dll_file.is_file():
         with open(dll_file, 'r') as f:
             return f.read().replace('[env]', env)

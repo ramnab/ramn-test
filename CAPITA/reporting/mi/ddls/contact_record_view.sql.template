@@ -41,4 +41,4 @@ SELECT
 , "date_format"("transfercompletedtimestamp" AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') "transfercompletedtimestamp"
 , "transferredtoendpoint"
 FROM
-  ccm_connect_reporting_test.contact_record
+  ccm_connect_reporting_[env].contact_record

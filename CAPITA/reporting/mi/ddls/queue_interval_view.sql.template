@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW queue_daily_view AS
+CREATE OR REPLACE VIEW queue_interval_view AS
 SELECT
   "rowdate",
   "clientname",
@@ -83,4 +83,4 @@ SELECT
   "averageoutboundagentinteractiontime",
   "averageoutboundaftercontactworktime"
 FROM
-  ccm_connect_reporting_test.queue_daily
+  ccm_connect_reporting_[env].queue_interval
