@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW agent_event_view_local AS
+CREATE OR REPLACE VIEW agent_event_view AS
 SELECT
   "rowdate"
 , "clientname"
@@ -6,7 +6,7 @@ SELECT
 , "agentarn"
 , "json_extract_scalar"("currentagentsnapshot", '$.agentstatus.arn') "currentagentsnapshotagentstatusarn"
 , "json_extract_scalar"("currentagentsnapshot", '$.agentstatus.name') "currentagentsnapshotagentstatusname"
-, "date_format"("from_iso8601_timestamp"("json_extract_scalar"("currentagentsnapshot", '$.agentstatus.starttimestamp')) AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') "currentagentsnapshotagentstatusstarttimestamp"
+, CAST("date_format"("from_iso8601_timestamp"("json_extract_scalar"("currentagentsnapshot", '$.agentstatus.starttimestamp')) AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') as timestamp) "currentagentsnapshotagentstatusstarttimestamp"
 , "json_extract_scalar"("currentagentsnapshot", '$.configuration.agenthierarchygroups') "currentagentsnapshotconfigurationagenthierarchygroups"
 , "json_extract_scalar"("currentagentsnapshot", '$.configuration.firstname') "currentagentsnapshotconfigurationfirstname"
 , "json_extract_scalar"("currentagentsnapshot", '$.configuration.lastname') "currentagentsnapshotconfigurationlastname"
@@ -16,12 +16,12 @@ SELECT
 , "json_extract_scalar"("currentagentsnapshot", '$.configuration.routingprofile.name') "currentagentsnapshotconfigurationroutingprofilename"
 , "json_extract_scalar"("currentagentsnapshot", '$.configuration.username') "currentagentsnapshotconfigurationusername"
 , "eventid"
-, "date_format"("eventtimestamp" AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') "eventtimestamp"
+, CAST("date_format"("eventtimestamp" AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') as timestamp) "eventtimestamp"
 , "eventtype"
 , "instancearn"
 , "json_extract_scalar"("previousagentsnapshot", '$.agentstatus.arn') "previousagentsnapshotagentstatusarn"
 , "json_extract_scalar"("previousagentsnapshot", '$.agentstatus.name') "previousagentsnapshotagentstatusname"
-, "date_format"("from_iso8601_timestamp"("json_extract_scalar"("previousagentsnapshot", '$.agentstatus.starttimestamp')) AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') "previousagentsnapshotagentstatusstarttimestamp"
+, CAST("date_format"("from_iso8601_timestamp"("json_extract_scalar"("previousagentsnapshot", '$.agentstatus.starttimestamp')) AT TIME ZONE 'Europe/London', '%Y-%m-%d %H:%i:%S') as timestamp) "previousagentsnapshotagentstatusstarttimestamp"
 , "json_extract_scalar"("previousagentsnapshot", '$.configuration.agenthierarchygroups') "previousagentsnapshotconfigurationagenthierarchygroups"
 , "json_extract_scalar"("previousagentsnapshot", '$.configuration.firstname') "previousagentsnapshotconfigurationfirstname"
 , "json_extract_scalar"("previousagentsnapshot", '$.configuration.lastname') "previousagentsnapshotconfigurationlastname"

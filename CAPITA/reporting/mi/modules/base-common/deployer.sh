@@ -81,7 +81,7 @@ aws cloudformation deploy --region ${REGION} --template-file deploy-partitioner.
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_LOWER} \
                                 pDepartment=${DEPT} \
-                                pClients=tradeuk \
+                                pClients=tradeuk,gassafe \
                                 pGlueDb=ccm_connect_reporting_${ENV_LOWER} \
                                 pTables=agent_interval,contact_record,queue_interval,agent_daily,queue_daily,agent_events \
                                 pCommonReportingBucket=${REPORTING_BUCKET}
