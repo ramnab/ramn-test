@@ -42,60 +42,7 @@ Resources:
         - Key: bus:ClientName
           Value: !Ref pClient
 
-#  AgentEventsFirehose:
-#    Type: AWS::KinesisFirehose::DeliveryStream
-#    Properties:
-#      DeliveryStreamName: !Sub "kfh-${pDepartment}-agent-events-${pEnvironmentLowerCase}"
-#      DeliveryStreamType: KinesisStreamAsSource
-#      KinesisStreamSourceConfiguration:
-#        KinesisStreamARN: !GetAtt AgentEventsKinesisStream.Arn
-#        RoleARN: !GetAtt AgentEventsFirehoseIAMRole.Arn
-#      ExtendedS3DestinationConfiguration:
-#        BucketARN: !Ref pCustomerReportBucket
-#        BufferingHints:
-#          IntervalInSeconds: 300
-#          SizeInMBs: 128
-#        CompressionFormat: UNCOMPRESSED
-#        Prefix: "raw-agentevents/"
-#        RoleARN: !GetAtt AgentEventsFirehoseIAMRole.Arn
-#
-#
-#  AgentEventsFirehoseIAMRole:
-#    Type: AWS::IAM::Role
-#    Properties:
-#      RoleName: !Sub "rl_agent_events_${pEnvironmentLowerCase}"
-#      AssumeRolePolicyDocument:
-#        Version: "2012-10-17"
-#        Statement:
-#          - Effect: "Allow"
-#            Action: "sts:AssumeRole"
-#            Principal:
-#              "Service": "firehose.amazonaws.com"
-#      Policies:
-#        - PolicyName: !Sub "access_reporting_bucket_only_agent_events_${pEnvironmentLowerCase}"
-#          PolicyDocument:
-#            Version: '2012-10-17'
-#            Statement:
-#              - Action:
-#                  - "kinesis:*"
-#                Effect: Allow
-#                Resource: !GetAtt AgentEventsKinesisStream.Arn
-#              - Action:
-#                  - s3:AbortMultipartUpload
-#                  - s3:GetBucketLocation
-#                  - s3:GetObject
-#                  - s3:ListBucket
-#                  - s3:ListBucketMultipartUploads
-#                  - s3:PutObject
-#                  - s3:PutObjectAcl
-#                Resource:
-#                  - !Sub "${pCustomerReportBucket}"
-#                  - !Sub "${pCustomerReportBucket}/*"
-#                Effect: Allow
-#                Sid: agentintervalreportfirehoses
 
 Outputs:
-#  oAgentEventsFirehose:
-#    Value: !Ref AgentEventsFirehose
   oAgentEventsStream:
     Value: !Ref AgentEventsKinesisStream
