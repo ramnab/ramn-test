@@ -45,3 +45,12 @@ Resources:
           Resource:
             - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
             - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        - Effect: Allow
+          Principal:
+            # GasSafe MI Role
+            AWS: "arn:aws:iam::289601121201:role/CA_MI_PROD"
+          Action:
+            - s3:*
+          Resource:
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"

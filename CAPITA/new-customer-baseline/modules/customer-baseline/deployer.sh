@@ -20,17 +20,13 @@ echo """
         Deploying:
             - Lambda Distribution Bucket
             - Customer Reporting Bucket
-            - Agent Event Stream + Firehose
+            - Agent Event Stream
 
 """
 
 run cf sync -y --context ${DIRECTORY}/../../transforms/config-deployer.yml ${DIRECTORY}/deployment.stacks
 
-#echo "Tagging Agent Event Firehose..."
-#python ${DIRECTORY}/../../scripts/tag-firehose.py -r ${REGION} -f kfh-${DEPT}-agent-events-${ENV_LOWER} \
-#                    -t sec:Compliance:PII bus:BusinessUnit:${DEPT} bus:ClientName:${CLIENT} \
-#                       tech:Environment:${ENV_LOWER} tech:ApplicationID:capita-${DEPT}-connect \
-#                       tech:ApplicationRole:reporting
+
 echo """
 
               customer baseline: complete
