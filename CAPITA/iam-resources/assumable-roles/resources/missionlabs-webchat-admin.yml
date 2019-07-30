@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a role in the target account which can be assumed from the credentials account (620730210164) to provide administrator level access"
+Resources:
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: "SmartAgentRemote"
+      Policies:
+        - PolicyName: "AssumableAdmin"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: '*'
+                Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              #  980434226980 is a MissionLabs account in their own AWS environment.
+              AWS:
+                - 'arn:aws:iam::980434226980:root'
+            Action:
+              - 'sts:AssumeRole'
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': "true"
