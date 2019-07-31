@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "A policy that allows users to enable and manage their MFA devices along with some other basic self-management ability"
+Resources:
+  RequireMFAPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: "EnableMFA"
+      Description: "Allows access to enable MFA and some other self-management functions"
+      Groups:
+        - "MFAUsers"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "AllowViewAccountInfo"
+            Effect: "Allow"
+            Action:
+              - "iam:GetAccountPasswordPolicy"
+              - "iam:GetAccountSummary"
+              - "iam:ListVirtualMFADevices"
+            Resource: "*"
+          - Sid: "AllowManageOwnPassword"
+            Effect: "Allow"
+            Action:
+              - "iam:ChangePassword"
+              - "iam:GetUser"
+            Resource: "arn:aws:iam::*:user/${aws:username}"
+          - Sid: "AllowManageOwnMFADevice"
+            Effect: "Allow"
+            Action:
+              - "iam:CreateVirtualMFADevice"
+              - "iam:DeleteVirtualMFADevice"
+              - "iam:DeactivateMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:ListMFADevices"
+              - "iam:ResyncMFADevice"
