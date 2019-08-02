@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "A policy that allows users to enable and manage their MFA devices along with some other basic self-management ability"
+Description: >-
+  A policy that allows users to enable and manage their MFA devices along with
+  some other basic self-management ability
 Resources:
   RequireMFAPolicy:
-    Type: "AWS::IAM::ManagedPolicy"
+    Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: "EnableMFA"
-      Description: "Allows access to enable MFA and some other self-management functions"
       Groups:
         - "MFAUsers"
       PolicyDocument:
@@ -14,22 +14,63 @@ Resources:
           - Sid: "AllowViewAccountInfo"
             Effect: "Allow"
             Action:
-              - "iam:GetAccountPasswordPolicy"
-              - "iam:GetAccountSummary"
-              - "iam:ListVirtualMFADevices"
-            Resource: "*"
-          - Sid: "AllowManageOwnPassword"
+              - 'iam:GetAccountPasswordPolicy'
+              - 'iam:GetAccountSummary'
+              - 'iam:ListVirtualMFADevices'
+            Resource: '*'
+          - Sid: "AllowManageOwnPasswords"
             Effect: "Allow"
             Action:
-              - "iam:ChangePassword"
-              - "iam:GetUser"
-            Resource: "arn:aws:iam::*:user/${aws:username}"
-          - Sid: "AllowManageOwnMFADevice"
+              - 'iam:ChangePassword'
+              - 'iam:GetUser'
+            Resource: 'arn:aws:iam::*:user/${aws:username}'
+          - Sid: "AllowManageOwnAccessKeys"
             Effect: "Allow"
             Action:
-              - "iam:CreateVirtualMFADevice"
-              - "iam:DeleteVirtualMFADevice"
-              - "iam:DeactivateMFADevice"
-              - "iam:EnableMFADevice"
-              - "iam:ListMFADevices"
-              - "iam:ResyncMFADevice"
+              - 'iam:CreateAccessKey'
+              - 'iam:DeleteAccessKey'
+              - 'iam:ListAccessKeys'
+              - 'iam:UpdateAccessKey'
+            Resource: 'arn:aws:iam::*:user/${aws:username}'
+          - Sid: "AllowManageOwnSigningCertificates"
+            Effect: "Allow"
+            Action:
+              - 'iam:DeleteSigningCertificate'
+              - 'iam:ListSigningCertificates'
+              - 'iam:UpdateSigningCertificate'
+              - 'iam:UploadSigningCertificate'
+            Resource: 'arn:aws:iam::*:user/${aws:username}'
+          - Sid: "AllowManageOwnSSHPublicKeys"
+            Effect: "Allow"
+            Action:
+              - 'iam:DeleteSSHPublicKey'
+              - 'iam:GetSSHPublicKey'
+              - 'iam:ListSSHPublicKeys'
+              - 'iam:UpdateSSHPublicKey'
+              - 'iam:UploadSSHPublicKey'
+            Resource: 'arn:aws:iam::*:user/${aws:username}'
+          - Sid: "AllowManageOwnGitCredentials"
+            Effect: "Allow"
+            Action:
+              - 'iam:CreateServiceSpecificCredential'
+              - 'iam:DeleteServiceSpecificCredential'
+              - 'iam:ListServiceSpecificCredentials'
+              - 'iam:ResetServiceSpecificCredential'
+              - 'iam:UpdateServiceSpecificCredential'
+            Resource: 'arn:aws:iam::*:user/${aws:username}'
+          - Sid: "AllowManageOwnVirtualMFADevice"
+            Effect: "Allow"
+            Action:
+              - 'iam:CreateVirtualMFADevice'
+              - 'iam:DeleteVirtualMFADevice'
+            Resource: 'arn:aws:iam::*:mfa/${aws:username}'
+          - Sid: "AllowManageOwnUserMFA"
+            Effect: "Allow"
+            Action:
+              - 'iam:DeactivateMFADevice'
+              - 'iam:EnableMFADevice'
+              - 'iam:ListMFADevices'
+              - 'iam:ResyncMFADevice'
+            Resource: 'arn:aws:iam::*:user/${aws:username}'
+      ManagedPolicyName: "EnableMFA"
+      Description: "Allows access to enable MFA and some other self-management functions"
