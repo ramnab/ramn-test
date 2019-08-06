@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a role that can be used to create read-only access to AWS Connect and related services"
+Resources:
+    IAMRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: "Connect_ReadOnly"
+        Policies:
+          - PolicyName: "Connect_ReadOnly"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                # Provide Get, List, and Describe access to Connect and Connect related services
+                - Effect: "Allow"
+                  Action:
+                    - "athena:Get*"
+                    - "athena:List*"
+                    - "athena:Describe*"
+                    - "cloudformation:Get*"
+                    - "cloudformation:List*"
+                    - "cloudformation:Describe*"
+                    - "connect:Get*"
+                    - "connect:List*"
+                    - "connect:Describe*"
+                    - "ds:DescribeDirectories"
+                    - "dynamodb:Get*"
+                    - "dynamodb:List*"
+                    - "dynamodb:Describe*"
+                    - "firehose:Get*"
+                    - "firehose:List*"
+                    - "firehose:Describe*"
+                    - "kinesis:Get*"
+                    - "kinesis:List*"
+                    - "kinesis:Describe*"
+                    - "kinesisanalytics:Get*"
+                    - "kinesisanalytics:List*"
+                    - "kinesisanalytics:Describe*"
+                    - "lambda:Get*"
+                    - "lambda:List*"
+                    - "lambda:Describe*"
+                    - "s3:Get*"
+                    - "s3:List*"
+                    - "s3:Describe*"
+                    - "glue:Get*"
+                    - "glue:List*"
+                    - "glue:Describe*"
+                  Resource: "*"
+                - Effect: "Deny"
+                  Action:
+                  - "s3:GetObject"
+                  - "connect:GetFederation*"
+                  Resource: "*"
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal:
+                # 620730210164 is the CCM credentials account
+                AWS:
+                  - 'arn:aws:iam::620730210164:root'
+              Action:
+                - 'sts:AssumeRole'
+              Condition:
+                BoolIfExists:
+                  'aws:MultiFactorAuthPresent': "true"
+
