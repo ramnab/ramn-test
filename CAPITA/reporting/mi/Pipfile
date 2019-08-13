@@ -9,6 +9,7 @@ verify_ssl = true
 boto3 = "*"
 pytest = "*"
 pytest-mock = "*"
+cfn-square = "*"
 pyyaml = "==3.13"
 progress = "*"
 

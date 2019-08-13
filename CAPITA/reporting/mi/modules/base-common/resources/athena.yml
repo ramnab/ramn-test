@@ -60,6 +60,10 @@ Resources:
             Resource:
             - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-common-${pEnvironmentLowerCase}-reporting"
             - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-connect-common-${pEnvironmentLowerCase}-reporting/*"
+            - "arn:aws:s3:::timebands"
+            - "arn:aws:s3:::timebands/*"
+            - "arn:aws:s3:::timebandits"
+            - "arn:aws:s3:::timebandits/*"
       ManagedPolicyArns: 
       - "arn:aws:iam::aws:policy/service-role/AWSQuicksightAthenaAccess"
 
