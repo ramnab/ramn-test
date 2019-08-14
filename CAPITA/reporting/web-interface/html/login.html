@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>Amazon Connect Variables</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.3.1/css/all.css">
+	<link rel="stylesheet" type="text/css" href="css/styles.css">
+
+	<!--Cognito JavaScript-->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.388.0/aws-sdk.js"></script>
+	<script src="js/aws-cognito-sdk.min.js"></script>
+	<script src="js/amazon-cognito-auth.min.js"></script>
+	<script src="js/amazon-cognito-identity.min.js"></script>
+	<script src="js/config.js"></script>
+	<!--/Cognito JavaScript-->
+
+	<script>
+	</script>
+</head>
+
+<body>
+	<!-- login component -->
+	<div id="signin" class="container d-block">
+		<div class="col text-left" style="padding-top: 1%">
+			<img src="img/capita.png" style="height:30px">
+		</div>
+		<div class="d-flex justify-content-center h-100" style="margin-top: -40px">
+			<div class="card">
+				<div class="card-header">
+					<h3 class="text-center">Sign In</h3>
+				</div>
+				<div class="card-body">
+					<form onsubmit="signInToApp()">
+						<br>
+						<div class="input-group form-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-user"></i></span>
+							</div>
+							<input type="text" class="form-control" id="usr" placeholder="Username" required autofocus>
+
+						</div>
+
+						<div class="input-group form-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-key"></i></span>
+							</div>
+							<input type="password" class="form-control" placeholder="Password" id="pwd" name="password"
+								required>
+						</div>
+						<span id="invalidUser" class="text-white"></span>
+						<br>
+
+						<div class="form-group text-center">
+							<button id="signInBtn" type="submit" class="btn btn-warning">Sign In</button>
+						</div>
+					</form>
+				</div>
+				<div class="card-footer">
+					<div class="d-flex justify-content-center">
+						<u><a href="#" onclick="showforgotPass()">Forgot your password?</a></u>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- /login component -->
+
+	<!-- set new password component -->
+	<div id="newPassReq" class="container d-none">
+		<div class="col text-left" style="padding-top: 1%">
+			<img src="img/capita.png" style="height:30px">
+		</div>
+		<div class="d-flex justify-content-center h-100 d-block" style="margin-top: -40px">
+			<div class="card">
+				<div class="card-body">
+					<form onsubmit="signInToApp()">
+						<h5 class="text-center">Please change your password</h5>
+						<label for="newPassusr" class="font-weight-bold">Username:</label>
+						<div class="input-group form-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-user"></i></span>
+							</div>
+							<input type="text" class="form-control" id="newpassusr" name="newpassusername" required
+								readonly>
+						</div>
+
+						<label for="newpwd" class="font-weight-bold">New password:</label>
+						<div class="input-group form-group">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fas fa-key"></i></span>
+							</div>
+							<input type="password" class="form-control" id="newpwd" name="newpass" required autofocus>
+						</div>
+						<span id="invalidNewPw" class="text-white"></span>
+						<div class="form-group">
+							<button type="submit" class="btn btn-warning">Change Password</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- /set new password component -->
+
+	<!-- forgot password component -->
+	<div id="forgotPass" class="container d-none">
+		<div class="col text-left" style="padding-top: 1%">
+			<img src="img/capita.png" style="height:30px">
+		</div>
+		<div class="d-flex justify-content-center h-100 d-block" style="margin-top: -40px">
+			<div class="card">
+				<div class="card-body">
+					<form onsubmit="forgotPasswordFlow()">
+						<div id="sendCode" class="d-none">
+							<label for="emailID" class="font-weight-bold">Please enter your email address:</label>
+							<div class="input-group form-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text"><i class="fas fa-id-badge"></i></span>
+								</div>
+								<input type="text" class="form-control" id="emailID" name="emailid" required autofocus>
+							</div>
+							<span id="incorrectData" class="text-white"></span>
+							<div id="verificationBtns" class="form-group">
+								<button type="submit" class="btn btn-warning" id="sendVerificationCode">Send me a
+									verification code</button>
+								<button type="button" class="btn btn-warning" id="cancelForgotPW"
+									onclick="cancelChangePassword()">Cancel</button>
+							</div>
+						</div>
+					</form>
+					<form onsubmit="changePassword()">
+						<div id="changePass" class="d-none">
+							<label for="verificationCode" class="font-weight-bold">Verification Code:</label>
+							<div class="input-group form-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text"><i class="fas fa-user-check"></i></span>
+								</div>
+								<input type="text" class="form-control " id="verificationCode" name="verificationcode"
+									required>
+							</div>
+
+							<label for="fnewpwd" class="font-weight-bold">New password:</label>
+							<div class="input-group form-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text"><i class="fas fa-key"></i></span>
+								</div>
+								<input type="password" class="form-control" id="fnewpwd" name="fnewpass" required>
+							</div>
+
+							<div class="form-group">
+								<button type="submit" class="btn btn-warning" id="changePassBtn">Change
+									Password</button>
+								<button type="button" class="btn btn-warning" id="cancelChangePass"
+									onclick="cancelChangePassword()">Cancel</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- </div> -->
+	<!-- /forgot password component -->
+
+
+	<script>
+		var pwPolicy = "Your password needs to be at least 8 characters and contain lower and upper case and at least 1 symbol and 1 number";
+
+		var poolData = {
+			UserPoolId: _config.cognito.userPoolId,
+			ClientId: _config.cognito.userPoolClientId,
+		};
+
+		var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+		function signInToApp() {
+			event.preventDefault();
+			var authenticationData = {
+				Username: document.getElementById("usr").value,
+				Password: document.getElementById("pwd").value,
+			};
+
+			var authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails(authenticationData);
+
+			var userData = {
+				Username: document.getElementById("usr").value,
+				Pool: userPool,
+			};
+
+			var cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+			console.log("Trying to log in")
+
+			cognitoUser.authenticateUser(authenticationDetails, {
+				onSuccess: function (result) {
+
+					var accessToken = result.getAccessToken().getJwtToken();
+					//console.log(accessToken);
+					document.location.href = "index.html";
+
+				},
+				onFailure: function (err) {
+					console.log("User is unable to log in:", err);
+					document.getElementById("invalidUser").innerHTML = "Invalid Username or Password";
+					if (err.code == "InvalidPasswordException") {
+						document.getElementById("invalidNewPw").innerHTML = pwPolicy;
+					}
+				},
+				newPasswordRequired: function (userAttrs, reqAttrs) {
+					console.log("User logging in for the first time, need password change");
+					$('#signin').removeClass('d-block').addClass('d-none');
+					$('#newPassReq').removeClass('d-none').addClass('d-block');
+					document.getElementById('newpassusr').value = $('#usr').val();
+
+					var newPwd = $('#newpwd').val();
+					delete userAttrs.email_verified;
+					cognitoUser.completeNewPasswordChallenge(newPwd, userAttrs, this);
+				}
+			});
+		}
+
+		function showforgotPass() {
+			$('#signin').removeClass('d-block').addClass('d-none');
+			$('#forgotPass').removeClass('d-none').addClass('d-block');
+			$('#sendCode').removeClass('d-none').addClass('d-block');
+		}
+
+		function cancelChangePassword() {
+			location.reload();
+		}
+
+		function forgotPasswordFlow() {
+			event.preventDefault();
+			var usrEmail = document.getElementById("emailID").value.toLowerCase();
+			if (usrEmail) {
+				congitoFPUser = createCognitoUser(usrEmail);
+				congitoFPUser.forgotPassword({
+					onSuccess: function (result) {
+						console.log('call result: ' + result);
+					},
+					onFailure: function (err) {
+						console.log(err);
+						if (err.code == "UserNotFoundException") {
+							document.getElementById("incorrectData").innerHTML = err.message;
+						}
+						if (err.code == "LimitExceededException") {
+							document.getElementById("incorrectData").innerHTML = err.message;
+						}
+						else {
+							document.getElementById("incorrectData").innerHTML = "Invalid email address";
+						}
+						$('#changePass').removeClass('d-block').addClass('d-none');
+					},
+					inputVerificationCode: function (data) {
+						console.log("Verification code has been sent to " + usrEmail);
+						document.getElementById("incorrectData").innerHTML = "A verification code has been sent to " + usrEmail;
+						$('#verificationBtns').addClass('d-none');
+						$('#changePass').removeClass('d-none').addClass('d-block');
+					}
+
+				})
+			}
+		}
+
+		function changePassword() {
+			event.preventDefault();
+			var usrEmail = document.getElementById("emailID").value.toLowerCase();
+			congitoFPUser = createCognitoUser(usrEmail);
+
+			var ConfirmationCode = document.getElementById("verificationCode").value;
+			var newPass = document.getElementById("fnewpwd").value;
+
+			congitoFPUser.confirmPassword(ConfirmationCode, newPass, {
+				onSuccess: function (data) {
+					console.log("Password updated");
+					alert("Your password has been changed");
+					document.location.href = "login.html";
+				},
+				onFailure: function (err) {
+					console.log(err);
+
+					if (err.code == "ExpiredCodeException") {
+						document.getElementById("incorrectData").innerHTML = "Verification code has expired";
+
+					} else if (err.code == "CodeMismatchException") {
+						document.getElementById("incorrectData").innerHTML = "Verification code is incorrect";
+
+					}
+					else {
+						document.getElementById("incorrectData").innerHTML = pwPolicy;
+					}
+				}
+			})
+		}
+		function createCognitoUser(userEmail) {
+			return new AmazonCognitoIdentity.CognitoUser({
+				Username: userEmail,
+				Pool: userPool
+			});
+		}
+		
+	</script>
+</body>
+
+</html>
