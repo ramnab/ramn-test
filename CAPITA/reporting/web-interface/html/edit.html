@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>Connect Variables - Edit</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+	<script src="js/config.js"></script>
+
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+	<link rel="stylesheet" type="text/css" href="css/styles.css">
+
+	<!--Cognito JavaScript-->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.388.0/aws-sdk.js"></script>
+	<script src="js/aws-cognito-sdk.min.js"></script>
+	<script src="js/amazon-cognito-auth.min.js"></script>
+	<script src="js/amazon-cognito-identity.min.js"></script>
+	<script src="js/config.js"></script>
+	<!--/Cognito JavaScript-->
+
+	<script type="text/javascript">
+		var data = {
+			UserPoolId: _config.cognito.userPoolId,
+			ClientId: _config.cognito.userPoolClientId
+		};
+		var userPool = new AmazonCognitoIdentity.CognitoUserPool(data);
+		var cognitoUser = userPool.getCurrentUser();
+		window.onload = function () {
+			if (!cognitoUser) {
+				console.log("User not logged in");
+				alert("You are not logged in, please login");
+				document.location.href = "login.html";
+			}
+
+		}
+		document.addEventListener('DOMContentLoaded', function () {
+
+
+			let variableData = document.location.search.replace(/^.*?\=/, '');
+			let fields = variableData.split('-')
+			let varName = fields[0];
+			let varVal = fields[1];
+
+			$('input[name="variablename"]').val(varName);
+			$('#varVal').val(varVal);
+
+		});
+
+		function updateVars() {
+			event.preventDefault();
+			let api = window._config.api.invokeUrl;
+			if (cognitoUser != null) {
+				var name1 = $('#varName').val();
+				var val1 = $('#varVal').val();
+
+				cognitoUser.getSession(function (err, session) {
+					if (err) {
+						console.log("There has been an error: ", err);
+						document.location.href = "login.html";						
+					}
+					else {
+						console.log('session validity: ' + session.isValid());
+
+						$.ajax({
+							type: 'POST',
+							beforeSend: function (request) {
+								request.setRequestHeader("Authorization", session.getIdToken().getJwtToken());
+							},
+							url: api,
+							data: JSON.stringify({ variableName: name1, variableValue: val1 }),
+							contentType: 'application/json',
+							dataType: 'json',
+
+							success: function (data) {
+								alert("The Amazon Connect Variable " + name1 + " has been updated successfully");
+								document.location.href = "index.html";
+							},
+
+							error: function (err) {
+								alert("There is an error updating the Amazon Connect variable");
+							}
+						});
+					}
+				});
+			}
+			if (!cognitoUser) {
+				console.log("User not logged in");
+				alert("User not logged in, please login");
+				document.location.href = "login.html";
+			}
+		}
+
+		function cancelChange() {
+			document.location.href = "index.html";
+		}
+
+	</script>
+</head>
+
+<body>
+	<div class="container-fluid">
+		<div class="row" style="margin-top: 2%">
+			<div class="col text-left">
+				<img src="img/capita.png" style="height:30px">
+			</div>
+			<div class="col text-center text-info">
+				<h2>Amazon Connect</h2>
+				<h3>Variables Dashboard</h3>
+			</div>
+			<div class="col text-right"></div>
+		</div>
+
+		<div style="margin-left: 3%">
+			<form style="margin-top: 3%">
+				<div class="form-group row">
+					<label for="varName" class="col-form-label col-sm-2">Variable Name:</label>
+					<div class="col-sm-3">
+						<input type="text" class="form-control" id="varName" name="variablename" readonly>
+					</div>
+				</div>
+
+				<div class="form-group row">
+					<label for="sel1" class="col-form-label col-sm-2">Variable Status:</label>
+					<div class="col-sm-3">
+						<select class="form-control" id="varVal" name="sellist1">
+							<option value="true">true</option>
+							<option value="false">false</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="form-group row">
+					<label for="formButtons" class="col-form-label"></label>
+					<div class="col-sm-5">
+						<button id="btn1" class="btn btn-primary" onclick="updateVars()">Submit</button>
+						<button type="button" class="btn btn-primary float-right" id="cancelForgotPW"
+							onclick="cancelChange()">Cancel</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+</body>
+
+</html>
