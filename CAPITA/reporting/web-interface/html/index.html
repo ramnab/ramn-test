@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Amazon Connect Variables</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.3.1/css/all.css">
+    <link rel="stylesheet" type="text/css" href="css/styles.css">
+
+    <!--Cognito JavaScript-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.388.0/aws-sdk.js"></script>
+    <script src="js/aws-cognito-sdk.min.js"></script>
+    <script src="js/amazon-cognito-auth.min.js"></script>
+    <script src="js/amazon-cognito-identity.min.js"></script>
+    <script src="js/config.js"></script>
+    <!--/Cognito JavaScript-->
+
+
+    <script type="text/javascript">
+    </script>
+</head>
+
+<body>
+    <!-- Connect Variables component -->
+    <div id="home" class="container-fluid d-block">
+        <div class="row" style="margin-top: 2%">
+            <div class="col text-left">
+                <img src="img/capita.png" style="height:30px">
+            </div>
+
+            <div class="col text-center text-info">
+                <h2>Amazon Connect</h2>
+                <h3>Variables Dashboard</h3>
+            </div>
+
+            <div class="col text-right dropdown float-right">
+                <button id="usrname" type="button" class="btn btn-outline-secondary dropdown-toggle"
+                    data-toggle="dropdown">
+                    Signed in as: <span id=loggedUser> </span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-right">
+                    <a class="dropdown-item" href="#" onclick="signOut()">Sign out</a>
+                    <a class="dropdown-item" href="#" onclick="showChangePass()">Change password</a>
+                </div>
+            </div>
+
+            <div class="table-responsive" align="center">
+                <table id="tblEmployee" class="table table-bordered table-striped table-sm" style="width: 85%">
+                    <thead class="thead-dark" align="center">
+                        <tr>
+                            <th>Sr. No </th>
+                            <th>Variable Name</th>
+                            <th>Variable Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!--/ Connect Variables component -->
+
+    <!-- change password component -->
+    <div id="userChangePass" class="container d-none">
+        <div class="col text-left" style="padding-top: 1%">
+            <img src="img/capita.png" style="height:30px">
+        </div>
+        <div class="d-flex justify-content-center h-100 d-block" style="margin-top: -40px">
+            <div class="card">
+                <div class="card-body">
+                    <form onsubmit="changePasswordFlow()">
+                        <div>
+                            <label for="oldPass" class="font-weight-bold">Old Password:</label>
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                </div>
+                                <input type="password" class="form-control" id="inputOldPass" name="oldPw" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="inputNewPass" class="font-weight-bold">New Password:</label>
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                </div>
+                                <input type="password" class="form-control" id="inputNewPass" name="changedPw" required>
+                            </div>
+                        </div>
+                        <span id="invalidPassMsg" class="text-white"></span>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-warning">Change Password</button>
+                            <button type="button" class="btn btn-warning"
+                                onclick="cancelChangePassword()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- /change password component -->
+
+    <script>
+        var pwPolicy = "Your password needs to be at least 8 characters and contain lower and upper case and at least 1 symbol and 1 number";
+        var data = {
+            UserPoolId: _config.cognito.userPoolId,
+            ClientId: _config.cognito.userPoolClientId
+        };
+        var userPool = new AmazonCognitoIdentity.CognitoUserPool(data);
+        var cognitoUser = userPool.getCurrentUser();
+
+        window.onload = function () {
+            if (!cognitoUser) {
+                console.log("User not logged in");
+                alert("You are not logged in, please login");
+                document.location.href = "login.html";
+            }
+            if (cognitoUser != null) {
+                cognitoUser.getSession(function (err, session) {
+                    if (err) {
+                        console.log("There has been an error: ", err);
+                        document.location.href = "login.html";
+                    }
+                    else {
+                        console.log('session validity: ' + session.isValid());                        
+                        let api = window._config.api.invokeUrl;
+                        $(document).ready(function () {
+
+                            $.ajax({
+                                url: api,
+                                type: 'GET',
+                                beforeSend: function (request) {
+                                    request.setRequestHeader("Authorization", session.getIdToken().getJwtToken());
+                                },
+                                success: function (data) {
+                                    var employeeTable = $('#tblEmployee tbody');
+                                    employeeTable.empty();
+                                    $.each(data.variables, function (index, element) {
+                                        employeeTable.append("");
+                                        employeeTable.append('<tr><td align="center">' + (index + 1) + '</td><td  align="center">' + element.VariableName + '</td><td align="center"> <a href= "edit.html?id=' + element.VariableName + "-" + element.VariableValue + '">'
+                                            + element.VariableValue + '</a> </td>' + '</tr>');
+                                    });
+                                },
+                                error: function (err) {
+                                    alert(err);
+                                }
+                            });
+                        });
+
+                        var loginUsername = cognitoUser.getUsername();
+                        document.getElementById("loggedUser").innerHTML = loginUsername;
+                    }
+
+                });
+            }
+        }
+        function signOut() {
+            if (cognitoUser != null) {
+                cognitoUser.signOut();
+                document.location.href = "login.html";
+                console.log("User logged out successfully...");
+            }
+            else {
+                console.log("User not logged in...");
+            }
+        }
+        function showChangePass() {
+            $('#home').removeClass('d-block').addClass('d-none');
+            $('#userChangePass').removeClass('d-none').addClass('d-block');
+        }
+        function changePasswordFlow() {
+
+            event.preventDefault();
+            var oldPassword = document.getElementById("inputOldPass").value;
+            var newPassword = document.getElementById("inputNewPass").value;
+
+            cognitoUser.changePassword(oldPassword, newPassword, function (err, result) {
+
+                if (err) {
+                    console.log(err);
+                    if (err.code == "NotAuthorizedException" ||
+                        (err.code == "InvalidParameterException" && err.message.includes("previousPassword")))
+                        document.getElementById("invalidPassMsg").innerHTML = "Your old password is not correct, please check and try again"
+                    else if (err.code == "LimitExceededException")
+                        document.getElementById("invalidPassMsg").innerHTML = "Too many password change attempts - try again later!"
+                    else
+                        document.getElementById("invalidPassMsg").innerHTML = pwPolicy;
+                }
+                else {
+                    console.log(result);
+                    alert("Your password has been changed");
+                    document.location.href = "login.html";
+                }
+            });
+
+        }
+        function cancelChangePassword() {
+            location.reload();
+        }
+    </script>
+</body>
+
+</html>
