@@ -1,26 +1,26 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create a role in the target account which can be assumed from a MissionLabs account (980434226980) to provide administrator level access"
+Description: "Create a role in the target account which can be assumed from the CCM credentials account (620730210164) to provide full access to Athena"
 Resources:
   IAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: "SmartAgentRemote"
+      RoleName: "Athena_Admin"
       Policies:
-        - PolicyName: "AssumableAdmin"
+        - PolicyName: "AthenaAdmin"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: "Allow"
-                Action: '*'
+                Action: 'athena:*'
                 Resource: '*'
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: "Allow"
             Principal:
-              #  980434226980 is a MissionLabs account in their own AWS environment.
+              #  620730210164 is the CCM credentials accounts.
               AWS:
-                - 'arn:aws:iam::980434226980:root'
+                - 'arn:aws:iam::620730210164:root'
             Action:
               - 'sts:AssumeRole'
             Condition:

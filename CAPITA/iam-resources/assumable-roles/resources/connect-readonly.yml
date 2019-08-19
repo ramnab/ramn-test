@@ -44,6 +44,9 @@ Resources:
                     - "glue:Get*"
                     - "glue:List*"
                     - "glue:Describe*"
+                    - "cloudwatch:Describe*"
+                    - "cloudwatch:Get*"
+                    - "cloudwatch:List*"
                   Resource: "*"
                 - Effect: "Deny"
                   Action:
