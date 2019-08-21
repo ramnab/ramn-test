@@ -5,6 +5,7 @@
 
 DEPARTMENT=$(echo $1 | awk '{print tolower($0)}')
 ENV=$(echo $2 | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2)) }')
+REGION="eu-central-1"
 
 if [[ -z "${ENV}" ]] || [[ -z "${DEPARTMENT}" ]]; then
     echo "
@@ -25,7 +26,7 @@ DIRECTORY=`dirname $0`
 getStackOutput () {
     STACKNAME=$1
     KEY=$2
-    aws cloudformation describe-stacks --query "Stacks[?StackName == '${STACKNAME}'].Outputs[]| [?OutputKey=='${KEY}'].[OutputValue] | [0]" --output text
+    aws cloudformation describe-stacks --region ${REGION} --query "Stacks[?StackName == '${STACKNAME}'].Outputs[]| [?OutputKey=='${KEY}'].[OutputValue] | [0]" --output text
 }
 
 ENV_UPPER=$(echo ${ENV} | awk '{print toupper($0)}')
@@ -60,7 +61,7 @@ echo """
 cf sync -y ${STACK}
 
 
-LAMBDA_S3=$(aws cloudformation describe-stacks --query "Stacks[?StackName == 'stCapita-RTA-${ENV}-AccountSetup'].Outputs[]| [?OutputKey=='oLambdaDeploymentBucketArn'].[OutputValue] | [0]" --output text | sed -e 's/arn.*:::\(.*\)/\1/')
+LAMBDA_S3=$(getStackOutput stCapita-RTA-${ENV}-AccountSetup oLambdaDeploymentBucketArn | sed -e 's/arn.*:::\(.*\)/\1/')
 COGNITO_ARN=$(getStackOutput stCapita-RTA-${ENV}-IdentityManagement oUserPoolArn)
 USERPOOLCLIENTID=$(getStackOutput stCapita-RTA-${ENV}-IdentityManagement oUserPoolClientId)
 USERPOOLID=$(getStackOutput stCapita-RTA-${ENV}-IdentityManagement oUserPoolId)
@@ -86,12 +87,12 @@ echo """
 
 """
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/../templates/verify.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-verify.yml
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy-verify.yml \
+aws cloudformation deploy --region ${REGION} --template-file deploy-verify.yml \
                           --stack-name stCapita-RTA-${ENV}-Verify  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
@@ -106,6 +107,7 @@ rm deploy-verify.yml
 # e.g. "s3-capita-ccm-common-test-rta-agentschedules"
 AGENT_S3=$(getStackOutput stCapita-RTA-${ENV}-Verify oRtaScheduleBucketName)
 TOPIC=$(getStackOutput stCapita-RTA-${ENV}-Verify  oSnsTopicArn)
+KMS_KEY_ID=$(getStackOutput stCapita-RTA-${ENV}-Kms oMasterKeyArn)
 
 echo "Uploading alarm_config.json to s3://${AGENT_S3}/config/"
 aws s3 cp ${DIRECTORY}/../config/alarm_config.json s3://${AGENT_S3}/config/
@@ -117,19 +119,20 @@ echo """
 
 """
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/../templates/rta.yml \
                            --s3-bucket ${LAMBDA_S3} \
                            --output-template-file deploy-rta.yml
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy-rta.yml \
+aws cloudformation deploy --region ${REGION} --template-file deploy-rta.yml \
                           --stack-name stCapita-RTA-${ENV}-App  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \
                                 pAgentSchedule=s3://${AGENT_S3}/processed/agent_schedule.json \
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_LOWER} \
-                                pSchedule="cron(0/1 5-21 * * ? *)"
+                                pSchedule="cron(0/1 5-21 * * ? *)" \
+                                pKmsKeyId=${KMS_KEY_ID}
 
 rm deploy-rta.yml
 
@@ -147,11 +150,11 @@ if [[ ${ALARM_DB} = "None" ]] || [[ ${ALARM_DB_ARN} = "None" ]]; then
     exit
 fi
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file ${DIRECTORY}/../templates/api.yml \
                            --s3-bucket ${LAMBDA_S3} --output-template-file deploy-api.yml
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy-api.yml \
+aws cloudformation deploy --region ${REGION} --template-file deploy-api.yml \
                           --stack-name stCapita-RTA-${ENV}-Api --capabilities CAPABILITY_IAM \
                           --parameter-overrides pUserPoolArn=${COGNITO_ARN} \
                                                 pEnvironment=${ENV_UPPER} \
@@ -174,12 +177,12 @@ echo """
 
 """
 
-aws cloudformation package --region eu-central-1 \
+aws cloudformation package --region ${REGION} \
                            --template-file templates/health.yml \
-                           --s3-bucket s3-capita-${DEPARTMENT}-connect-common-${ENV_LOWER}-lambdas-eu-central-1 \
+                           --s3-bucket s3-capita-${DEPARTMENT}-connect-common-${ENV_LOWER}-lambdas-${REGION} \
                            --output-template-file deploy-health.yml
 
-aws cloudformation deploy --region eu-central-1 --template-file deploy-health.yml \
+aws cloudformation deploy --region ${REGION} --template-file deploy-health.yml \
                           --stack-name stCapita-RTA-${ENV}-Health  \
                           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
                           --parameter-overrides \

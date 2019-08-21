@@ -7,6 +7,13 @@ stacks:
       pDepartment: ccm
       pEnvironment: DEV
       pEnvironmentLowerCase: dev
+  stCapita-RTA-Dev-Kms:
+    template-url: templates/kms.yml
+    timeout: 1200
+    parameters:
+      pConnectMasterKeyName: alias/connect-master-dev
+      pEnvironment: DEV
+      pEnvironmentLowerCase: dev
   stCapita-RTA-Dev-IdentityManagement:
     template-url: templates/identity-management.yml
     timeout: 1200

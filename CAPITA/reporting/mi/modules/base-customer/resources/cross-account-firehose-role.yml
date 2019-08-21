@@ -70,6 +70,10 @@ Resources:
                 - "kinesis:*"
               Resource: "*"
               Effect: Allow
+            - Action:
+                - kms:Decrypt
+              Resource: "*"
+              Effect: Allow
 
 Outputs:
   oCrossAccountRoleArn:

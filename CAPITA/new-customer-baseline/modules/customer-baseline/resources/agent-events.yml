@@ -20,6 +20,9 @@ Parameters:
   pClient:
     Type: String
     Description: Customer/Client identifier
+  pKmsKeyId:
+    Type: String
+    Description: CMK KMS Key ID to use to encrypt Kinesis Stream
 
 Resources:
 
@@ -29,6 +32,9 @@ Resources:
       Name:
         !Sub "ks-${pDepartment}-agent-events-${pEnvironmentLowerCase}"
       ShardCount: 1
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: !Ref pKmsKeyId
       Tags:
         - Key: tech:ApplicationID
           Value:

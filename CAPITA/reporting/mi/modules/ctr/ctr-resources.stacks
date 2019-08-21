@@ -12,3 +12,4 @@ stacks:
       pEnvironmentUpperCase: '[env_upper]'
       pEnvironmentLowerCase: '[env_lower]'
       pCustomerReportBucket: 's3-capita-ccm-connect-[client]-[env_lower]-reporting'
+      pKmsKeyId: '|ref|stCapita-[department_upper]-Customer-Connect-[env]-Keys.oMasterKeyArn'

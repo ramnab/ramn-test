@@ -4,11 +4,12 @@
 # Deploy MI Solution to Customer Account
 #
 # Usage:
-#   deploy-customer.sh [-r|--region <arg>] [-d|--department <arg>] [-h|--help] <client> <env>
+#   deploy-customer.sh [-r|--region <arg>] [-d|--department <arg>] [-h|--help] <client> <env> [module]
 #
 # where:
-# 	<client>          :  Client short name, e.g. tradeuk (required)
+# <client>          :  Client short name, e.g. tradeuk (required)
 #	<env>             :  Environment tag, e.g. dev (required)
+# [module]          :  module to deploy (optional - default: all) e.g. base-customer
 #	-r,--region       :  AWS region (default: 'eu-central-1')
 #	-d,--department   :  Department (default: 'ccm')
 #	-h,--help         :  Prints help (usage instructions)

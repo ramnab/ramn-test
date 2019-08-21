@@ -108,6 +108,10 @@ Resources:
               - kinesis:*
             Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${pAgentKinesisStreamName}"
             Effect: Allow
+          - Action:
+              - kms:Decrypt
+            Resource: "*"
+            Effect: Allow
 
   AgentEventsFirehoseLogGroup:
     Type: AWS::Logs::LogGroup

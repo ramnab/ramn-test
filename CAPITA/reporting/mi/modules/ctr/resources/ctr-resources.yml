@@ -31,6 +31,9 @@ Parameters:
   pCustomerReportBucket:
     Type: String
     Description: Name of Customer S3 Bucket for raw CTR repords
+  pKmsKeyId:
+    Type: String
+    Description: CMK KMS Key ID to use to encrypt Kinesis Stream
 
 Resources:
 
@@ -113,6 +116,10 @@ Resources:
             Resource: !GetAtt CtrKinesisStream.Arn
             Effect: Allow
             Sid: clientreportkinesissubscribe
+          - Action:
+              - kms:Decrypt
+            Resource: "*"
+            Effect: Allow
 
   CtrFirehoseLogGroup:
     Type: AWS::Logs::LogGroup
@@ -132,6 +139,9 @@ Resources:
       Properties:
         Name: !Sub "ks-${pDepartment}-ctrs-${pEnvironmentLowerCase}"
         ShardCount: 1
+        StreamEncryption:
+          EncryptionType: KMS
+          KeyId: !Ref pKmsKeyId
         Tags:
           -
             Key: "tech:ApplicationID"

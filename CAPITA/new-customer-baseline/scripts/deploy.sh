@@ -43,7 +43,7 @@ CALL_KEY="alias/connect-recordings-${ENV_LOWER}"
 # KMS names for production
 test "${ENV_LOWER}" == 'prod' && MASTER_KEY="alias/connect-master" && CALL_KEY="alias/connect-recordings"
 
-modules=( customer-baseline call-recordings-bucket keys )
+modules=( keys customer-baseline call-recordings-bucket )
 test ${_arg_module} != 'all' && modules=( ${_arg_module} )
 
 # ensure environment is one of dev/test/prod (or a variation, e.g. dev01)

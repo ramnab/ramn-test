@@ -6,6 +6,13 @@ stacks:
     parameters:
       pEnvironment: PROD
       pEnvironmentLowerCase: prod
+  stCapita-RTA-Prod-Kms:
+    template-url: templates/kms.yml
+    timeout: 1200
+    parameters:
+      pConnectMasterKeyName: alias/connect-master-prod
+      pEnvironment: PROD
+      pEnvironmentLowerCase: prod
   stCapita-RTA-Prod-IdentityManagement:
     template-url: templates/identity-management.yml
     timeout: 1200

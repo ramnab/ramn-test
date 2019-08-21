@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CAPITA Connect Encryption Keys'
+
+Parameters:
+  pConnectMasterKeyName:
+    Description: Connect Master Key Alias
+    Type: String
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+
+
+Resources:
+
+  ConnectMasterKmsKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Connect KMS Master Key
+      KeyPolicy:
+        Id: kms-connect-master
+        Version: '2012-10-17'
+        Statement:
+        - Action: kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Resource: '*'
+          Sid: Enable IAM User Permissions Master
+        - Action: kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Resource: !Sub "arn:aws:connect::${AWS::AccountId}:instance/*"
+          Sid: Enable Connect Instance Permissions Master
+
+
+
+  ConnectKmsKeyAlias:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Type: AWS::KMS::Alias
+    DependsOn: ConnectMasterKmsKey
+    Properties:
+      AliasName: !Ref pConnectMasterKeyName
+      TargetKeyId: !Ref "ConnectMasterKmsKey"
+
+
+
+Outputs:
+  oMasterKeyArn:
+    Description: ARN for Connect Master key
+    Value: !GetAtt ConnectMasterKmsKey.Arn

@@ -22,6 +22,9 @@ Parameters:
     Type: String
     Default: cron(0/1 5-21 * * ? *)
     Description: Cron schedule for starting the heart beats
+  pKmsKeyId:
+    Type: String
+    Description: CMK KMS Key ID to use to encrypt Kinesis Stream
 
 Resources:
 
@@ -52,6 +55,10 @@ Resources:
               Action:
                 - dynamodb:*
               Resource: !GetAtt RtaAgentEventHistoryDb.Arn
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: '*'
       CodeUri: ../src/rta/code
       Environment:
         Variables:
@@ -76,6 +83,9 @@ Resources:
     Properties: 
       Name: !Sub "ks-${pDepartment}-agent-events-${pEnvironmentLowerCase}"
       ShardCount: 1
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: !Ref pKmsKeyId
       Tags:
         -
           Key: "tech:ApplicationID"
@@ -137,8 +147,30 @@ Resources:
               "AWS": "512953984022" # FirstGroup PROD root
             Action:
               - "sts:AssumeRole"
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "857211198995" # Gassafe NONPROD root
+            Action:
+              - "sts:AssumeRole"
+          -
+            Effect: Allow
+            Principal:
+              "AWS": "289601121201" # Gassafe PROD root
+            Action:
+              - "sts:AssumeRole"
       Path: "/"
       ManagedPolicyArns: ["arn:aws:iam::aws:policy/AmazonKinesisAnalyticsFullAccess"]
+      Policies:
+      - PolicyName: !Sub "rta_kms_access_${pEnvironmentLowerCase}"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:GenerateDataKey
+                - kms:Decrypt
+              Resource: "*"
 
   RtaAlarmsDb:
     Type: AWS::DynamoDB::Table

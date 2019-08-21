@@ -6,6 +6,13 @@ stacks:
     parameters:
       pEnvironment: TEST
       pEnvironmentLowerCase: test
+  stCapita-RTA-Test-Kms:
+    template-url: templates/kms.yml
+    timeout: 1200
+    parameters:
+      pConnectMasterKeyName: alias/connect-master-test
+      pEnvironment: TEST
+      pEnvironmentLowerCase: test
   stCapita-RTA-Test-IdentityManagement:
     template-url: templates/identity-management.yml
     timeout: 1200
