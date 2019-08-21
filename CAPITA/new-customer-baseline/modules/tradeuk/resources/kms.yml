@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CAPITA Connect Encryption Keys'
+
+Parameters:
+  pCallRecordingKey:
+    Description: Connect Call Recording Key Alias
+    Type: String
+  pConnectMasterKeyName:
+    Description: Connect Master Key Alias
+    Type: String
+
+
+Resources:
+
+  CallRecordingKmsKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Connect KMS Call Recording Key
+      KeyPolicy:
+        Id: kms-connect-calls
+        Version: '2012-10-17'
+        Statement:
+        - Action: kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Resource: '*'
+          Sid: Connect Calls Enable IAM User Permissions
+        - Action: kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Resource: !Sub "arn:aws:connect::${AWS::AccountId}:instance/*"
+          Sid: Enable Connect Instance Permissions for Calls
+
+
+  ConnectCallRecordingKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    DependsOn: "CallRecordingKmsKey"
+    Properties:
+      AliasName: !Ref pCallRecordingKey
+      TargetKeyId: !Ref CallRecordingKmsKey
+
+  ConnectMasterKmsKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Connect KMS Master Key
+      KeyPolicy:
+        Id: kms-connect-master
+        Version: '2012-10-17'
+        Statement:
+        - Action: kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Resource: '*'
+          Sid: Enable IAM User Permissions Master
+        - Action: kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Resource: !Sub "arn:aws:connect::${AWS::AccountId}:instance/*"
+          Sid: Enable Connect Instance Permissions Master
+
+
+
+  ConnectKmsKeyAlias:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Type: AWS::KMS::Alias
+    DependsOn: ConnectMasterKmsKey
+    Properties:
+      AliasName: !Ref pConnectMasterKeyName
+      TargetKeyId: !Ref "ConnectMasterKmsKey"
+
+
+
+Outputs:
+  oMasterKeyArn:
+    Description: ARN for Connect Master key
+    Value: !GetAtt ConnectMasterKmsKey.Arn
+
+  oCallsKeyArn:
+    Description: ARN for Connect Call Recordings key
+    Value: !GetAtt ConnectMasterKmsKey.Arn

@@ -2,13 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: CAPITA Connect Agent Events Stack
 
 Parameters:
-#  pCustomerReportBucket:
-#    Type: String
-#    Description: Name of Customer S3 Bucket to trigger lambda
-#  pEnvironment:
-#    Type: String
-#    Default: DEV
-#    Description: Environment label to apply to resources naming
+
   pEnvironmentLowerCase:
     Type: String
     Default: dev
@@ -20,6 +14,9 @@ Parameters:
   pClient:
     Type: String
     Description: Customer/Client identifier
+  pKmsKeyId:
+    Type: String
+    Description: CMK KMS Key ID to use to encrypt Kinesis Stream
 
 Resources:
 
@@ -29,6 +26,9 @@ Resources:
       Name:
         !Sub "ks-${pDepartment}-agent-events-${pEnvironmentLowerCase}"
       ShardCount: 1
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: !Ref pKmsKeyId
       Tags:
         - Key: tech:ApplicationID
           Value:
@@ -42,60 +42,6 @@ Resources:
         - Key: bus:ClientName
           Value: !Ref pClient
 
-#  AgentEventsFirehose:
-#    Type: AWS::KinesisFirehose::DeliveryStream
-#    Properties:
-#      DeliveryStreamName: !Sub "kfh-${pDepartment}-agent-events-${pEnvironmentLowerCase}"
-#      DeliveryStreamType: KinesisStreamAsSource
-#      KinesisStreamSourceConfiguration:
-#        KinesisStreamARN: !GetAtt AgentEventsKinesisStream.Arn
-#        RoleARN: !GetAtt AgentEventsFirehoseIAMRole.Arn
-#      ExtendedS3DestinationConfiguration:
-#        BucketARN: !Ref pCustomerReportBucket
-#        BufferingHints:
-#          IntervalInSeconds: 300
-#          SizeInMBs: 128
-#        CompressionFormat: UNCOMPRESSED
-#        Prefix: "raw-agentevents/"
-#        RoleARN: !GetAtt AgentEventsFirehoseIAMRole.Arn
-#
-#
-#  AgentEventsFirehoseIAMRole:
-#    Type: AWS::IAM::Role
-#    Properties:
-#      RoleName: !Sub "rl_agent_events_${pEnvironmentLowerCase}"
-#      AssumeRolePolicyDocument:
-#        Version: "2012-10-17"
-#        Statement:
-#          - Effect: "Allow"
-#            Action: "sts:AssumeRole"
-#            Principal:
-#              "Service": "firehose.amazonaws.com"
-#      Policies:
-#        - PolicyName: !Sub "access_reporting_bucket_only_agent_events_${pEnvironmentLowerCase}"
-#          PolicyDocument:
-#            Version: '2012-10-17'
-#            Statement:
-#              - Action:
-#                  - "kinesis:*"
-#                Effect: Allow
-#                Resource: !GetAtt AgentEventsKinesisStream.Arn
-#              - Action:
-#                  - s3:AbortMultipartUpload
-#                  - s3:GetBucketLocation
-#                  - s3:GetObject
-#                  - s3:ListBucket
-#                  - s3:ListBucketMultipartUploads
-#                  - s3:PutObject
-#                  - s3:PutObjectAcl
-#                Resource:
-#                  - !Sub "${pCustomerReportBucket}"
-#                  - !Sub "${pCustomerReportBucket}/*"
-#                Effect: Allow
-#                Sid: agentintervalreportfirehoses
-
 Outputs:
-#  oAgentEventsFirehose:
-#    Value: !Ref AgentEventsFirehose
   oAgentEventsStream:
     Value: !Ref AgentEventsKinesisStream
