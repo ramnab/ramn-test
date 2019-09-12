@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Identity management setup for Capita Connect Web-Interface application
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+
+
+Resources:
+  
+  # Create a Cognito UserPool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Join ["-", ["WebInterfaceUserPool", !Ref pEnvironment]]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Schema:
+        - Name: "client"
+          AttributeDataType: String
+          Mutable: True
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      # if email is used as username for login:
+      #UsernameAttributes:
+      #  - email
+      # if username and email are different:
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+
+  # Create a web application using the UserPool
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: WebInterfaceWebApplication
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+
+Outputs:
+  oStackName:
+    Value: !Ref "AWS::StackName"
+  oUserPoolId:
+    Value: !Ref UserPool
+  oUserPoolArn:
+    Value: !GetAtt UserPool.Arn
+  oUserPoolClientId:
+    Value: !Ref UserPoolClient
+
+  
