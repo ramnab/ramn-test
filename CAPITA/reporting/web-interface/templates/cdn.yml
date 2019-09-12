@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CDN setup for Capita Connect Web-Interface application
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Client name
+  pCacheTimeout:
+    Type: Number
+    Default: 31536000
+    Description: Default amount of time, in seconds, that objects stay in CloudFront caches before CloudFront forwards another request to origin to determine whether the object has been updated
+
+Resources:
+  
+
+  ContentS3New:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "s3-capita-${pDepartment}-${pClient}-webinterface-webapp-${pEnvironmentLowerCase}"
+      Tags:
+        -
+            Key: "tech:ApplicationID"
+            Value: !Sub "capita-${pDepartment}-${pClient}-webinterface-webapp"
+        -
+            Key: "tech:Environment"
+            Value: !Ref pEnvironmentLowerCase
+        -
+            Key: "bus:BusinessUnit"
+            Value: !Ref pDepartment
+        -
+            Key: "bus:Business"
+            Value: !Ref pClient
+        -
+            Key: "sec:Compliance"
+            Value: Normal
+        
+
+  OriginAccessID:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Join [' ', [WebInterface CloudFront Identity, !Ref pDepartment, !Ref pEnvironment]]
+
+  ContentDistrib:
+    DependsOn: [ContentS3New, OriginAccessID]
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      Tags:
+        -
+            Key: "tech:ApplicationID"
+            Value: "capita-ccm-webinterface-webapp"
+        -
+            Key: "tech:Environment"
+            Value: dev
+        -
+            Key: "bus:BusinessUnit"
+            Value: ccm
+        -
+            Key: "bus:Business"
+            Value: !Ref pClient
+      DistributionConfig:
+        DefaultRootObject: login.html
+        Logging:
+          IncludeCookies: 'false'
+          Bucket: !Join ['', [!Ref ContentS3New, '.s3.amazonaws.com']]
+          Prefix: logs
+        DefaultCacheBehavior:
+          DefaultTTL: !Ref pCacheTimeout
+          TargetOriginId: !Sub "webinterfaceS3Origin${pDepartment}${pEnvironmentLowerCase}"
+          ViewerProtocolPolicy: https-only
+          ForwardedValues:
+            QueryString: 'false'
+        Enabled: 'true'
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: 'true'
+        Origins:
+        - DomainName: !GetAtt ContentS3New.DomainName
+          Id: !Sub "webinterfaceS3Origin${pDepartment}${pEnvironmentLowerCase}"
+          S3OriginConfig:
+            OriginAccessIdentity: 
+              !Join
+                - ''
+                - - 'origin-access-identity/cloudfront/'
+                  - !Ref OriginAccessID
+          
+          
+  ContentS3PolicyNew:
+    DependsOn: ContentS3New
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ContentS3New
+      PolicyDocument: 
+        Statement:
+          -
+            Action:
+              - s3:GetObject            
+            Effect: "Allow"
+            Principal:
+              AWS:  !Join
+                - ''
+                - - 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity '
+                  - !Ref OriginAccessID
+            Resource:
+              !Join
+                - ""
+                - - "arn:aws:s3:::"
+                  - !Ref ContentS3New
+                  - "/*"
+
+Outputs:
+  oWebAppBucketArn:
+    Value: !GetAtt ContentS3New.Arn
+  oWebAppDomainName:
+    Value: !GetAtt ContentDistrib.DomainName
+  
