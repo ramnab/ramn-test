@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "A Managed Policy which can be manually applied to a group which disallows all other permissions associated with the same group until MFA is enabled to IAM users in the group."
+Resources:
+  IamPolicyEnforceMFA:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      Description: "Disable all resource access except for enabling MFA; enable resource access once MFA is enabled."
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "AllowViewAccountInfo"
+            Effect: "Allow"
+            Action:
+              - "iam:GetAccountPasswordPolicy"
+              - "iam:GetAccountSummary"
+              - "iam:ListVirtualMFADevices"
+            Resource: "*"
+          - Sid: "AllowManageOwnPasswords"
+            Effect: "Allow"
+            Action:
+              - "iam:ChangePassword"
+              - "iam:GetUser"
+            Resource: "arn:aws:iam::*:user/${aws:username}"
+          - Sid: "AllowManageOwnVirtualMFADevice"
+            Effect: "Allow"
+            Action:
+              - "iam:CreateVirtualMFADevice"
+              - "iam:DeleteVirtualMFADevice"
+            Resource: "arn:aws:iam::*:mfa/${aws:username}"
+          - Sid: "AllowManageOwnMFADevice"
+            Effect: "Allow"
+            Action:
+              - "iam:DeactivateMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:ListMFADevices"
+              - "iam:ResyncMFADevice"
+            Resource: "arn:aws:iam::*:user/${aws:username}"
+          - Sid: "DenyAllExceptListedIfNoMFA"
+            Effect: "Deny"
+            NotAction:
+              - "iam:CreateVirtualMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:GetUser"
+              - "iam:ListMFADevices"
+              - "iam:ListVirtualMFADevices"
+              - "iam:ResyncMFADevice"
+              - "sts:GetSessionToken"
+            Resource: "*"
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': "false"
