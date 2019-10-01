@@ -26,16 +26,16 @@ if [[ ${MODULE} == 'all' || ${MODULE} == 'call-recordings-bucket' ]]; then
     ${DIRECTORY}/modules/call-recordings-bucket/pipeline-deployer.sh ${DEPT} ${ENV} ${CONFIG}
 fi
 
-# Deploying module: baseline
-if [[ ${MODULE} == 'all' || ${MODULE} == 'customer-baseline' ]]; then
-    echo "Deploying customer baseline"
-    ${DIRECTORY}/modules/customer-baseline/pipeline-deployer.sh ${DEPT} ${ENV} ${CONFIG}
-fi
-
 # Deploying module: keys
 if [[ ${MODULE} == 'all' || ${MODULE} == 'keys' ]]; then
     echo "Deploying keys"
     ${DIRECTORY}/modules/keys/pipeline-deployer.sh ${DEPT} ${ENV} ${CONFIG}
+fi
+
+# Deploying module: baseline
+if [[ ${MODULE} == 'all' || ${MODULE} == 'customer-baseline' ]]; then
+    echo "Deploying customer baseline"
+    ${DIRECTORY}/modules/customer-baseline/pipeline-deployer.sh ${DEPT} ${ENV} ${CONFIG}
 fi
 
 # Deploying module: cloudtrail
