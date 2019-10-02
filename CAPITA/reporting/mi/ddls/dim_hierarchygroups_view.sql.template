@@ -1,0 +1,11 @@
+CREATE OR REPLACE VIEW dim_hierarchygroups_view AS 
+SELECT
+  "rowdate"
+, "json_extract_scalar"("agent", '$.username') "username"
+, "json_extract_scalar"("agent", '$.hierarchygroups.level1.groupname') "Department"
+, "json_extract_scalar"("agent", '$.hierarchygroups.level2.groupname') "Team_Leader"
+, "json_extract_scalar"("agent", '$.hierarchygroups.level3.groupname') "Pnumber"
+, "json_extract_scalar"("agent", '$.hierarchygroups.level4.groupname') "Full_name"
+FROM
+  contact_record
+WHERE ("json_extract_scalar"("agent", '$.hierarchygroups.level4.groupname') IS NOT NULL)

@@ -29,7 +29,8 @@ For example:
         'agent_interval',
         'contact_record',
         'queue_daily',
-        'queue_interval'
+        'queue_interval',
+        'dim_hierarchygroups'
     ]
 
     args = parser.parse_args()
