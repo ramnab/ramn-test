@@ -1,0 +1,97 @@
+# Template which creates a DynamoDB and Lambda function along with associated IAM permissions for Lambda function to be called from within AWS Connect.
+# The DynamoDB table is used to store epoch timestamps for start and end of special days and the Lambda function is used to scan the table to check whether
+# the current epoch time is within any stored start and end time pair, and return true, false, and the description of the matching special day if applicable.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create dynamoDB and Lambda function (and IAM elements) to enable Special Days functionality in AWS Connect."
+Parameters:
+  pDBName:
+    Type: "String"
+    Description: "The desired name of your DynamoDB table"
+  pConnectInstanceARN:
+    Type: "String"
+    Description: "ARN of the existing AWS Connect instance from which the Lambda function will be invoked."
+  pLambdaBucket:
+    Type: "String"
+    Description: "The name of the Lambda bucket containing the code for this widget"
+Resources:
+  # DynamoDB table used to hold special day start and end times
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Ref pDBName
+      SSESpecification:
+        SSEEnabled: "true"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        - AttributeName: "StartTime"
+          AttributeType: "S"
+        - AttributeName: "Description"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "StartTime"
+          KeyType: "HASH"
+        - AttributeName: "Description"
+          KeyType: "RANGE"
+
+  # Lambda function which scans through DynamoDB table to search for entries where the current epoch time is below a stated start and end time.
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "Connect_SpecialDays_Read"
+      Description: "Scans DynamoDB table to see if current time is between any defined start and end time, and returns the description field of matching entries."
+      Runtime: "python3.6"
+      Handler: "lambda_function.lambda_handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref pLambdaBucket
+        S3Key: "AWSConnectSpecialDays.zip"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref pDBName
+    DependsOn: "LambdaExecutionRole"
+
+  # Role applied to the Lambda function to allow it to scan the specific DynamoDBTable and put CloudWatch logs.
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Policies:
+        - PolicyName: "SpecialDays_DynamoDB_Read"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "dynamoDB:Scan"
+                Resource: !GetAtt DynamoDBTable.Arn
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+    DependsOn: "DynamoDBTable"
+
+  # Lambda permission applied to the Lambda function to allow it to be called from within Connect.
+  LambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: "Connect_Blacklist_Read"
+      Principal: "connect.amazonaws.com"
+      Action: "lambda:InvokeFunction"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Ref pConnectInstanceARN
+    DependsOn: "LambdaFunction"
