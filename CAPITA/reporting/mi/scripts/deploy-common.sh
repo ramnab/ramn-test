@@ -28,7 +28,7 @@ source ${DIRECTORY}/deploycommonargs.sh "$@"
 
 if [[ ${_arg_module} == 'all' ]];
 then
-    modules=( base-common common-health )
+    modules=( base-common common-health common-ca-roles )
 else
     modules=( ${_arg_module} )
 fi

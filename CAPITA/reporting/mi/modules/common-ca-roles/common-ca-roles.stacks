@@ -1,0 +1,10 @@
+region: '[region]'
+stacks:
+  stCapita-MI-[env]-Cross-Account-Roles:
+    template-url: resources/cross-account-roles.yml
+    timeout: 1200
+    parameters:
+      pDepartment: '[department]'
+      pDepartmentUpper: '[department_upper]'
+      pEnvironment: '[env_upper]'
+      pEnvironmentLowerCase: '[env_lower]'
