@@ -8,7 +8,7 @@ DIRECTORY=$(dirname $0)
 # defaults
 UploadTimeout=30
 LogRetentionInDays=90
-AuditRetentionDays=90
+AuditRetentionDays=365
 
 
 die2() { echo >&2 -e "\nERROR: $@\n"; exit 1; }

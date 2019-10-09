@@ -26,7 +26,7 @@ CLIENT="$(prop 'client')"
 REPORTS_REGION="$(prop 'region.reports' eu-central-1)"
 UPLOAD_TIMEOUT="$(prop 'cloudtrail.upload_timeout' 30)"
 LOG_RETENTION="$(prop 'cloudtrail.log_retention' 90)"
-AUDIT_RETENTION="$(prop 'cloudtrail.audit_retention' 90)"
+AUDIT_RETENTION="$(prop 'cloudtrail.audit_retention' 365)"
 
 
 echo """
