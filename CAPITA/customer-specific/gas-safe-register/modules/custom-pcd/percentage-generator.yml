@@ -1,0 +1,79 @@
+# Template which creates a DynamoDB and Lambda function along with assoacited IAM permissions for Lambda function to be called from within AWS Connect.
+# The DynamoDB table is used to store telephone numbers and the Lambda function is used to scan the table to check whether a telephone
+# number passed as a parameter by AWS Connect is located within the table, returning true or false appropriately.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a Lambda function (and IAM elements) to enable user customisable percentage call distribution functionality in AWS Connect."
+Parameters:
+  pDynamoDBARN:
+    Type: "String"
+    Description: "The ARN of the DynamoDB table holding the variable values"
+  pDynamoDBName:
+    Type: "String"
+    Description: "The name of the DynamoDB table holding the variable values"
+  pConnectInstanceARN:
+    Type: "String"
+    Description: "ARN of the existing AWS Connect instance from which the Lambda function will be invoked."
+  pLambdaBucket:
+    Type: "String"
+    Description: "The name of the Lambda bucket containing the code for this widget"
+Resources:
+  # The Lambda function resource which is called from within AWS Connect to scan DynamoDBTable for the telephone number passed as a parameter.
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "Connect_PercentageGenerator"
+      Description: "Scans DynamoDB table to find the configured percentage for a specified IVR and generates a true/false outcome depending on where the call will route"
+      Runtime: "python3.6"
+      Handler: "percentage-generator.lambda_handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref pLambdaBucket
+        S3Key: "AWSConnectPCDGenerator.zip"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref pDynamoDBName
+    DependsOn: "LambdaExecutionRole"
+
+  # The IAM role applied to LambdaFunction which enables LambdaFunction to scan DynamoDBTable and write logs to CloudWatch.
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Policies:
+        - PolicyName: "Connect_PCDGenerator_Role"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "dynamoDB:Scan"
+                Resource: !Ref pDynamoDBARN
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  # Lambda permission applied to LambdaFunction which allows LambdaFunction to be called from within AWS Connect.
+  LambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: "Connect_Blacklist_Read"
+      Principal: "connect.amazonaws.com"
+      Action: "lambda:InvokeFunction"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Ref pConnectInstanceARN
+    DependsOn: "LambdaFunction"
+
