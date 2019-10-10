@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create dynamoDB and Lambda function (and IAM elements) to enable variable permanence and comparison functionality in AWS Connect."
+Parameters:
+  pDBName:
+    Type: "String"
+    Description: "The desired name of your DynamoDB table."
+  pConnectInstanceArn:
+    Type: "String"
+    Description: "The ARN of the existing AWS Connect instance from which the Lambda function will be invoked."
+  pLambdaBucketName:
+    Type: "String"
+    Description: "The name of the S3 bucket which will hold the code for the Lambda function."
+Resources:
+
+  # DynamoDB table used to hold DDI and AWS Connect Queue ARN key:value pairs
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Ref pDBName
+      SSESpecification:
+        SSEEnabled: true
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        AttributeName: "DialledDDI"
+        AttributeType: "S"
+      KeySchema:
+        AttributeName: "DialledDDI"
+        KeyType: "HASH"
+
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "Connect_DDIBranch_Read"
+      Description: "Scans DynamoDB table to return the value of the Queue name (passed in by Connect) associated with the dialled DDI number."
+      Runtime: "python3.6"
+      Handler: "lambda_function.lambda_handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref pLambdaBucketName
+        S3Key: "AWSConnectDDIBranch.zip"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref pDBName
+    DependsOn: "LambdaExecutionRole"
+
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Policies:
+        PolicyName: "DDIBranch_DyanmoDB_Read_Role"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - dynamoDB:Scan
+              Resource: !GetAtt DynamoDBTable.Arn
+            - Effect: "Allow"
+              Action: "logs:CreateLogGroup"
+              Resource: "arn:aws:logs:*:*:*"
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogStream"
+                - "logs:PutLogEvents"
+              Resource: "*"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+    DependsOn: "DynamoDBTable"
+
+  LambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: "Connect_DDIBranch_Read"
+      Principal: "connect.amazonaws.com"
+      Action: "lambda:InvokeFunction"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Ref pConnectInstanceArn
+    DependsOn: "LambdaFunction"
