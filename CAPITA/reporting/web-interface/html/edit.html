@@ -32,6 +32,9 @@
 		};
 		var userPool = new AmazonCognitoIdentity.CognitoUserPool(data);
 		var cognitoUser = userPool.getCurrentUser();
+
+		var isCallDistVariable = 0;
+
 		window.onload = function () {
 			if (!cognitoUser) {
 				console.log("User not logged in");
@@ -42,28 +45,47 @@
 		}
 		document.addEventListener('DOMContentLoaded', function () {
 
-
 			let variableData = document.location.search.replace(/^.*?\=/, '');
 			let fields = variableData.split('-')
-			let varName = fields[0];
+			let varName = fields[0].replace(/%20/g, ' ');
 			let varVal = fields[1];
+			let varType = fields[2];
 
-			$('input[name="variablename"]').val(varName);
-			$('#varVal').val(varVal);
+			if (varType == '1') {
 
+				isCallDistVariable = 1;
+				$('#forVariables').removeClass('d-block').addClass('d-none');
+				$('#forCallDistribution').removeClass('d-none').addClass('d-block');
+
+				$('input[name="variablename1"]').val(varName);
+				$('#varVal2').val(varVal);
+			}
+			else {
+				$('input[name="variablename"]').val(varName);
+				$('#varVal').val(varVal);
+			}
 		});
 
 		function updateVars() {
 			event.preventDefault();
 			let api = window._config.api.invokeUrl;
 			if (cognitoUser != null) {
-				var name1 = $('#varName').val();
-				var val1 = $('#varVal').val();
+
+				if (isCallDistVariable == 1) {
+					var name1 = $('#varName1').val();
+					var val1 = $('#varVal2').val();
+				}
+				else {
+					var name1 = $('#varName').val();
+					var val1 = $('#varVal').val();
+				}
+
 
 				cognitoUser.getSession(function (err, session) {
 					if (err) {
 						console.log("There has been an error: ", err);
-						document.location.href = "login.html";						
+						document.location.href = "login.html";
+						//return;
 					}
 					else {
 						console.log('session validity: ' + session.isValid());
@@ -119,20 +141,49 @@
 
 		<div style="margin-left: 3%">
 			<form style="margin-top: 3%">
-				<div class="form-group row">
-					<label for="varName" class="col-form-label col-sm-2">Variable Name:</label>
-					<div class="col-sm-3">
-						<input type="text" class="form-control" id="varName" name="variablename" readonly>
+				<div id="forVariables" class="d-block">
+					<div class="form-group row">
+						<label for="varName" class="col-form-label col-sm-2">Variable Name:</label>
+						<div class="col-sm-3">
+							<input type="text" class="form-control" id="varName" name="variablename" readonly>
+						</div>
+					</div>
+
+					<div class="form-group row">
+						<label for="sel1" class="col-form-label col-sm-2">Variable Status:</label>
+						<div class="col-sm-3">
+							<select class="form-control" id="varVal" name="sellist1">
+								<option value="true">true</option>
+								<option value="false">false</option>
+							</select>
+						</div>
 					</div>
 				</div>
+				<div id="forCallDistribution" class="d-none">
+					<div class="form-group row">
+						<label for="varName1" class="col-form-label col-sm-2">Call Distribution for</label>
+						<div class="col-sm-3">
+							<input type="text" class="form-control" id="varName1" name="variablename1" readonly>
+						</div>
+					</div>
 
-				<div class="form-group row">
-					<label for="sel1" class="col-form-label col-sm-2">Variable Status:</label>
-					<div class="col-sm-3">
-						<select class="form-control" id="varVal" name="sellist1">
-							<option value="true">true</option>
-							<option value="false">false</option>
-						</select>
+					<div class="form-group row">
+						<label for="sel2" class="col-form-label col-sm-2">Value (%)</label>
+						<div class="col-sm-3">
+							<select class="form-control" id="varVal2" name="sellist2">
+								<option value="0">0</option>
+								<option value="10">10</option>
+								<option value="20">20</option>
+								<option value="30">30</option>
+								<option value="40">40</option>
+								<option value="50">50</option>
+								<option value="60">60</option>
+								<option value="70">70</option>
+								<option value="80">80</option>
+								<option value="90">90</option>
+								<option value="100">100</option>
+							</select>
+						</div>
 					</div>
 				</div>
 
