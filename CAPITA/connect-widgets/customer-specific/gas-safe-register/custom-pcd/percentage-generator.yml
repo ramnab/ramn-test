@@ -17,12 +17,20 @@ Parameters:
   pLambdaBucket:
     Type: "String"
     Description: "The name of the Lambda bucket containing the code for this widget"
+  pEnvironment:
+    Type: "String"
+    Description: "The AWS environment that the stack is being deployed into"
+    AllowedValues:
+      - "prod"
+      - "test"
+      - "dev"
+
 Resources:
   # The Lambda function resource which is called from within AWS Connect to scan DynamoDBTable for the telephone number passed as a parameter.
   LambdaFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: "Connect_PercentageGenerator"
+      FunctionName: !Sub "Connect_PercentageGenerator_${pEnvironment}"
       Description: "Scans DynamoDB table to find the configured percentage for a specified IVR and generates a true/false outcome depending on where the call will route"
       Runtime: "python3.6"
       Handler: "percentage-generator.lambda_handler"
@@ -40,7 +48,7 @@ Resources:
     Type: "AWS::IAM::Role"
     Properties:
       Policies:
-        - PolicyName: "Connect_PCDGenerator_Role"
+        - PolicyName: !Sub "Connect_PCDGenerator_Role_${pEnvironment}"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -70,7 +78,7 @@ Resources:
   LambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: "Connect_Blacklist_Read"
+      FunctionName: !Sub "Connect_PercentageGenerator_${pEnvironment}"
       Principal: "connect.amazonaws.com"
       Action: "lambda:InvokeFunction"
       SourceAccount: !Ref "AWS::AccountId"
