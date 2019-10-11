@@ -1,0 +1,94 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: 'AWS::Serverless-2016-10-31'
+Description: ip-ranges subsciber, filterer and alerter on connect range changes
+Parameters:
+  pEmailEndpoint:
+    Type: String
+    Description: The address you want to send email alerts to
+  pDepartment:
+    Type: String
+    Description: Department Name
+  pSsmParameter:
+    Type: String
+    Description: SSM Parameter to get/put requests to
+Resources:
+  LambdaAlertSNS:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sns:Publish
+            Resource:
+              Ref: CloudWatchIPRanges
+          - Effect: Allow
+            Action:
+            - ssm:GetParameter
+            - ssm:PutParameter
+            Resource:
+              Fn::Sub: 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CAPITA/${pDepartment}/CloudWatch/${pSsmParameter}'
+  CloudWatchIPRanges:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: 'SNS Topic For Connect IP Changes in EU-CENTRAL-1'
+  LambdaFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: aws-ip-change-alerter.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./code
+      Description: Process cloudwatch events for AmazonIpSpaceChanged.
+      Role:
+        Fn::GetAtt:
+        - LambdaAlertSNS
+        - Arn
+      MemorySize: 128
+      Timeout: 3
+      AutoPublishAlias: ACTIVE
+      DeploymentPreference:
+        Type: AllAtOnce
+      Environment:
+        Variables:
+          SsmParameter:
+            !Sub "/CAPITA/${pDepartment}/CloudWatch/${pSsmParameter}"
+          SnsTopic:
+            !Ref CloudWatchIPRanges
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: LambdaFunction
+    Properties:
+      RetentionInDays: 30
+      LogGroupName: !Sub "/aws/lambda/${LambdaFunction}"
+  SAMAlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint:
+        Fn::GetAtt:
+        - LambdaFunction
+        - Arn
+      Protocol: lambda
+      TopicArn: arn:aws:sns:us-east-1:806199016981:AmazonIpSpaceChanged
+      Region: us-east-1
+  CloudWatchIPRangesSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref 'pEmailEndpoint'
+      Protocol: email
+      TopicArn: !Ref 'CloudWatchIPRanges'
+  
