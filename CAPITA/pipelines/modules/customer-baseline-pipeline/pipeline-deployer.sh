@@ -43,3 +43,9 @@ if [[ ${MODULE} == 'all' || ${MODULE} == 'cloudtrail' ]]; then
     echo "Deploying cloudtrail"
     ${DIRECTORY}/modules/cloudtrail/pipeline-deployer.sh ${DEPT} ${ENV} ${CONFIG}
 fi
+
+# Deploying module: S3-block-public-access
+if [[ ${MODULE} == 'all' || ${MODULE} == 's3-block-public-access' ]]; then
+    echo "Deploying s3-block-public-access"
+    ${DIRECTORY}/modules/s3-block-public-access/pipeline-deployer.sh ${DEPT} ${ENV} ${CONFIG}
+fi

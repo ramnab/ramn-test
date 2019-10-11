@@ -1,0 +1,11 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Custom Resource to call lambda to disable S3 access
+Parameters:
+  pBlockS3LambdaArn:
+    Description: Arn of the lambda function to block S3 access
+    Type: String
+Resources:
+  BlockPublicS3Buckets:
+    Type: "Custom::BlockPublicS3Buckets"
+    Properties:
+      ServiceToken: !Ref "pBlockS3LambdaArn"

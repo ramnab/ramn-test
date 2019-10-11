@@ -1,0 +1,8 @@
+region: '[region]'
+stacks:
+
+  stCapita-[department_upper]-Connect-S3-BlockPublicAccess:
+    template-url: resources/custom-resource.yml
+    timeout: 1200
+    parameters:
+      pBlockS3LambdaArn: '|Ref|stCapita-[department_upper]-Connect-S3-Account-PublicAccess-Revoker.oLambdaArn'

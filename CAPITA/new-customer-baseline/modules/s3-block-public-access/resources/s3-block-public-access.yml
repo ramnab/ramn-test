@@ -1,0 +1,34 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Capita Serverless function to block public s3 access
+
+Resources:
+  BlockPublicS3BucketsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./code
+      Handler: s3publicaccess.handler
+      Runtime: python3.6
+      Timeout: 5
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref AWS::AccountId
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetAccountPublicAccessBlock
+                - s3:PutAccountPublicAccessBlock
+              Resource: "*"
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: BlockPublicS3BucketsFunction
+    Properties:
+      RetentionInDays: 30
+      LogGroupName: !Sub "/aws/lambda/${BlockPublicS3BucketsFunction}"
+
+Outputs:
+  oLambdaArn:
+    Value: !GetAtt "BlockPublicS3BucketsFunction.Arn"

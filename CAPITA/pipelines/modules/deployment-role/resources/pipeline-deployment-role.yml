@@ -60,6 +60,9 @@ Resources:
             Action: "logs:*"
             Resource: "*"
           - Effect: Allow
+            Action: "lambda:*"
+            Resource: "*"
+          - Effect: Allow
             Action:
             - "iam:GetRole"
             - "iam:PassRole"
@@ -72,6 +75,8 @@ Resources:
             - "iam:DeleteRolePolicy"
             - "iam:UpdatePolicy"
             - "iam:DeleteRolePolicy"
+            - "iam:AttachRolePolicy"
+            - "iam:DetachRolePolicy"
             Resource: "*"
           - Effect: Allow
             Action: "cloudtrail:*"
