@@ -1,0 +1,298 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: >-
+  Create Lambda functions, DynamoDB table and S3 bucket to 
+  enable Customer Survey (CSAT) functionality in AWS Connect.
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming.
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase.
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase.
+  pClient:
+    Type: String
+    Description: Client name
+  pConnectInstanceArn:
+    Type: String
+    Description: >-
+      Arn of the existing Connect instance from which the Lambda function will
+      be invoked.
+  pS3BucketName:
+    Type: String
+    Description: S3 Bucket name where Lambda code for customer survey is stored.
+  pDurationInDaysForSurvey:
+    Type: String
+    Default: 7
+    Description: The Duration (number of Days), Survey Data is extracted for.
+  pExpirationTimeInDays:
+    Type: String
+    Default: 30
+    Description: >-
+      Expiry time in days after which the record from the DynamoDB table will
+      be deleted upon enabling the TTL.
+  pFromEmailAddress:
+    Type: String
+    Default: "Gas Safe Customer Survey<DL-CCM-AWSCONNECTTEAM@capita.co.uk>"
+    Description: >-
+       From email address which will be used to send customer survey csv file.
+       (This address must be verified with Amazon SES)
+  pToEmailAddress:
+    Type: String
+    Description: >-
+       To email address (separated by Comma if more than 1 email address) who 
+       will receive the customer survey csv file.
+  pCcEmailAddress:
+    Type: String
+    Default: ''
+    Description: >-
+       CC email address (separated by Comma if more than 1 email address) who 
+       will receive the customer survey csv file (Leave blank if not required).
+
+Resources:
+
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Sub >-
+        dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-customersurvey
+      SSESpecification:
+        SSEEnabled: "true"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      AttributeDefinitions:
+        - AttributeName: CustomerNumber
+          AttributeType: S
+        - AttributeName: CallDateTime
+          AttributeType: N
+      KeySchema:
+        - AttributeName: CustomerNumber
+          KeyType: HASH
+        - AttributeName: CallDateTime
+          KeyType: RANGE
+      Tags:
+        - Key: "tech:ApplicationID"
+          Value: !Sub "capita-${pDepartment}-connect-${pClient}"
+        - Key: "tech:Environment"
+          Value: !Ref pEnvironmentLowerCase
+        - Key: "tech:ApplicationRole"
+          Value: connect
+        - Key: "bus:BusinessUnit"
+          Value: !Ref pDepartment
+        - Key: "bus:Business"
+          Value: !Ref pClient
+        - Key: "sec:Compliance"
+          Value: "pii"
+
+  SurveyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "s3-capita-${pDepartment}-${pClient}-csat-${pEnvironmentLowerCase}"
+      Tags:
+        -
+            Key: "tech:ApplicationID"
+            Value: !Sub "capita-${pDepartment}-${pClient}-customersurvey"
+        -
+            Key: "tech:Environment"
+            Value: !Ref pEnvironmentLowerCase
+        -
+            Key: "bus:BusinessUnit"
+            Value: !Ref pDepartment
+        -
+            Key: "bus:Business"
+            Value: !Ref pClient
+        -
+            Key: "sec:Compliance"
+            Value: Normal
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  CustomerSurveyWriteLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub >-
+        lambda-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-survey_data_write
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      CodeUri:
+        Bucket: !Ref pS3BucketName
+        Key: Connect_SurveyData_Write.zip
+      Description: >-
+        Writes or updates the DynamoDB table with the customer contact number,
+        call date time, option selected and corresponding NGN number.
+      Timeout: 3
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !Sub "arn:aws:dynamodb:eu-central-1:${AWS::AccountId}:table/dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-customersurvey"
+      Environment:
+        Variables:
+          ExpirationTimeInDays: !Ref pExpirationTimeInDays
+          DynamoDBTableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-customersurvey"
+      Tags:
+          "sec:Compliance": "pii"
+          "tech:ApplicationID": !Sub "capita-${pDepartment}-customersurvey"
+          "tech:Environment": !Ref pEnvironmentLowerCase
+          "bus:BusinessUnit": !Ref pDepartment
+          "tech:ApplicationRole": "connect"
+          "bus:Business": !Ref pClient
+
+  CustomerSurveyWriteLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: CustomerSurveyWriteLambda
+    Properties: 
+      RetentionInDays: 3
+      LogGroupName: !Sub "/aws/lambda/${CustomerSurveyWriteLambda}"
+
+  CustomerSurveyWriteLambdaInvokePermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !GetAtt CustomerSurveyWriteLambda.Arn
+      Principal: connect.amazonaws.com
+      Action: "lambda:InvokeFunction"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Ref pConnectInstanceArn
+    DependsOn: CustomerSurveyWriteLambda
+
+  GenerateSurveyFileLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub >-
+        lambda-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-generate_survey_file
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      CodeUri:
+        Bucket: !Ref pS3BucketName
+        Key: Connect_Generate_CustomerSurvey.zip
+      Description: 'Reads the records from DynamoDB table and creates the survey file on S3 bucket'
+      Timeout: 180
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Scan
+                - s3:PutObject
+                - s3:PutObjectAcl
+              Resource: 
+                - !Sub "arn:aws:dynamodb:eu-central-1:${AWS::AccountId}:table/dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-customersurvey"
+                - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-${pClient}-csat-${pEnvironmentLowerCase}"
+      Events:
+        GenerateSurveyFileSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 20 ? * 6 *)
+      Environment:
+        Variables:
+          DurationInDaysForSurvey: !Ref pDurationInDaysForSurvey
+          DynamoDBTableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-customersurvey"
+          SurveyS3Bucket: !Sub "s3-capita-${pDepartment}-${pClient}-csat-${pEnvironmentLowerCase}"
+      Tags:
+          "sec:Compliance": "pii"
+          "tech:ApplicationID": !Sub "capita-${pDepartment}-customersurvey"
+          "tech:Environment": !Ref pEnvironmentLowerCase
+          "bus:BusinessUnit": !Ref pDepartment
+          "tech:ApplicationRole": "connect"
+          "bus:Business": !Ref pClient
+
+  GenerateSurveyFileLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: GenerateSurveyFileLambda
+    Properties: 
+      RetentionInDays: 30
+      LogGroupName: !Sub "/aws/lambda/${GenerateSurveyFileLambda}"
+
+  EmailCustomerSurveyLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub >-
+        lambda-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-send_survey_email
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      CodeUri:
+        Bucket: !Ref pS3BucketName
+        Key: Connect_Email_CustomerSurvey.zip
+      Description: 'Sends an email to the recipients with the Survey Data file attached'
+      Timeout: 180
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendRawEmail
+                - s3:GetObject
+                - s3:GetObjectAcl
+              Resource: 
+                - !Sub "arn:aws:ses:eu-west-1:${AWS::AccountId}:identity/*"
+                - !Sub "arn:aws:s3:::s3-capita-${pDepartment}-${pClient}-csat-${pEnvironmentLowerCase}"
+      Events:
+        BucketEvent1:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: SurveyBucket
+            Events:
+              - 's3:ObjectCreated:Put'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .csv
+      Environment:
+        Variables:
+          CcEmailAddress: !Ref pCcEmailAddress
+          ToEmailAddress: !Ref pToEmailAddress
+          FromEmailAddress: !Ref pFromEmailAddress
+      Tags:
+          "sec:Compliance": "pii"
+          "tech:ApplicationID": !Sub "capita-${pDepartment}-customersurvey"
+          "tech:Environment": !Ref pEnvironmentLowerCase
+          "bus:BusinessUnit": !Ref pDepartment
+          "tech:ApplicationRole": "connect"
+          "bus:Business": !Ref pClient
+
+  EmailCustomerSurveyLambdaInvokePermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !GetAtt EmailCustomerSurveyLambda.Arn
+      Principal: s3.amazonaws.com
+      Action: "lambda:InvokeFunction"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-${pClient}-csat-${pEnvironmentLowerCase}"
+    DependsOn: EmailCustomerSurveyLambda
+
+  EmailCustomerSurveyLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: EmailCustomerSurveyLambda
+    Properties: 
+      RetentionInDays: 30
+      LogGroupName: !Sub "/aws/lambda/${EmailCustomerSurveyLambda}"
+
+Outputs:
+  oCustomerSurveyWriteLambda:
+    Value: !GetAtt CustomerSurveyWriteLambda.Arn
+  oCGenerateSurveyFileLambda:
+    Value: !GetAtt GenerateSurveyFileLambda.Arn
+  oEmailCustomerSurveyLambda:
+    Value: !GetAtt EmailCustomerSurveyLambda.Arn
+  oSurveyS3Bucket:
+    Value: !Sub "arn:aws:s3:::s3-capita-${pDepartment}-${pClient}-csat-${pEnvironmentLowerCase}"
+  oDynamoDBTable:
+    Value: !GetAtt DynamoDBTable.Arn
