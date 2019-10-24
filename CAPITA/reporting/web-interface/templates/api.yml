@@ -37,7 +37,7 @@ Resources:
   WebInterfaceApiReadLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: "Connect_WebInterface_GetVariables"
+      FunctionName: !Sub "Connect_WebInterface_GetVariables-${pEnvironmentLowerCase}"
       Handler: lambda_function.lambda_handler
       Runtime: python3.6
       Timeout: 180
@@ -73,7 +73,7 @@ Resources:
   WebInterfaceApiWriteLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: Connect_WebInterface_SetVariables
+      FunctionName: !Sub "Connect_WebInterface_SetVariables-${pEnvironmentLowerCase}"
       Handler: lambda_function.lambda_handler
       Runtime: python3.6
       Timeout: 180
