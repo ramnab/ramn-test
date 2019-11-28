@@ -34,6 +34,9 @@
 		var cognitoUser = userPool.getCurrentUser();
 
 		var isCallDistVariable = 0;
+		var varName;
+		var varVal;
+		var varType;
 
 		window.onload = function () {
 			if (!cognitoUser) {
@@ -47,9 +50,9 @@
 
 			let variableData = document.location.search.replace(/^.*?\=/, '');
 			let fields = variableData.split('-')
-			let varName = fields[0].replace(/%20/g, ' ');
-			let varVal = fields[1];
-			let varType = fields[2];
+			varName = fields[0].replace(/%20/g, ' ');
+			varVal = fields[1];
+			varType = fields[2];
 
 			if (varType == '1') {
 
@@ -69,15 +72,17 @@
 		function updateVars() {
 			event.preventDefault();
 			let api = window._config.api.invokeUrl;
+			var val1;
 			if (cognitoUser != null) {
 
 				if (isCallDistVariable == 1) {
-					var name1 = $('#varName1').val();
-					var val1 = $('#varVal2').val();
+					var name1 = varName;
+					var a = parseInt($('#varVal2').val());
+					val1 = (a % 10) == 0 && (a >= 0 && a <= 100) ? a.toString() : varVal;
 				}
 				else {
-					var name1 = $('#varName').val();
-					var val1 = $('#varVal').val();
+					var name1 = varName;
+					val1 = $('#varVal').val() == "true" ? "true" : "false";
 				}
 
 
@@ -89,26 +94,32 @@
 					}
 					else {
 						console.log('session validity: ' + session.isValid());
+						if (val1 != varVal) {
+							$.ajax({
+								type: 'POST',
+								beforeSend: function (request) {
+									request.setRequestHeader("Authorization", session.getIdToken().getJwtToken());
+								},
+								url: api,
+								data: JSON.stringify({ variableName: name1, variableValue: val1 }),
+								contentType: 'application/json',
+								dataType: 'json',
 
-						$.ajax({
-							type: 'POST',
-							beforeSend: function (request) {
-								request.setRequestHeader("Authorization", session.getIdToken().getJwtToken());
-							},
-							url: api,
-							data: JSON.stringify({ variableName: name1, variableValue: val1 }),
-							contentType: 'application/json',
-							dataType: 'json',
+								success: function (data) {
+									alert("The Amazon Connect Variable " + name1 + " has been updated successfully");
+									document.location.href = "index.html";
+								},
 
-							success: function (data) {
-								alert("The Amazon Connect Variable " + name1 + " has been updated successfully");
-								document.location.href = "index.html";
-							},
+								error: function (err) {
+									alert("There is an error updating the Amazon Connect variable");
+								}
+							});
+						}
+						else {
+							alert("The Amazon Connect Variable " + name1 + " has not been changed");
+							document.location.href = "index.html";
+						}
 
-							error: function (err) {
-								alert("There is an error updating the Amazon Connect variable");
-							}
-						});
 					}
 				});
 			}
