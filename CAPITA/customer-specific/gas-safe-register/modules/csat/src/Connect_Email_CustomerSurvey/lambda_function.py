@@ -11,15 +11,17 @@ def lambda_handler(event, context):
     s3Client = boto3.client("s3")
     #print("Event: ", event)
     fileObj = event["Records"][0]
-    fileName = str(fileObj['s3']['object']['key'])
+    rawFileName = str(fileObj['s3']['object']['key'])
+    fileName = rawFileName[12:]
     #print("File name is: ", fileName)
     bucketName = str(fileObj['s3']['bucket']['name'])
     #print("Bucket name is: ", bucketName)
     
-    fileObj = s3Client.get_object(Bucket = bucketName, Key = fileName)
-    file_content = fileObj["Body"].read()
+    #Get the file from S3 to attach to the email
+    #fileObj = s3Client.get_object(Bucket = bucketName, Key = fileName)
+    #file_content = fileObj["Body"].read()
     
-    #downloadLink = "https://{0}.s3.eu-central-1.amazonaws.com/{1}".format(bucketName,fileName)
+    downloadLink = "https://{0}/index.html?path={1}".format(os.environ["CloudFrontDomain"],fileName)
     #print("The link to download the file is: ", downloadLink)
     
     # This address must be verified with Amazon SES.
@@ -46,22 +48,22 @@ def lambda_handler(event, context):
     AWS_REGION = "eu-west-1"
     
     # The subject line for the email.
-    SUBJECT = "Sending Survey data"
+    SUBJECT = "Gas Safe Register Customer Survey"
     
     # The email body for recipients with non-HTML email clients.
-    BODY_TEXT = "Hello,\r\n\nThe customer survey file has been generated. Please find it attached herewith.\r\n\nRegards,\r\nGas Safe Register"
+    BODY_TEXT = "Hello,\r\n\nThe customer survey file ({0}) has been generated. Please log on to {1} to download the file.\r\n\nRegards,\r\nGas Safe Register".format(fileName,downloadLink)
     
     # The HTML body of the email.
     BODY_HTML = """\
     <html>
     <head></head>
-    <body>
+    <body style='font-size:11.0pt;font-family:Calibri,sans-serif'>
     <p>Hello,</p>
-    <p>The customer survey file has been generated. Please find it attached herewith.</p>
+    <p>The customer survey file ({0}) has been generated. Please log on <a href='{1}'>here</a> to download the file.</p>
     <p>Regards,<br>Gas Safe Register</p>
     </body>
     </html>
-    """
+    """.format(fileName,downloadLink)
     
     # The character encoding for the email.
     CHARSET = "UTF-8"
@@ -84,8 +86,10 @@ def lambda_handler(event, context):
     textpart = MIMEText(BODY_TEXT.encode(CHARSET), 'plain', CHARSET)
     htmlpart = MIMEText(BODY_HTML.encode(CHARSET), 'html', CHARSET)
     
-    attachment = MIMEApplication(file_content)
-    attachment.add_header("Content-Disposition","attachment", filename = fileName)
+    #Removed attachment section
+    #attachment = MIMEApplication(file_content)
+    #attachment.add_header("Content-Disposition","attachment", filename = fileName)
+    
     # Add the text and HTML parts to the child container.
     msg_body.attach(textpart)
     msg_body.attach(htmlpart)
@@ -93,7 +97,8 @@ def lambda_handler(event, context):
     # Attach the multipart/alternative child container to the multipart/mixed
     # parent container.
     msg.attach(msg_body)
-    msg.attach(attachment)
+    #Removed attachment section
+    #msg.attach(attachment)
     
     # Try to send the email.
     try:
