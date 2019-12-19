@@ -55,6 +55,10 @@ Parameters:
     Description: >-
        CC email address (separated by Comma if more than 1 email address) who 
        will receive the customer survey csv file (Leave blank if not required).
+  pCloudFrontDomain:
+    Type: String
+    Default: abcd.cloudfront.net
+    Description: CloudFront Domain for downloading the Survey Files.
 
 Resources:
 
@@ -260,6 +264,7 @@ Resources:
           CcEmailAddress: !Ref pCcEmailAddress
           ToEmailAddress: !Ref pToEmailAddress
           FromEmailAddress: !Ref pFromEmailAddress
+          CloudFrontDomain: !Ref pCloudFrontDomain
       Tags:
           "sec:Compliance": "pii"
           "tech:ApplicationID": !Sub "capita-${pDepartment}-customersurvey"
@@ -288,7 +293,7 @@ Resources:
 Outputs:
   oCustomerSurveyWriteLambda:
     Value: !GetAtt CustomerSurveyWriteLambda.Arn
-  oCGenerateSurveyFileLambda:
+  oGenerateSurveyFileLambda:
     Value: !GetAtt GenerateSurveyFileLambda.Arn
   oEmailCustomerSurveyLambda:
     Value: !GetAtt EmailCustomerSurveyLambda.Arn
