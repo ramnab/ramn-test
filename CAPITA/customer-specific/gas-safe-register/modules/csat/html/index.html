@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>GSR-Customer Survey</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.3.1/css/all.css">
+    <link rel="stylesheet" type="text/css" href="css/styles.css">
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            let downloadLink = document.location.search.replace(/^.*?\=/, '');
+            document.getElementById('downloadbtn').href = "/SurveyFiles/" + downloadLink;
+
+            document.getElementById("fileName").innerHTML = downloadLink;
+        });
+
+        function logout() {
+
+            console.log("Logout function is called");
+            var LogOffPage = "/logoff.html";
+
+            // Logout the user
+            $.ajax({
+                username: 'unknown',
+                password: 'WrongPassword',
+                url: LogOffPage,
+                type: 'GET',
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Authorization", "Basic AAAAAAAAAAAAAAAAAAA=");
+                },
+
+                success: function (data) {
+                    console.log("Ajax call successful");
+                    console.log("Ajax response: ", data);
+                },
+
+                error: function (err) {
+                    //window.location = window.location.protocol + '//xxxx:xxxx@' + window.location.host + LogOffPage;
+                    window.location = window.location.protocol + '//' + window.location.host + LogOffPage;
+                    console.log("Error in Ajax call: ", JSON.stringify(err, null, 2));
+                }
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <div id="home" class="container-fluid d-block">
+        <div class="row" style="margin-top: 2%">
+            <div class="col text-left">
+                <img src="img/capita.png" style="height:30px">
+            </div>
+
+            <div class="col text-center text-info">
+                <h2>GSR - Customer Survey</h2>
+            </div>
+
+            <div class="col text-right float-right">
+                <button id="btn1" class="btn btn-primary" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        <div style="margin-left: 3%">
+            <form style="margin-top: 3%">
+                <div class="form-group row">
+                    <label for="downloadText" class="col-form-label col-sm-12">To download the survey file (<span
+                            id=fileName></span>), please click
+                        the Download button.</label>
+                </div>
+                <div class="form-group row">
+                    <label for="formButtons" class="col-form-label"></label>
+                    <div class="col-sm-5">
+                        <a id="downloadbtn" class="btn btn-primary" href="" download><i
+                                class="fa fa-download"></i>Download</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</body>
+
+</html>
