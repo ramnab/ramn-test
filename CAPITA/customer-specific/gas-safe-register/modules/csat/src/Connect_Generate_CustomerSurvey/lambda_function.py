@@ -84,8 +84,9 @@ def lambda_handler(event, context):
                 #set file name as SurveyData_dd-mmd-yyyy.csv
                 print("Generating survey data on s3 bucket")
                 file_name = "SurveyData_" + datetime.fromtimestamp(timestamp1).strftime("%d-%b-%Y") + ".csv"
+                file_path = "SurveyFiles/" + file_name
                 s3 = boto3.resource('s3')
-                obj = s3.Object(os.environ["SurveyS3Bucket"], file_name)
+                obj = s3.Object(os.environ["SurveyS3Bucket"], file_path)
                 obj.put(Body = surveyHeader + survey_data)
                 print("Survey data with file name " + file_name + " has been generated successfully")
                 
