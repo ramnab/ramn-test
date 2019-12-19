@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda-CDN setup for authenticating and downloading the Customer Survey files
+
+Parameters:
+  pEnvironment:
+    Type: String
+    Default: DEV
+    Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Client name
+  pS3BucketName:
+    Type: String
+    Description: S3 Bucket name where Lambda code for customer survey-download is stored.
+  pS3SurveyBucketName:
+    Type: String
+    Description: S3 Bucket name where the Survey files are stored.
+  pSecretARN:
+    Type: String
+    Description: ARN of the Secret which will be used for authentication.
+  pCacheTimeout:
+    Type: Number
+    Default: 31536000
+    Description: Default amount of time, in seconds, that objects stay in CloudFront caches before CloudFront forwards another request to origin to determine whether the object has been updated
+
+Resources:
+
+  OriginAccessID:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Join [' ', [CustomerSurvey CloudFront Identity, !Ref pDepartment, !Ref pEnvironment]]
+
+  ContentDistrib:
+    DependsOn: [OriginAccessID]
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      Tags:
+        -
+            Key: "tech:ApplicationID"
+            Value: "capita-ccm-customersurvey-webapp"
+        -
+            Key: "tech:Environment"
+            Value: dev
+        -
+            Key: "bus:BusinessUnit"
+            Value: ccm
+        -
+            Key: "bus:Business"
+            Value: !Ref pClient
+      DistributionConfig:
+        DefaultRootObject: index.html
+        Logging:
+          IncludeCookies: 'false'
+          Bucket: !Join ['', [!Ref pS3SurveyBucketName, '.s3.amazonaws.com']]
+          Prefix: logs
+        DefaultCacheBehavior:
+          DefaultTTL: !Ref pCacheTimeout
+          TargetOriginId: !Sub "csatS3Origin${pDepartment}${pEnvironmentLowerCase}"
+          LambdaFunctionAssociations:
+            - 
+              EventType: viewer-request
+              LambdaFunctionARN: !Ref LambdaEdgeFunction.Version
+          ViewerProtocolPolicy: https-only
+          ForwardedValues:
+            QueryString: 'false'
+        Enabled: 'true'
+        Comment: !Sub 'Environment - ${pEnvironmentLowerCase}'
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: 'true'
+        Origins:
+        - DomainName: !Join ['', [!Ref pS3SurveyBucketName, '.s3.amazonaws.com']]
+          Id: !Sub "csatS3Origin${pDepartment}${pEnvironmentLowerCase}"
+          S3OriginConfig:
+            OriginAccessIdentity: 
+              !Join
+                - ''
+                - - 'origin-access-identity/cloudfront/'
+                  - !Ref OriginAccessID
+          
+          
+  ContentS3PolicyNew:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref pS3SurveyBucketName
+      PolicyDocument: 
+        Statement:
+          -
+            Action:
+              - s3:GetObject            
+            Effect: "Allow"
+            Principal:
+              AWS:  !Join
+                - ''
+                - - 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity '
+                  - !Ref OriginAccessID
+            Resource:
+              !Join
+                - ""
+                - - "arn:aws:s3:::"
+                  - !Ref pS3SurveyBucketName
+                  - "/*"
+
+  LambdaEdgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub >-
+        lambda-capita-${pEnvironmentLowerCase}-authenticateSurveyDownload
+      CodeUri:
+        Bucket: !Ref pS3BucketName
+        Key: CSAT-AuthenticateAndDownload-Prod.zip
+      Description: >-
+        Lambda@Edge function which will be triggered by CloudFront for authenticating the users
+        and allowing them to download the customer survey files.
+      Role: !GetAtt LambdaEdgeFunctionRole.Arn
+      Runtime: nodejs10.x
+      Handler: index.handler
+      Timeout: 5
+      AutoPublishAlias: live
+      Tags:
+          "sec:Compliance": "pii"
+          "tech:ApplicationID": !Sub "capita-${pDepartment}-customersurvey"
+          "tech:Environment": !Ref pEnvironmentLowerCase
+          "bus:BusinessUnit": !Ref pDepartment
+          "tech:ApplicationRole": "connect"
+          "bus:Business": !Ref pClient
+
+  LambdaEdgeFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "LambdaEdge-ExecutionRole-csat-${pEnvironmentLowerCase}"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Sid: "AllowLambdaServiceToAssumeRole"
+            Effect: "Allow"
+            Action: 
+              - "sts:AssumeRole"
+            Principal:
+              Service: 
+                - "lambda.amazonaws.com"
+                - "edgelambda.amazonaws.com"
+      Policies: 
+        - PolicyName: VariableStore_DynamoDB_Read
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - 
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref pSecretARN
+
+Outputs:
+  oLambdaEdgeFunctionVersion: 
+    Description: Lambda@Edge Function ARN with Version
+    Value: !Ref LambdaEdgeFunction.Version
+  oWebAppDomainName:
+    Description: Cloudfront Distribution Domain Name
+    Value: !GetAtt ContentDistrib.DomainName
