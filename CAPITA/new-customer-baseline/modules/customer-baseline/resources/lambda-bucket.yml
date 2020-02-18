@@ -25,7 +25,7 @@ Resources:
   LambdaDeploymentS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-lambdas-${pRegion}"
+      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${pRegion}-lambdas"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

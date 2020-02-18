@@ -28,7 +28,7 @@ Resources:
   CallRecordingBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-callrecordings1"
+      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-callrecordings"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
