@@ -47,7 +47,7 @@ client: ${CLIENT}
 region: ${REGION}
 EOL
 
-LAMBDA_S3=s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-lambdas-${REGION}
+LAMBDA_S3=s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-${REGION}-lambdas
 
 #Install dependencies
 echo "my directory is ${DIRECTORY}"
