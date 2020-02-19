@@ -29,7 +29,7 @@ echo """
 
 """
 
-LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-lambdas-${REGION}
+LAMBDA_S3=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-${REGION}-lambdas
 
 
 aws cloudformation package --region ${REGION} \
