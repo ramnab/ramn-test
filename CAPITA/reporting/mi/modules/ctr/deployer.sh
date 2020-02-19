@@ -48,7 +48,7 @@ else
     resources_missing=" (resources missing)"
 fi
 
-bucket_exists s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-reporting
+bucket_exists s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-${REGION}-reporting
 if [[ ${exists} == "true" ]]; then
     resource_reporting_bucket="Available"
 else

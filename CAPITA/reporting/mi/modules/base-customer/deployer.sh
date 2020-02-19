@@ -85,7 +85,7 @@ aws cloudformation deploy --region ${REGION} \
                                 pEnvironment=${ENV_UPPER} \
                                 pEnvironmentLowerCase=${ENV_UPPER} \
                                 pDepartment=${DEPT} \
-                                pCustomerReportingBucketArn=arn:aws:s3:::s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting
+                                pCustomerReportingBucketArn=arn:aws:s3:::s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-${REGION}-reporting
 
 
 rm deploy-customer-reporting-modder.yml
@@ -104,7 +104,7 @@ cf sync -y --context ${DIRECTORY}/../../transforms/config-customer-deployer.yml 
 cross_account_role=$(getStackOutput stCapita-MI-${ENV}-CrossAccountRole oCrossAccountRoleArn)
 echo """
     * Remember to add the following role to the bucket policy for
-        s3-capita-${DEPT}-connect-common-${ENV_LOWER}-reporting
+        s3-capita-${DEPT}-connect-common-${ENV_LOWER}-${REGION}-reporting
 
         ${cross_account_role}
 
