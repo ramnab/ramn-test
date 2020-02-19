@@ -24,7 +24,7 @@ Resources:
   ReportingBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-reporting"
+      BucketName: !Sub "s3-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-reporting"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
