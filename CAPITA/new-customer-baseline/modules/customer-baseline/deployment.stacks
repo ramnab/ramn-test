@@ -30,5 +30,5 @@ stacks:
       pEnvironment: '[env]'
       pEnvironmentLowerCase: '[env_lower]'
       pDepartment: '[department]'
-      pCustomerReportBucket: '|ref|stCapita-[department_upper]-Customer-Connect-[env]-ReportingBucket.oCustomerReportingBucketArn'
+      pCustomerReportBucket: '|ref|stCapita-[department_upper]-Customer-Connect-[env]-[region]-ReportingBucket.oCustomerReportingBucketArn'
       pKmsKeyId: '|ref|stCapita-[department_upper]-Customer-Connect-[env]-Keys.oMasterKeyArn'

@@ -7,5 +7,5 @@ stacks:
       pDepartment: '[department]'
       pEnvironmentLowerCase: '[env_lower]'
       pEnvironmentUpperCase: '[env_upper]'
-      pCustomerReportingBucketArn: 'arn:aws:s3:::s3-capita-[department]-connect-[client]-[env_lower]-reporting'
+      pCustomerReportingBucketArn: 'arn:aws:s3:::s3-capita-[department]-connect-[client]-[env_lower]-[region]-reporting'
       pCommonReportingBucket: 's3-capita-[department]-connect-common-[env_lower]-reporting'

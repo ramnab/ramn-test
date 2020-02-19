@@ -51,7 +51,7 @@ else
     resources_missing=" (resources missing)"
 fi
 
-bucket_exists s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-reporting
+bucket_exists s3-capita-ccm-connect-${CLIENT}-${ENV_LOWER}-${REGION}-reporting
 if [[ ${exists} == "true" ]]; then
     resource_reporting_bucket="Available"
 else
@@ -130,7 +130,7 @@ aws cloudformation deploy --region ${REGION} \
                                 pDepartment=${DEPT} \
                                 pTransformationDb=gl_${DEPT}_${ENV_LOWER} \
                                 pCommonDestination=s3-capita-${DEPT}-connect-common-${ENV_LOWER}-reporting \
-                                pCustomerReportBucket=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting \
+                                pCustomerReportBucket=s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-${REGION}-reporting \
                                 pKMSArn=${KMS}
 
 
@@ -211,7 +211,7 @@ echo """
 # This is because sometimes the dev Connect instance will be used for testing
 aws lambda invoke --region ${REGION} --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
-                    \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
+                    \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-${REGION}-reporting\",
                     \"prefix\": \"connect/capita-ccm-gassafe-connect-${ENV_LOWER}/reports/queue_interval/\",
                     \"lambda\": \"lmbMIQueueInterval-${DEPT}-${ENV_UPPER}\"}" r.txt
 
@@ -226,7 +226,7 @@ echo """
 # This is because sometimes the dev Connect instance will be used for testing
 aws lambda invoke --region ${REGION} --function-name lmbMiReportingModder-${DEPT}-${ENV_UPPER} \
                   --payload "{
-                    \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-reporting\",
+                    \"bucket\": \"s3-capita-${DEPT}-connect-${CLIENT}-${ENV_LOWER}-${REGION}-reporting\",
                     \"prefix\": \"connect/capita-ccm-gassafe-connect-${ENV_LOWER}/reports/queue_daily/\",
                     \"lambda\": \"lmbMIQueueInterval-${DEPT}-${ENV_UPPER}\"}" result.txt
 
