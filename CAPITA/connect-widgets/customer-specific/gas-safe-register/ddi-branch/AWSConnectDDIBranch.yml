@@ -19,9 +19,7 @@ Resources:
       TableName: !Ref pDBName
       SSESpecification:
         SSEEnabled: true
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         AttributeName: "DialledDDI"
         AttributeType: "S"
@@ -74,13 +72,3 @@ Resources:
             Action:
               - "sts:AssumeRole"
     DependsOn: "DynamoDBTable"
-
-  LambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: "Connect_DDIBranch_Read"
-      Principal: "connect.amazonaws.com"
-      Action: "lambda:InvokeFunction"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Ref pConnectInstanceArn
-    DependsOn: "LambdaFunction"

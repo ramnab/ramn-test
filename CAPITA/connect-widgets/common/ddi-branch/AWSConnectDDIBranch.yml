@@ -4,9 +4,6 @@ Parameters:
   pDBName:
     Type: "String"
     Description: "The desired name of your DynamoDB table."
-  pConnectInstanceArn:
-    Type: "String"
-    Description: "The ARN of the existing AWS Connect instance from which the Lambda function will be invoked."
   pLambdaBucketName:
     Type: "String"
     Description: "The name of the S3 bucket which will hold the code for the Lambda function."
@@ -17,11 +14,9 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Ref pDBName
+      BillingMode: PAY_PER_REQUEST
       SSESpecification:
         SSEEnabled: true
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
       AttributeDefinitions:
         - AttributeName: "DialledDDI"
           AttributeType: "S"
@@ -74,13 +69,3 @@ Resources:
             Action:
               - "sts:AssumeRole"
     DependsOn: "DynamoDBTable"
-
-  LambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: "Connect_DDIBranch_Read"
-      Principal: "connect.amazonaws.com"
-      Action: "lambda:InvokeFunction"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Ref pConnectInstanceArn
-    DependsOn: "LambdaFunction"

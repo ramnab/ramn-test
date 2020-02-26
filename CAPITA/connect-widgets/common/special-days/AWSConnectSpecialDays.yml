@@ -8,9 +8,6 @@ Parameters:
   pDBName:
     Type: "String"
     Description: "The desired name of your DynamoDB table"
-  pConnectInstanceARN:
-    Type: "String"
-    Description: "ARN of the existing AWS Connect instance from which the Lambda function will be invoked."
   pLambdaBucket:
     Type: "String"
     Description: "The name of the Lambda bucket containing the code for this widget"
@@ -20,11 +17,9 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Ref pDBName
+      BillingMode: PAY_PER_REQUEST
       SSESpecification:
         SSEEnabled: "true"
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
       AttributeDefinitions:
         - AttributeName: "StartTime"
           AttributeType: "S"
@@ -84,14 +79,3 @@ Resources:
             Action:
               - "sts:AssumeRole"
     DependsOn: "DynamoDBTable"
-
-  # Lambda permission applied to the Lambda function to allow it to be called from within Connect.
-  LambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: "Connect_Blacklist_Read"
-      Principal: "connect.amazonaws.com"
-      Action: "lambda:InvokeFunction"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Ref pConnectInstanceARN
-    DependsOn: "LambdaFunction"

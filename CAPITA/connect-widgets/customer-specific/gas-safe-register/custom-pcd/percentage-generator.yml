@@ -73,15 +73,3 @@ Resources:
               Service: "lambda.amazonaws.com"
             Action:
               - "sts:AssumeRole"
-
-  # Lambda permission applied to LambdaFunction which allows LambdaFunction to be called from within AWS Connect.
-  LambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: !Sub "Connect_PercentageGenerator_${pEnvironment}"
-      Principal: "connect.amazonaws.com"
-      Action: "lambda:InvokeFunction"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Ref pConnectInstanceARN
-    DependsOn: "LambdaFunction"
-
