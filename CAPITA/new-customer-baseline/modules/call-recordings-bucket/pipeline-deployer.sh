@@ -23,7 +23,7 @@ config_exists ${CONF}
 DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
 ENV_LOWER=$(echo "${ENV}" | awk '{print tolower($0)}')
 CLIENT="$(prop 'client')"
-REPORTS_REGION="$(prop 'region.reports' 'eu-west2')"
+REPORTS_REGION="$(prop 'region.reports' 'eu-west-2')"
 CALLS_REGION="$(prop 'region.calls' ${REPORTS_REGION})"
 EXPIRATION_CALLS="$(prop 'expiration.calls' 90)"
 
