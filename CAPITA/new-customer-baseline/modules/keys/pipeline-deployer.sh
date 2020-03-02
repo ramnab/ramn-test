@@ -24,7 +24,7 @@ DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
 #DEPT_LOWER=$(echo "${DEPT}" | awk '{print tolower($0)}')
 ENV_LOWER=$(echo "${ENV}" | awk '{print tolower($0)}')
 CLIENT="$(prop 'client')"
-REGION="$(prop 'region.reports' eu-central-1)"
+REGION="$(prop 'region.reports' eu-west-2)"
 CALLS_REGION="$(prop 'region.calls' ${REGION})"
 
 # Defaults for KMS keys
