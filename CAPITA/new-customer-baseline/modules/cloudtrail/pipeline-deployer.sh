@@ -23,7 +23,7 @@ config_exists ${CONF}
 
 DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
 CLIENT="$(prop 'client')"
-REPORTS_REGION="$(prop 'region.reports' eu-central-1)"
+REPORTS_REGION="$(prop 'region.reports' eu-west-2)"
 UPLOAD_TIMEOUT="$(prop 'cloudtrail.upload_timeout' 30)"
 LOG_RETENTION="$(prop 'cloudtrail.log_retention' 90)"
 AUDIT_RETENTION="$(prop 'cloudtrail.audit_retention' 365)"
