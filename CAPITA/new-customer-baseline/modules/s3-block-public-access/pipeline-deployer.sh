@@ -23,7 +23,7 @@ config_exists ${CONF}
 DEPT_UPPER=$(echo "${DEPT}" | awk '{print toupper($0)}')
 ENV_LOWER=$(echo "${ENV}" | awk '{print tolower($0)}')
 CLIENT="$(prop 'client')"
-REGION="$(prop 'region.reports' eu-central-1)"
+REGION="$(prop 'region.reports' eu-west-2)"
 
 echo """
 Setting up S3 Public Access Blocker:
