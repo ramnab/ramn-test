@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a role in the target account which can be assumed from the CCM credentials account (620730210164) to provide full access to Athena"
+Resources:
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: "Network_admin_role"
+      Policies:
+        - PolicyName: "Network_admin_policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - 'directconnect:*'
+                  - 'ec2:DescribeVpnGateways'
+                Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS:
+                - 'arn:aws:iam::620730210164:root'
+            Action:
+              - 'sts:AssumeRole'
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': "true"
