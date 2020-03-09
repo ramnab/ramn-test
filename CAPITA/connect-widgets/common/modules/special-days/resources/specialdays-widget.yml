@@ -1,0 +1,82 @@
+# Template which creates a DynamoDB and Lambda function along with associated IAM permissions for Lambda function to be called from within AWS Connect.
+# The DynamoDB table is used to store epoch timestamps for start and end of special days and the Lambda function is used to scan the table to check whether
+# the current epoch time is within any stored start and end time pair, and return true, false, and the description of the matching special day if applicable.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "CAPITA - Connect WIDGET - Special Days | Repo: ccm-connect-source/CAPITA/connect-widgets/common/special-days/resources"
+Parameters:
+  pEnvironment:
+      Type: String
+      Default: DEV
+      Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Customer/Client identifier
+
+Resources:
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-specialdays"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: "true"
+      AttributeDefinitions:
+        - AttributeName: "StartTime"
+          AttributeType: "S"
+        - AttributeName: "Description"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "StartTime"
+          KeyType: "HASH"
+        - AttributeName: "Description"
+          KeyType: "RANGE"
+
+  SpecialDayLambda:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: !Sub "lmbdSpecialDaysRead-${pDepartment}-${pEnvironment}"
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ./../src/
+      Environment:
+        Variables:
+          DynamoDBTableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-specialdays"
+      Policies:
+        - AWSLambdaRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "dynamoDB:Scan"
+              Resource: !GetAtt DynamoDBTable.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogGroup"
+              Resource: "arn:aws:logs:*:*:*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogStream"
+                - "logs:PutLogEvents"
+              Resource: "*"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "connect"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+    DependsOn: "DynamoDBTable"

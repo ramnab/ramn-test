@@ -95,3 +95,7 @@ Resources:
             Action:
             - "kinesis:*"
             Resource: "*"
+          - Effect: Allow
+            Action:
+              - "dynamodb:*"
+            Resource: "*"

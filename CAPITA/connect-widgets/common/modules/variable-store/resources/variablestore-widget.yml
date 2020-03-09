@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "CAPITA - Connect WIDGET - Variable Store | Repo: ccm-connect-source/CAPITA/connect-widgets/common/variable-store/resources"
+Parameters:
+  pEnvironment:
+      Type: String
+      Default: DEV
+      Description: Environment label to apply to resources naming
+  pEnvironmentLowerCase:
+    Type: String
+    Default: dev
+    Description: Environment label to apply to resources naming, lowercase
+  pDepartment:
+    Type: String
+    Default: ccm
+    Description: Department identifier for unique bucket naming, lowercase
+  pClient:
+    Type: String
+    Description: Customer/Client identifier
+
+Resources:
+  # The DynamoDB table which is used to hold variables and their values.
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-variablestore"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: "true"
+      AttributeDefinitions:
+        - AttributeName: "VariableName"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "VariableName"
+          KeyType: "HASH"
+
+  # The Lambda function used for scanning the DynamoDB table for a given parameter and returning the value of any located variables.
+  LambdaReadFunction:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: !Sub "lmbdVariableStoreRead-${pDepartment}-${pEnvironment}"
+      Handler: read_function.lambda_handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ./../src/
+      Environment:
+        Variables:
+          DynamoDBTableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-variablestore"
+      Policies:
+        - AWSLambdaRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "dynamoDB:Scan"
+              Resource: !GetAtt DynamoDBTable.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogGroup"
+              Resource: "arn:aws:logs:*:*:*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogStream"
+                - "logs:PutLogEvents"
+              Resource: "*"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "connect"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+    DependsOn: "DynamoDBTable"
+
+  LambdaWriteFunction:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: !Sub "lmbdVariableStoreWrite-${pDepartment}-${pEnvironment}"
+      Handler: write_function.lambda_handler
+      Runtime: python3.6
+      Timeout: 180
+      CodeUri: ./../src/
+      Environment:
+        Variables:
+          DynamoDBTableName: !Sub "dynamodb-capita-${pDepartment}-connect-${pClient}-${pEnvironmentLowerCase}-${AWS::Region}-variablestore"
+      Policies:
+        - AWSLambdaRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "dynamoDB:UpdateItem"
+              Resource: !GetAtt DynamoDBTable.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogGroup"
+              Resource: "arn:aws:logs:*:*:*"
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "logs:CreateLogStream"
+                - "logs:PutLogEvents"
+              Resource: "*"
+      Tags:
+        "tech:ApplicationID": !Sub "capita-${pDepartment}-connect"
+        "tech:Environment": !Ref pEnvironmentLowerCase
+        "tech:ApplicationRole": "connect"
+        "bus:BusinessUnit": !Ref pDepartment
+        "bus:Business": !Ref pClient
+    DependsOn: "DynamoDBTable"

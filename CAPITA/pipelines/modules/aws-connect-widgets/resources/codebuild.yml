@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CAPITA - CodeBuild Project - AWS Connect Widgets | Repo: ccm-connect-source/CAPITA/pipelines/modules/aws-connect-widgets/resources/codebuild.yml"
+Parameters:
+  pRepoURL:
+    Type: String
+    Description: HTTPS clone URL for the CodeCommit Repo
+  pRepoArn:
+    Type: String
+    Description: Repo ARN
+
+Resources:
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WidgetCodebuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action: sts:AssumeRole
+                Effect: Allow
+                Resource: "arn:aws:iam::*:role/CA_PIPELINE_DEPLOY"
+              - Action:
+                  - logs:*
+                Resource:
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/codebuild/aws-connect-widgets"
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/codebuild/aws-connect-widgets:*"
+
+                Effect: Allow
+
+              - Action:
+                  - codecommit:GitPull
+                Resource:
+                  - !Ref pRepoArn
+                Effect: Allow
+
+              - Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                Resource:
+                  - "arn:aws:s3:::codepipeline-eu-central-1-*"
+                Effect: Allow
+
+  DeploymentProject:
+    Type: AWS::CodeBuild::Project
+    DependsOn: CodeBuildServiceRole
+    Properties:
+      Description: CAPITA CodeBuild project for AWS Connect Widgets
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/python:3.6.5
+        Type: LINUX_CONTAINER
+      Name: aws-connect-widgets
+      ServiceRole: !Ref CodeBuildServiceRole
+      Source:
+        BuildSpec: CAPITA/pipelines/modules/aws-connect-widgets/buildspec.yml
+        Type: CODECOMMIT
+        Location: !Ref pRepoURL
