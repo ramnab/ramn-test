@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  CodeCommitgroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: CodeCommit_user_group
+
+  IAMRole:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      Description: "Provide full access to AWS Code Commit (identical to AWSCodeCommitFullAccess role) but deny certain
+      actions to the master branch."
+      ManagedPolicyName: "CodeCommit_user_policy"
+      Groups:
+        - CodeCommit_user_group
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - "codecommit:*"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - "events:DeleteRule"
+              - "events:DescribeRule"
+              - "events:DisableRule"
+              - "events:EnableRule"
+              - "events:PutRule"
+              - "events:PutTargets"
+              - "events:RemoveTargets"
+              - "events:ListTargetsByRule"
+            Resource: "arn:aws:events:*:*:rule/codecommit*"
+          - Effect: Allow
+            Action:
+              - "sns:CreateTopic"
+              - "sns:DeleteTopic"
+              - "sns:Subscribe"
+              - "sns:Unsubscribe"
+              - "sns:SetTopicAttributes"
+            Resource: "arn:aws:sns:*:*:codecommit*"
+          - Effect: Allow
+            Action:
+              - "sns:ListTopics"
+              - "sns:ListSubscriptionsByTopic"
+              - "sns:GetTopicAttributes"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - "lambda:ListFunctions"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - "iam:ListUsers"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - "iam:ListAccessKeys"
+              - "iam:ListSSHPublicKeys"
+              - "iam:ListServiceSpecificCredentials"
+            Resource: "arn:aws:iam::*:user/${aws:username}"
+          - Effect: Allow
+            Action:
+              - "iam:DeleteSSHPublicKey"
+              - "iam:GetSSHPublicKey"
+              - "iam:ListSSHPublicKeys"
+              - "iam:UpdateSSHPublicKey"
+              - "iam:UploadSSHPublicKey"
+            Resource: "arn:aws:iam::*:user/${aws:username}"
+          - Effect: Allow
+            Action:
+              - "iam:CreateServiceSpecificCredential"
+              - "iam:UpdateServiceSpecificCredential"
+              - "iam:DeleteServiceSpecificCredential"
+              - "iam:ResetServiceSpecificCredential"
+            Resource: "arn:aws:iam::*:user/${aws:username}"
+          - Effect: Allow
+            Action:
+              - "codestar-notifications:CreateNotificationRule"
+              - "codestar-notifications:DescribeNotificationRule"
+              - "codestar-notifications:UpdateNotificationRule"
+              - "codestar-notifications:DeleteNotificationRule"
+              - "codestar-notifications:Subscribe"
+              - "codestar-notifications:Unsubscribe"
+            Resource: "*"
+            Condition:
+              StringLike:
+                codestar-notifications:NotificationsForResource: "arn:aws:codecommit:*"
+          - Effect: Allow
+            Action:
+              - "codestar-notifications:ListNotificationRules"
+              - "codestar-notifications:ListTargets"
+              - "codestar-notifications:ListTagsforResource"
+              - "codestar-notifications:ListEventTypes"
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - "sns:CreateTopic"
+              - "sns:SetTopicAttributes"
+            Resource: "arn:aws:sns:*:*:codestar-notifications*"
+          - Effect: Allow
+            Action:
+              - "codeguru-reviewer:AssociateRepository"
+              - "codeguru-reviewer:DescribeRepositoryAssociation"
+              - "codeguru-reviewer:ListRepositoryAssociations"
+              - "codeguru-reviewer:DisassociateRepository"
+            Resource: "*"
+          - Effect: Allow
+            Action: "iam:CreateServiceLinkedRole"
+            Resource: "arn:aws:iam::*:role/aws-service-role/codeguru-reviewer.amazonaws.com/AWSServiceRoleForAmazonCodeGuruReviewer"
+            Condition:
+              StringLike:
+                iam:AWSServiceName: "codeguru-reviewer.amazonaws.com"
+          - Effect: Allow
+            Action:
+              - "events:PutRule"
+              - "events:PutTargets"
+              - "events:DeleteRule"
+              - "events:RemoveTargets"
+            Resource: "*"
+            Condition:
+              StringEquals:
+                events:ManagedBy: "codeguru-reviewer.amazonaws.com"
+
+          - Effect: Deny
+            Action:
+              - "codecommit:GitPush"
+              - "codecommit:DeleteBranch"
+              - "codecommit:PutFile"
+              - "codecommit:MergePullRequestByFastForward"
+            Resource: "arn:aws:codecommit:eu-central-1:992061356719:ccm-connect-source"
+            Condition:
+              StringEqualsIfExists:
+                codecommit:References:
+                  - "refs/heads/master"
+              'Null':
+                codecommit:References: "false"
