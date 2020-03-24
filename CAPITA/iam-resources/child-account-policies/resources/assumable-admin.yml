@@ -1,14 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Create a role in the target account which can be assumed from the credentials account (620730210164) to provide administrator level access"
 Parameters:
-  pRoleName:
+  pClient:
+    Type: "String"
+    Description: "Lowercase client name e.g. tradeuk"
+  pEnv:
     Type: "String"
     Description: "The desired name of the role you are creating"
+    AllowedValues:
+      - "nonprod"
+      - "prod"
 Resources:
   IAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: !Ref pRoleName
+      RoleName: !Sub "${pClient}_connect_${pEnv}_admin"
       Policies:
         - PolicyName: "AssumableAdmin"
           PolicyDocument:
