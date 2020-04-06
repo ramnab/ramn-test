@@ -9,15 +9,7 @@ def lambda_handler(event, context):
     print (json.dumps(event))
 
     DialledDDI = event['Details']['Parameters']['DialledDDI']
-
-    # if ivrname == "renewals":
-    #     VariableName = "Installer Renewals % to IVR"
-    # elif ivrname == "find/check":
-    #     VariableName = "Consumer Find/Check % to IVR"
-    # else:
-    #     connectPayload["variableValue"] = "No valid ivrName (renewals, find, or check)"
-
-    print (DialledDDI)
+    print ("Dialled DDI: " + DialledDDI)
 
     try:
         tableName = os.environ["DynamoDBTableName"]
@@ -26,13 +18,13 @@ def lambda_handler(event, context):
 
         response = table.scan(
             TableName=tableName,
-            FilterExpression=":variable = DialledDDI",
+            FilterExpression=":variable = AWS_Number",
             ExpressionAttributeValues={
                 ':variable': DialledDDI
             }
         )
 
-        print (json.dumps(response))
+        print ("JSON response: " + json.dumps(response))
 
     except:
         print ("There has been an error in the function")
