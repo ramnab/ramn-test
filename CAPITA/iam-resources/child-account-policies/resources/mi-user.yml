@@ -1,24 +1,30 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create a role in the target account which can be assumed from the CCM credentials account (620730210164) to provide full access to Athena"
+Description: "Create a role in the target account which can be assumed from the CCM credentials account (620730210164) to access to Athena and other MI resources"
 Resources:
   IAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: "Athena_Admin"
+      RoleName: "MI_user_role"
       Policies:
-        - PolicyName: "AthenaAdmin"
+        - PolicyName: "MI_user_policy"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: "Allow"
-                Action: 'athena:*'
+                Action:
+                - 'athena:*'
+                - 's3:*'
+                - 'glue:*'
+                - 'kinesis:*'
+                Resource: '*'
+              - Effect: 'Deny'
+                Action: 's3:Delete*'
                 Resource: '*'
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: "Allow"
             Principal:
-              #  620730210164 is the CCM credentials accounts.
               AWS:
                 - 'arn:aws:iam::620730210164:root'
             Action:
