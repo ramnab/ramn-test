@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Customer account IAM - Allow Smartagent required development access
+Resources:
+  SAROIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: MissionLabsDeveloper
+      Description: Allow Mission Labs Development Team access
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 'sts:AssumeRole'
+            Principal:
+              AWS: !Join
+                - ''
+                - - 'arn:aws:iam::'
+                  - '142923807036'
+                  - ':root'
+            Condition:
+              Bool:
+                'aws:MultiFactorAuthPresent': true
+      Policies:
+        - PolicyName: MissionLabsDeveloper
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'iam:*'
+                  - 'cloudwatch:*'
+                  - 'cloudformation:*'
+                  - 'connect:*'
+                  - 'ds:*'
+                  - 'firehose:*'
+                  - 'kinesis:*'
+                  - 'sqs:*'
+                  - 'dynamodb:*'
+                  - 'apigateway:*'
+                  - 's3:*'
+                  - 'logs:*'
+                  - 'kms:*'
+                  - 'lambda:*'
+                  - 'lex:*'
+                  - 'polly:*'
+                  - 'support:*'
+                Resource:
+                  - '*'
+Outputs:
+  RoleARN:
+    Value: !GetAtt SAROIAMRole.Arn
+  Version:
+    Value: '1.0'

@@ -29,15 +29,6 @@ Resources:
           # Using new generic cross-account role: CA_MI_PROD
         - Effect: Allow
           Principal:
-            # First Group MI Role
-            AWS: !Sub "arn:aws:iam::512953984022:role/CA_MI_PROD"
-          Action:
-            - s3:*
-          Resource:
-            - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
-            - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
-        - Effect: Allow
-          Principal:
             # TradeUK MI Role
             AWS: "arn:aws:iam::443350248290:role/CA_MI_PROD"
           Action:
@@ -49,6 +40,15 @@ Resources:
           Principal:
             # GasSafe MI Role
             AWS: "arn:aws:iam::289601121201:role/CA_MI_PROD"
+          Action:
+            - s3:*
+          Resource:
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}"
+            - !Sub "arn:aws:s3:::${pCommonReportingBucket}/*"
+        - Effect: Allow
+          Principal:
+            # 3uk MI Role
+            AWS: !Sub "arn:aws:iam::903246246808:role/CA_MI_PROD"
           Action:
             - s3:*
           Resource:
